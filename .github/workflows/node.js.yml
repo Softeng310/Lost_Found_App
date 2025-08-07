@@ -28,11 +28,11 @@ jobs:
         cache: 'npm'
     - name: Install root dependencies
       run: npm ci
-    - name: Install frontend dependencies (fix Rollup issue)
+    - name: Install frontend dependencies
       run: |
         cd frontend
-        rm -rf node_modules package-lock.json
-        npm install
+        npm install --no-optional
+        npm list vite
     - name: Install backend dependencies
       run: cd backend && npm ci
     - name: Build frontend
