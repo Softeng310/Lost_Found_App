@@ -28,7 +28,6 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
-        working-directory: ./backend
     
     - name: Install backend dependencies
       working-directory: ./backend
@@ -66,7 +65,6 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
-        working-directory: ./frontend
     
     - name: Install frontend dependencies
       working-directory: ./frontend
@@ -84,7 +82,14 @@ jobs:
     
     - name: Build frontend
       working-directory: ./frontend
-      run: npm run build
+      run: |
+        echo "Building frontend..."
+        echo "Current directory: $(pwd)"
+        echo "Public folder contents:"
+        ls -la public/
+        echo "Starting build..."
+        npm run build
+        echo "Build completed successfully"
 
   # Integration Tests Job
   integration-test:
@@ -99,7 +104,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20.x'
-        cache: 'npm'
     
     - name: Install backend dependencies
       working-directory: ./backend
@@ -133,7 +137,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20.x'
-        cache: 'npm'
     
     - name: Audit backend dependencies
       working-directory: ./backend
@@ -157,7 +160,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20.x'
-        cache: 'npm'
     
     - name: Install backend dependencies
       working-directory: ./backend
