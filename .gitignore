@@ -84,7 +84,8 @@ dist
 
 # Gatsby files
 .cache/
-public
+# Don't ignore public folders - they're needed for React apps
+# public
 
 # Storybook build outputs
 .out
@@ -123,12 +124,13 @@ backend/firestore-debug.log
 # Service account keys (NEVER commit these!)
 serviceAccountKey.json
 service-account-key.json
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-!tailwind.config.js
-!postcss.config.js
+# Don't ignore all JSON files - only ignore sensitive ones
+# *.json
+# !package.json
+# !package-lock.json
+# !tsconfig.json
+# !tailwind.config.js
+# !postcss.config.js
 
 # Database
 *.db
