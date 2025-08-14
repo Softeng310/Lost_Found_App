@@ -3,8 +3,17 @@ import ProfilePage from './ProfilePage';
 
 test('renders profile page with navigation', () => {
   render(<ProfilePage />);
+  
+  // Check for main navigation elements
   expect(screen.getByText(/Lost & Found Community/i)).toBeInTheDocument();
-  expect(screen.getByText(/Profile/i)).toBeInTheDocument();
+  
+  // Check for Profile link in navigation
+  const profileLink = screen.getByText(/Profile/i);
+  expect(profileLink).toBeInTheDocument();
+  
+  // Check for other navigation elements
+  expect(screen.getByText(/Feed/i)).toBeInTheDocument();
+  expect(screen.getByText(/Report/i)).toBeInTheDocument();
 });
 
 test('renders profile content', () => {

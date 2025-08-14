@@ -1,39 +1,7 @@
 import React, { useMemo } from "react"
 import { getItemsClient } from "../lib/mock-data"
-
-// Mock UI components
-const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white rounded-lg border shadow-sm ${className}`}>
-    {children}
-  </div>
-)
-
-const CardHeader = ({ children }: { children: React.ReactNode }) => (
-  <div className="p-6 pb-4">{children}</div>
-)
-
-const CardTitle = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <h3 className={`text-lg font-semibold leading-none tracking-tight ${className}`}>
-    {children}
-  </h3>
-)
-
-const CardContent = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <div className={`p-6 pt-0 ${className}`}>{children}</div>
-)
-
-const Badge = ({ children, variant = "default" }: { children: React.ReactNode; variant?: string }) => {
-  const baseClasses = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-  const variantClasses = variant === "outline" 
-    ? "border border-gray-200 text-gray-700 bg-white"
-    : "bg-gray-100 text-gray-800"
-  
-  return (
-    <span className={`${baseClasses} ${variantClasses}`}>
-      {children}
-    </span>
-  )
-}
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { Badge } from "./ui/badge"
 
 export default function ProfilePage() {
   const items = getItemsClient()
