@@ -9,7 +9,7 @@ describe('Card Components', () => {
 
   test('renders Card with custom className', () => {
     render(<Card className="custom-class">Test content</Card>);
-    const card = screen.getByText('Test content').parentElement;
+    const card = screen.getByText('Test content').closest('div');
     expect(card).toHaveClass('custom-class');
   });
 
@@ -36,7 +36,7 @@ describe('Card Components', () => {
 
   test('renders CardContent with custom className', () => {
     render(<CardContent className="content-class">Content text</CardContent>);
-    const content = screen.getByText('Content text').parentElement;
+    const content = screen.getByText('Content text').closest('div');
     expect(content).toHaveClass('content-class');
   });
 });
