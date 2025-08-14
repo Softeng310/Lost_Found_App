@@ -17,6 +17,6 @@ test('renders profile content', () => {
 
 test('renders mock data correctly', () => {
   render(<ProfilePage />);
-  expect(screen.getByText(/Lost iPhone 12/i)).toBeInTheDocument();
-  expect(screen.getByText(/Found Wallet/i)).toBeInTheDocument();
+  expect(screen.getByText(/Lost: Black iPhone 13/i)).toBeInTheDocument();
+  expect(screen.getByText(/Found AirPods/i)).toBeInTheDocument();
 });

@@ -1,22 +1,5 @@
 import React, { useMemo } from "react"
-
-// Mock data function
-const getItemsClient = () => [
-  {
-    id: 1,
-    title: "Lost iPhone 12",
-    reporter: { name: "Guest User" }, 
-    claims: [{ claimer: "John Doe" }],
-    status: "Open"
-  },
-  {
-    id: 2,
-    title: "Found Wallet",
-    reporter: { name: "Jane Smith" },
-    claims: [{ claimer: "Guest User" }],
-    status: "Claimed"
-  }
-]
+import { getItemsClient } from "../lib/mock-data"
 
 // Mock UI components
 const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
