@@ -17,13 +17,14 @@ test('renders profile page with navigation', () => {
   const profileLink = screen.getByText(/Profile/i);
   expect(profileLink).toBeInTheDocument();
   
-  // Check for navigation links (these are hidden on mobile with 'hidden md:flex' classes)
-  // We need to check if they exist in the DOM, even if hidden
-  const navigationContainer = screen.getByText(/Feed/i).closest('div');
-  expect(navigationContainer).toBeInTheDocument();
-  
-  // Verify the navigation container has the correct classes
-  expect(navigationContainer).toHaveClass('hidden', 'md:flex');
+  // Check for navigation links - they exist in the DOM but are hidden on mobile
+  expect(screen.getByText(/Feed/i)).toBeInTheDocument();
+  expect(screen.getByText(/Report/i)).toBeInTheDocument();
+  expect(screen.getByText(/Map/i)).toBeInTheDocument();
+  expect(screen.getByText(/Stats/i)).toBeInTheDocument();
+  expect(screen.getByText(/Notices/i)).toBeInTheDocument();
+  expect(screen.getByText(/Admin/i)).toBeInTheDocument();
+  expect(screen.getByText(/Repo/i)).toBeInTheDocument();
 });
 
 test('renders profile content', () => {
