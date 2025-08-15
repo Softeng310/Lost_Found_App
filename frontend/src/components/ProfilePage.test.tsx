@@ -16,9 +16,13 @@ test('renders profile page with navigation', () => {
   // Check for Profile link in navigation
   expect(screen.getByText(/Profile/i)).toBeInTheDocument();
   
-  // Check for at least some navigation links
-  expect(screen.getByText(/Feed/i)).toBeInTheDocument();
-  expect(screen.getByText(/Report/i)).toBeInTheDocument();
+  // Check for navigation links using getAllByText to handle hidden elements
+  const feedLinks = screen.getAllByText(/Feed/i);
+  const reportLinks = screen.getAllByText(/Report/i);
+  
+  // At least one instance of each should exist (even if hidden)
+  expect(feedLinks.length).toBeGreaterThan(0);
+  expect(reportLinks.length).toBeGreaterThan(0);
 });
 
 test('renders profile content', () => {
