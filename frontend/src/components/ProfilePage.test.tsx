@@ -1,10 +1,19 @@
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ProfilePage from './ProfilePage';
 
+// TypeScript declarations for Jest globals
+declare const jest: any;
+declare const describe: any;
+declare const test: any;
+declare const expect: any;
+declare const beforeEach: any;
+
 // Mock the mock-data module
+const mockGetItemsClient = jest.fn();
 jest.mock('../lib/mock-data', () => ({
-  getItemsClient: jest.fn()
+  getItemsClient: mockGetItemsClient
 }));
 
 describe('ProfilePage', () => {
@@ -22,16 +31,16 @@ describe('ProfilePage', () => {
     // Check for main navigation elements
     expect(screen.getByText(/Lost & Found Community/i)).toBeInTheDocument();
     
-    // Check for Profile link in navigation - use more specific text
+    // Check for Profile button in navigation - use more specific text
     expect(screen.getByText('Profile')).toBeInTheDocument();
     
-    // Check for navigation links using getAllByText to handle hidden elements
-    const feedLinks = screen.getAllByText(/Feed/i);
-    const reportLinks = screen.getAllByText(/Report/i);
+    // Check for navigation buttons using getAllByText to handle hidden elements
+    const feedButtons = screen.getAllByText(/Feed/i);
+    const reportButtons = screen.getAllByText(/Report/i);
     
     // At least one instance of each should exist (even if hidden)
-    expect(feedLinks.length).toBeGreaterThan(0);
-    expect(reportLinks.length).toBeGreaterThan(0);
+    expect(feedButtons.length).toBeGreaterThan(0);
+    expect(reportButtons.length).toBeGreaterThan(0);
   });
 
   test('renders profile content', () => {
@@ -183,13 +192,13 @@ describe('ProfilePage', () => {
     expect(screen.getByText(/Connect university SSO to verify identity/i)).toBeInTheDocument();
   });
 
-  test('renders navigation links correctly', () => {
+  test('renders navigation buttons correctly', () => {
     const { getItemsClient } = require('../lib/mock-data');
     getItemsClient.mockReturnValue([]);
     
     render(<ProfilePage />);
     
-    // Check for all navigation links - use more specific text matching
+    // Check for all navigation buttons - use more specific text matching
     expect(screen.getByText('Feed')).toBeInTheDocument();
     expect(screen.getByText('Report')).toBeInTheDocument();
     expect(screen.getByText('Map')).toBeInTheDocument();
