@@ -3,9 +3,8 @@ import '@testing-library/jest-dom';
 import ProfilePage from './ProfilePage';
 
 // Mock the mock-data module
-const mockGetItemsClient = jest.fn();
 jest.mock('../lib/mock-data', () => ({
-  getItemsClient: mockGetItemsClient
+  getItemsClient: jest.fn()
 }));
 
 declare global {
@@ -22,14 +21,17 @@ describe('ProfilePage', () => {
   });
 
   test('renders profile page with navigation', () => {
-    mockGetItemsClient.mockReturnValue([]);
+    // Mock the getItemsClient to return empty array
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue([]);
+    
     render(<ProfilePage />);
     
     // Check for main navigation elements
     expect(screen.getByText(/Lost & Found Community/i)).toBeInTheDocument();
     
-    // Check for Profile link in navigation
-    expect(screen.getByText(/Profile/i)).toBeInTheDocument();
+    // Check for Profile link in navigation - use more specific text
+    expect(screen.getByText('Profile')).toBeInTheDocument();
     
     // Check for navigation links using getAllByText to handle hidden elements
     const feedLinks = screen.getAllByText(/Feed/i);
@@ -41,7 +43,9 @@ describe('ProfilePage', () => {
   });
 
   test('renders profile content', () => {
-    mockGetItemsClient.mockReturnValue([]);
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue([]);
+    
     render(<ProfilePage />);
     expect(screen.getByText(/Profile & History/i)).toBeInTheDocument();
     expect(screen.getByText(/Trust & Verification/i)).toBeInTheDocument();
@@ -64,7 +68,9 @@ describe('ProfilePage', () => {
         claims: [{ claimer: 'Guest User' }]
       }
     ];
-    mockGetItemsClient.mockReturnValue(mockItems);
+    
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue(mockItems);
     
     render(<ProfilePage />);
     expect(screen.getByText(/Lost: Black iPhone 13/i)).toBeInTheDocument();
@@ -80,7 +86,9 @@ describe('ProfilePage', () => {
         claims: []
       }
     ];
-    mockGetItemsClient.mockReturnValue(mockItems);
+    
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue(mockItems);
     
     render(<ProfilePage />);
     expect(screen.getByText(/No posts yet./i)).toBeInTheDocument();
@@ -95,7 +103,9 @@ describe('ProfilePage', () => {
         claims: [{ claimer: 'Other User' }] // Not Guest User
       }
     ];
-    mockGetItemsClient.mockReturnValue(mockItems);
+    
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue(mockItems);
     
     render(<ProfilePage />);
     expect(screen.getByText(/No claims yet./i)).toBeInTheDocument();
@@ -110,7 +120,9 @@ describe('ProfilePage', () => {
         claims: []
       }
     ];
-    mockGetItemsClient.mockReturnValue(mockItems);
+    
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue(mockItems);
     
     render(<ProfilePage />);
     expect(screen.getByText(/Lost: Black iPhone 13/i)).toBeInTheDocument();
@@ -127,7 +139,9 @@ describe('ProfilePage', () => {
         status: 'Pending'
       }
     ];
-    mockGetItemsClient.mockReturnValue(mockItems);
+    
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue(mockItems);
     
     render(<ProfilePage />);
     expect(screen.getByText(/Found AirPods/i)).toBeInTheDocument();
@@ -156,7 +170,9 @@ describe('ProfilePage', () => {
         claims: []
       }
     ];
-    mockGetItemsClient.mockReturnValue(mockItems);
+    
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue(mockItems);
     
     render(<ProfilePage />);
     expect(screen.getByText(/Lost: Black iPhone 13/i)).toBeInTheDocument();
@@ -165,7 +181,9 @@ describe('ProfilePage', () => {
   });
 
   test('renders trust and verification section', () => {
-    mockGetItemsClient.mockReturnValue([]);
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue([]);
+    
     render(<ProfilePage />);
     
     expect(screen.getByText(/Trust & Verification/i)).toBeInTheDocument();
@@ -174,16 +192,18 @@ describe('ProfilePage', () => {
   });
 
   test('renders navigation links correctly', () => {
-    mockGetItemsClient.mockReturnValue([]);
+    const { getItemsClient } = require('../lib/mock-data');
+    getItemsClient.mockReturnValue([]);
+    
     render(<ProfilePage />);
     
-    // Check for all navigation links
-    expect(screen.getByText(/Feed/i)).toBeInTheDocument();
-    expect(screen.getByText(/Report/i)).toBeInTheDocument();
-    expect(screen.getByText(/Map/i)).toBeInTheDocument();
-    expect(screen.getByText(/Stats/i)).toBeInTheDocument();
-    expect(screen.getByText(/Notices/i)).toBeInTheDocument();
-    expect(screen.getByText(/Admin/i)).toBeInTheDocument();
-    expect(screen.getByText(/Repo/i)).toBeInTheDocument();
+    // Check for all navigation links - use more specific text matching
+    expect(screen.getByText('Feed')).toBeInTheDocument();
+    expect(screen.getByText('Report')).toBeInTheDocument();
+    expect(screen.getByText('Map')).toBeInTheDocument();
+    expect(screen.getByText('Stats')).toBeInTheDocument();
+    expect(screen.getByText('Notices')).toBeInTheDocument();
+    expect(screen.getByText('Admin')).toBeInTheDocument();
+    expect(screen.getByText('Repo')).toBeInTheDocument();
   });
 });
