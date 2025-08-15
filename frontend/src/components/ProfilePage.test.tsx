@@ -7,14 +7,6 @@ jest.mock('../lib/mock-data', () => ({
   getItemsClient: jest.fn()
 }));
 
-declare global {
-  const test: any;
-  const expect: any;
-  const describe: any;
-  const beforeEach: any;
-  const jest: any;
-}
-
 describe('ProfilePage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
