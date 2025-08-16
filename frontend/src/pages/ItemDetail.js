@@ -15,6 +15,21 @@ const ItemDetailPage = () => {
     return () => clearInterval(id);
   }, []);
 
+  if (!item) {
+    return (
+      <div className="container mx-auto px-4 py-10">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="mb-4 gap-2 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background hover:bg-accent hover:text-accent-foreground h-10 py-2 px-4"
+        >
+          <ArrowLeft />
+          {"Back"}
+        </button>
+        <p className="text-muted-foreground">{"Item not found."}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-6 grid lg:grid-cols-[1fr_360px] gap-6">
       <section className="space-y-4">
