@@ -1,8 +1,8 @@
 export const locations = {
-  OGGB: { name: "OGGB", x: 520, y: 220 },
-  Library: { name: "Library", x: 260, y: 180 },
-  Quad: { name: "Quad", x: 380, y: 260 },
-  "Science Centre": { name: "Science Centre", x: 150, y: 320 },
+  OGGB: "OGGB",
+  Library: "Library", 
+  Quad: "Quad",
+  "Science Centre": "Science Centre",
 }
 
 const items = [
@@ -56,6 +56,6 @@ export function getItemsClient() {
   return items.map((i) => ({ 
     ...i, 
     reporter: { ...i.reporter }, 
-    location: { ...i.location } 
+    location: i.location 
   }))
 }

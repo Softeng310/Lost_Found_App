@@ -67,7 +67,7 @@ const ItemDetailPage = () => {
             <div className="mt-4 text-sm">
               <p>
                 <span className="font-medium">{"Location:"}</span>
-                {` ${item.location.name}`}
+                {` ${item.location}`}
               </p>
               <p>
                 <span className="font-medium">{"Posted:"}</span>
