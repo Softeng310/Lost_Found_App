@@ -6,7 +6,7 @@ interface BadgeProps {
   className?: string
 }
 
-export function Badge({ children, variant = 'default', className = "" }: Readonly<BadgeProps>) {
+export function ProfileBadge({ children, variant = 'default', className = "" }: Readonly<BadgeProps>) {
   const baseClasses = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
   const variantClasses = variant === 'outline' 
     ? "border border-gray-200 text-gray-700" 
