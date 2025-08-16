@@ -15,8 +15,6 @@ const items = [
     imageUrl: "/black-iphone-13-green-case.png",
     date: new Date().toISOString(),
     location: locations.OGGB,
-    status: "Open",
-    moderation: "approved",
     reporter: { name: "Guest User", trust: false },
   },
   {
@@ -28,8 +26,6 @@ const items = [
     imageUrl: "/placeholder-heiw4.png",
     date: new Date(Date.now() - 3600_000).toISOString(),
     location: locations.Quad,
-    status: "Open",
-    moderation: "approved",
     reporter: { name: "Nadia", trust: true },
   },
   {
@@ -41,8 +37,6 @@ const items = [
     imageUrl: "/student-id-card.png",
     date: new Date(Date.now() - 2 * 3600_000).toISOString(),
     location: locations.Library,
-    status: "Open",
-    moderation: "approved",
     reporter: { name: "Jerry", trust: true },
   },
   {
@@ -54,8 +48,6 @@ const items = [
     imageUrl: "/grey-hoodie.png",
     date: new Date(Date.now() - 3 * 3600_000).toISOString(),
     location: locations["Science Centre"],
-    status: "Open",
-    moderation: "approved",
     reporter: { name: "Liam", trust: false },
   },
 ]
