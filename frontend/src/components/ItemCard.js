@@ -48,7 +48,7 @@ const ItemCard = ({ item }) => {
               
               {/* Location and Date */}
               <div className="text-xs text-gray-400 truncate">
-                {`${item.location.name} · ${new Date(item.date).toLocaleDateString()}`}
+                {`${item.location} · ${new Date(item.date).toLocaleDateString()}`}
               </div>
             </div>
           </div>
