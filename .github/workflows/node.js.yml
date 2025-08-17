@@ -49,10 +49,10 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - name: Clean install dependencies
-        working-directory: frontend
         run: |
           rm -rf node_modules package-lock.json
-          npm ci
+          npm install
+        working-directory: frontend
       - name: Run tests
         run: npm test -- --watchAll=false --coverage
         working-directory: frontend
