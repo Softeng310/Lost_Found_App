@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs'
 import Badge from '../components/ui/Badge';
 
 const FeedPage = () => {
-  const [filters, setFilters] = useState({ q: "", type: "all", location: "all" });
+  const [filters] = useState({ q: "", type: "all", location: "all" });
   const [tab, setTab] = useState("all");
   const [items, setItems] = useState(getItemsClient());
 
