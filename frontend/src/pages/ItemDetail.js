@@ -1,19 +1,55 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
-import { getItemsClient } from '../lib/mock-data';
 import { ArrowLeft, ShieldCheck } from '../components/ui/icons';
+import { db } from '../firebase/config';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const ItemDetailPage = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const [items, setItems] = useState(getItemsClient());
-  const item = useMemo(() => items.find((i) => i.id === String(params?.id)), [items, params]);
+  const [item, setItem] = useState(null);
 
   useEffect(() => {
-    const id = setInterval(() => setItems(getItemsClient()), 2000);
-    return () => clearInterval(id);
-  }, []);
+    const itemId = String(params?.id || '');
+    if (!itemId) return;
+    const ref = doc(db, 'items', itemId);
+    const unsubscribe = onSnapshot(ref, (snapshot) => {
+      const data = snapshot.data();
+      if (!data) {
+        setItem(null);
+        return;
+      }
+      const imageUrl = data.imageUrl || data.imageURL || '/placeholder.svg';
+      const kindRaw = data.kind || data.status || '';
+      const typeRaw = data.category || data.type || '';
+      const category = String(typeRaw).toLowerCase() === 'accessories' ? 'accessory' : String(typeRaw).toLowerCase();
+      const postedBy = data.postedBy;
+      let reporter = data.reporter;
+      if (!reporter) {
+        if (postedBy && typeof postedBy === 'object' && postedBy.id) {
+          reporter = { name: postedBy.id, trust: false };
+        } else if (typeof postedBy === 'string') {
+          const parts = postedBy.split('/');
+          reporter = { name: parts[parts.length - 1] || 'Unknown', trust: false };
+        } else {
+          reporter = { name: 'Unknown', trust: false };
+        }
+      }
+      setItem({
+        id: snapshot.id,
+        kind: String(kindRaw || '').toLowerCase(),
+        category,
+        title: String(data.title || ''),
+        description: String(data.description || ''),
+        imageUrl,
+        date: data.date?.toDate ? data.date.toDate().toISOString() : (data.date || new Date().toISOString()),
+        location: data.location || 'Unknown',
+        reporter,
+      });
+    });
+    return () => unsubscribe();
+  }, [params]);
 
   if (!item) {
     return (

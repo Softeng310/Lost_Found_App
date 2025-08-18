@@ -2,18 +2,53 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { SearchFilters } from '../components/SearchFilters';
 import { Link } from 'react-router-dom';
 import ItemCard from '../components/ItemCard';
-import { getItemsClient } from '../lib/mock-data';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import Badge from '../components/ui/Badge';
+import { db } from '../firebase/config';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 
 const FeedPage = () => {
   const [filters, setFilters] = useState({ q: "", type: "all", location: "all", status: "all" });
   const [tab, setTab] = useState("all");
-  const [items, setItems] = useState(getItemsClient());
+  const [items, setItems] = useState([]);
 
   useEffect(() => {
-    const id = setInterval(() => setItems(getItemsClient()), 2500);
-    return () => clearInterval(id);
+    const itemsQuery = query(collection(db, 'items'), orderBy('date', 'desc'));
+    const unsubscribe = onSnapshot(itemsQuery, (snapshot) => {
+      const nextItems = snapshot.docs.map((doc) => {
+        const data = doc.data() || {};
+        // Normalize Firestore fields to UI model
+        const imageUrl = data.imageUrl || data.imageURL || '/placeholder.svg';
+        const kindRaw = data.kind || data.status || '';
+        const typeRaw = data.category || data.type || '';
+        const category = String(typeRaw).toLowerCase() === 'accessories' ? 'accessory' : String(typeRaw).toLowerCase();
+        const postedBy = data.postedBy;
+        let reporter = data.reporter;
+        if (!reporter) {
+          if (postedBy && typeof postedBy === 'object' && postedBy.id) {
+            reporter = { name: postedBy.id, trust: false };
+          } else if (typeof postedBy === 'string') {
+            const parts = postedBy.split('/');
+            reporter = { name: parts[parts.length - 1] || 'Unknown', trust: false };
+          } else {
+            reporter = { name: 'Unknown', trust: false };
+          }
+        }
+        return {
+          id: doc.id,
+          kind: String(kindRaw || '').toLowerCase(),
+          category,
+          title: String(data.title || ''),
+          description: String(data.description || ''),
+          imageUrl,
+          date: data.date?.toDate ? data.date.toDate().toISOString() : (data.date || new Date().toISOString()),
+          location: data.location || 'Unknown',
+          reporter,
+        };
+      });
+      setItems(nextItems);
+    });
+    return () => unsubscribe();
   }, []);
 
   const filtered = useMemo(() => {
