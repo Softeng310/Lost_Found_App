@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const ItemReportForm = () => {
+  const navigate = useNavigate();
   const [item, setItem] = useState({
     title: '',
     description: '',
@@ -63,7 +65,10 @@ const ItemReportForm = () => {
       body: formData
     });
 
+    const data = await response.json();
+
     if (response.ok) {
+      navigate(`/items/${data.id}`);
       alert("Item reported successfully!");
       setItem({
         title: '',
