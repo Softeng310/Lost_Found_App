@@ -124,17 +124,30 @@ const ItemReportForm = () => {
           {errors.type && <p className="text-red-500 text-sm">{errors.type}</p>}
         </div>
 
-        <div>
+<div>
           <label className="block font-semibold">Location</label>
-          <input
-            type="text"
+          <select
             name="location"
             value={item.location}
             onChange={handleChange}
-            placeholder="e.g., OGGB Level 1"
             className="w-full border border-gray-300 p-2 rounded"
-          />
-          {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
+          >
+            <option value="">Select</option>
+            <option value="OGGB">OGGB</option>
+            <option value="Engineering Building">Engineering Building</option>
+            <option value="Arts and Education Building">Arts and Education Building</option>
+            <option value="Kate Edgar">Kate Edgar</option>
+            <option value="Law Building">Law Building</option>
+            <option value="General Library">General Library</option>
+            <option value="Biology Building">Biology Building</option>
+            <option value="Science Centre">Science Centre</option>
+            <option value="Clock Tower">Clock Tower</option>
+            <option value="Old Government House">Old Government House</option>
+            <option value="Hiwa Recreation Centre">Hiwa Recreation Centre</option>
+            <option value="Bioengineering Building">Bioengineering Building</option>
+
+          </select>
+          {errors.type && <p className="text-red-500 text-sm">{errors.type}</p>}
         </div>
 
         <div className="flex flex-col">
@@ -183,22 +196,25 @@ const ItemReportForm = () => {
             name="description"
             value={item.description}
             onChange={handleChange}
-            placeholder="Add unique identifiers, color, stickers, etc."
+            placeholder="Add unique identifiers/more details on where the item was found."
             className="w-full border border-gray-300 p-2 rounded"
           />
           {errors.description && <p className="text-red-500 text-sm">{errors.description}</p>}
         </div>
 
         <div>
-          <label className="block font-semibold">Photo</label>
+          <label className="block font-semibold mb-1">Photo</label>
           <input
             type="file"
             accept="image/*"
             onChange={handleFileChange}
-            className="block"
+            className="w-full border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
           />
-          {errors.image && <p className="text-red-500 text-sm">{errors.image}</p>}
+          {errors.image && (
+            <p className="text-red-500 text-sm mt-1">{errors.image}</p>
+          )}
         </div>
+
 
         <div className="flex justify-end gap-4 mt-4">
           <button
