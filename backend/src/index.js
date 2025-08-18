@@ -1,14 +1,51 @@
 const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+const router = express.Router();
+const multer = require('multer');
+const admin = require('firebase-admin');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const upload = multer({ storage: multer.memoryStorage() });
 
-app.get('/api/health', (req, res) => {
-    res.send({ status: 'OK' });
+router.post('/', upload.single('image'), async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+
+    const {
+      title,
+      description,
+      type,
+      location,
+      date,
+      status
+    } = req.body;
+
+    if (!title || !description || !type || !location || !date || !status) {
+      return res.status(400).json({ message: 'Missing required fields.' });
+    }
+
+    const timestamp = admin.firestore.Timestamp.fromDate(new Date(date));
+
+    // Temporary placeholder — replace with uploaded imageURL later
+    const imageURL = "https://via.placeholder.com/300";
+
+    const item = {
+      title,
+      description,
+      type,
+      location,
+      date: timestamp,
+      status,
+      imageURL,
+      postedBy: null // replace with user ref if login is added
+    };
+
+    // ✅ THIS is where the item is uploaded to Firestore:
+    const docRef = await db.collection('items').add(item);
+
+    res.status(201).json({ message: 'Item added!', id: docRef.id });
+  } catch (error) {
+    console.error("Error uploading item:", error);
+    res.status(500).json({ message: 'Server error.' });
+  }
 });
 
-const PORT = process.env.PORT || 5876;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+module.exports = router;
