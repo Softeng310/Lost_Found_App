@@ -1,7 +1,7 @@
 import React, { useMemo } from "react"
-import { getItemsClient } from "../lib/mock-data"
+import { getItemsClient } from "../lib/profile-mock-data"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { Badge } from "./ui/badge"
+import { ProfileBadge } from './ui/ProfileBadge'
 
 export default function ProfilePage() {
   const items = getItemsClient()
@@ -61,7 +61,7 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Trust & Verification
-                <Badge variant="outline">Unverified</Badge>
+                <ProfileBadge variant="outline">Unverified</ProfileBadge>
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-gray-600">
