@@ -10,7 +10,7 @@ const ItemReportForm = () => {
     status: 'open',
     image: null
   });
-  const [date, setDate] = useState('');
+
   const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
@@ -33,6 +33,7 @@ const ItemReportForm = () => {
   };
 
   const handleSubmit = async (e) => {
+    console.log("Submitting form...")
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
@@ -131,8 +132,9 @@ const ItemReportForm = () => {
           <label className="font-medium text-sm mb-1">Date & Time</label>
           <input
             type="datetime-local"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            value={item.date}
+            onChange={(e) => setItem({ ...item, date: e.target.value })}
+
             className="border rounded-lg px-3 py-2 text-sm w-full"
             required
           />
