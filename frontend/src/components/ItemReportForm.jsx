@@ -112,10 +112,12 @@ const ItemReportForm = () => {
             className="w-full border border-gray-300 p-2 rounded"
           >
             <option value="">Select</option>
-            <option value="pet">Pet</option>
             <option value="electronics">Electronics</option>
+            <option value="stationery">Stationery</option>
             <option value="clothing">Clothing</option>
             <option value="documents">Documents</option>
+            <option value="wallets">Wallets</option>
+            <option value="keys/cards">Keys/Cards</option>
             <option value="accessories">Accessories</option>
             <option value="other">Other</option>
           </select>
