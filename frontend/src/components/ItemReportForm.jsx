@@ -7,7 +7,7 @@ const ItemReportForm = () => {
     type: '',
     location: '',
     date: '',
-    status: 'open',
+    status: 'lost',
     image: null
   });
 
@@ -33,47 +33,55 @@ const ItemReportForm = () => {
   };
 
   const handleSubmit = async (e) => {
-    console.log("Submitting form...")
-    e.preventDefault();
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
+  e.preventDefault();
+  const errs = validate();
+  if (Object.keys(errs).length > 0) {
+    setErrors(errs);
+    return;
+  }
 
-    const formData = new FormData();
-    formData.append("title", item.title);
-    formData.append("description", item.description);
-    formData.append("type", item.type);
-    formData.append("location", item.location);
-    formData.append("date", item.date);
-    formData.append("status", item.status);
-    formData.append("image", item.image);
+  const formData = new FormData();
+  formData.append("title", item.title);
+  formData.append("description", item.description);
+  formData.append("type", item.type);
+  formData.append("location", item.location);
+  formData.append("date", item.date);
+  formData.append("status", item.status);
+  formData.append("image", item.image);
 
-    try {
-      const response = await fetch('http://localhost:5876/api/items', {
-        method: 'POST',
-        body: formData
+  // 🔍 ADD THESE:
+  console.log("📤 Submitting item:", item);
+  console.log("🕑 Parsed date:", new Date(item.date));
+  console.log("📦 FormData preview:");
+  for (let pair of formData.entries()) {
+    console.log(`${pair[0]}:`, pair[1]);
+  }
+
+  try {
+    const response = await fetch('http://localhost:5876/api/items', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (response.ok) {
+      alert("Item reported successfully!");
+      setItem({
+        title: '',
+        description: '',
+        type: '',
+        location: '',
+        date: '',
+        status: 'lost',
+        image: null
       });
-
-      if (response.ok) {
-        alert("Item reported successfully!");
-        setItem({
-          title: '',
-          description: '',
-          type: '',
-          location: '',
-          date: '',
-          status: 'open',
-          image: null
-        });
-      } else {
-        console.error("Error submitting form");
-      }
-    } catch (error) {
-      console.error("Network error", error);
+    } else {
+      console.error("❌ Error submitting form");
     }
-  };
+  } catch (error) {
+    console.error("🚨 Network error:", error);
+  }
+};
+
 
   return (
     <form
@@ -90,9 +98,8 @@ const ItemReportForm = () => {
             onChange={handleChange}
             className="w-full border border-gray-300 p-2 rounded"
           >
-            <option value="open">Lost</option>
-            <option value="claimed">Found</option>
-            <option value="closed">Closed</option>
+            <option value="lost">Lost</option>
+            <option value="found">Found</option>
           </select>
         </div>
 
@@ -201,7 +208,7 @@ const ItemReportForm = () => {
                 type: '',
                 location: '',
                 date: '',
-                status: 'open',
+                status: 'lost',
                 image: null
               })
             }
