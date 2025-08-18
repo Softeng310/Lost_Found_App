@@ -123,7 +123,9 @@ backend/firestore-debug.log
 
 # Service account keys (NEVER commit these!)
 serviceAccountKey.json
+backend/firebase-service-account.json
 service-account-key.json
+
 # Don't ignore all JSON files - only ignore sensitive ones
 # *.json
 # !package.json
