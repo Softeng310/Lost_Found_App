@@ -1,8 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Navigation from "../components/Navigation";
 import { Bell } from "lucide-react";
 
-import { useEffect, useState } from "react";
 import { db } from "../firebase/config";
 import { collection, getDocs } from "firebase/firestore";
 
@@ -49,9 +48,13 @@ const AnnouncementsPage = () => {
           >
             <div className="flex items-center gap-2 mb-3">
               <Bell className="h-5 w-5 text-emerald-500" />
-              <h2 className="text-lg font-bold text-emerald-700 tracking-tight line-clamp-2">{a.title}</h2>
+              <h2 className="text-lg font-bold text-emerald-700 tracking-tight line-clamp-2">
+                {a.title}
+              </h2>
             </div>
-            <p className="text-gray-700 text-base mb-4 flex-1 whitespace-pre-line">{a.announcement}</p>
+            <p className="text-gray-700 text-base mb-4 flex-1 whitespace-pre-line">
+              {a.announcement}
+            </p>
             {a.datePosted && (
               <div className="flex justify-end">
                 <span className="inline-block bg-emerald-100 text-emerald-700 text-xs px-3 py-1 rounded-full font-medium">
