@@ -68,6 +68,9 @@ const Select = ({
         setIsOpen(false);
         setFocusedIndex(-1);
         break;
+        default:
+          // no-op
+          break;
     }
   };
 
@@ -95,6 +98,7 @@ const Select = ({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-controls="select-dropdown"
         aria-labelledby="select-label"
         role="combobox"
       >
@@ -117,6 +121,7 @@ const Select = ({
       
       {isOpen && (
         <div 
+          id="select-dropdown"
           ref={dropdownRef}
           className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg"
           role="listbox"
