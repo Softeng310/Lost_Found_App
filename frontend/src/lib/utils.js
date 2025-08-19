@@ -1,3 +1,13 @@
+import { clsx } from 'clsx';
+
+/**
+ * Utility function to conditionally join classNames
+ * @param  {...any} inputs - Class names or objects
+ * @returns {string} - Combined className string
+ */
+export function cn(...inputs) {
+  return clsx(inputs);
+}
 
 /**
  * Normalizes Firestore item data to a consistent UI model
@@ -9,7 +19,9 @@ export const normalizeFirestoreItem = (data, id) => {
   const imageUrl = data.imageUrl || data.imageURL || '/placeholder.svg';
   const kindRaw = data.kind || data.status || '';
   const typeRaw = data.category || data.type || '';
-  const category = String(typeRaw).toLowerCase() === 'accessories' ? 'accessory' : String(typeRaw).toLowerCase();
+  const category = String(typeRaw).toLowerCase() === 'accessories'
+    ? 'accessory'
+    : String(typeRaw).toLowerCase();
   const postedBy = data.postedBy;
   
   let reporter = data.reporter;
@@ -31,7 +43,9 @@ export const normalizeFirestoreItem = (data, id) => {
     title: String(data.title || ''),
     description: String(data.description || ''),
     imageUrl,
-    date: data.date?.toDate ? data.date.toDate().toISOString() : (data.date || new Date().toISOString()),
+    date: data.date?.toDate
+      ? data.date.toDate().toISOString()
+      : (data.date || new Date().toISOString()),
     location: data.location || 'Unknown',
     reporter,
   };

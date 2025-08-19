@@ -5,6 +5,8 @@ import HomePage from './pages/Home';
 import FeedPage from './pages/Feed';
 import ProfilePage from './components/ProfilePage';
 import ItemDetailPage from './pages/ItemDetail';
+import LoginPage from './pages/Login';
+import SignUpPage from './pages/SignUp';
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/items/:id" element={<ItemDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
         </Routes>
       </div>
     </Router>
