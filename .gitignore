@@ -156,3 +156,4 @@ test-results.xml
 
 # Local development
 .local/ 
+backend/firebase-service-account.json
