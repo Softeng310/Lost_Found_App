@@ -10,7 +10,7 @@ const firebaseConfig = {
   authDomain: "lost-no-more-3b0d6.firebaseapp.com",
   databaseURL: "https://lost-no-more-3b0d6-default-rtdb.firebaseio.com",
   projectId: "lost-no-more-3b0d6",
-  storageBucket: "lost-no-more-3b0d6.appspot.com", // <- make sure it's .appspot.com
+  storageBucket: "lost-no-more-3b0d6.appspot.com", 
   messagingSenderId: "449080002390",
   appId: "1:449080002390:web:86e6f45c91e363713038f7",
   measurementId: "G-PE6XPVZZTV"
@@ -18,7 +18,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);        // remove if unused
-const analytics = getAnalytics(app); // remove if unused
+const db = getFirestore(app);        
+const analytics = getAnalytics(app); 
 
 export { app, auth, db, analytics };
