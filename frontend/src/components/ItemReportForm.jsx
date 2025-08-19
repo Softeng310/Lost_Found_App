@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { auth } from "../firebase/config";
+import { getIdToken } from "firebase/auth";
 
 const ItemReportForm = () => {
   const navigate = useNavigate();
@@ -34,7 +36,7 @@ const ItemReportForm = () => {
     return errs;
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
   e.preventDefault();
   const errs = validate();
   if (Object.keys(errs).length > 0) {
@@ -51,17 +53,22 @@ const ItemReportForm = () => {
   formData.append("status", item.status);
   formData.append("image", item.image);
 
-  // 🔍 ADD THESE:
-  console.log("📤 Submitting item:", item);
-  console.log("🕑 Parsed date:", new Date(item.date));
-  console.log("📦 FormData preview:");
-  for (let pair of formData.entries()) {
-    console.log(`${pair[0]}:`, pair[1]);
-  }
-
   try {
+    // Get the current logged-in Firebase user
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("You must be logged in to post an item");
+      return;
+    }
+
+    // Get their ID token
+    const idToken = await getIdToken(currentUser);
+    // 📤 Send formData with Authorization header
     const response = await fetch('http://localhost:5876/api/items', {
       method: 'POST',
+      headers: {
+        Authorization: `Bearer ${idToken}`
+      },
       body: formData
     });
 
@@ -80,12 +87,13 @@ const ItemReportForm = () => {
         image: null
       });
     } else {
-      console.error("❌ Error submitting form");
+      console.error("❌ Error submitting form:", data.message);
     }
   } catch (error) {
     console.error("🚨 Network error:", error);
   }
 };
+
 
 
   return (

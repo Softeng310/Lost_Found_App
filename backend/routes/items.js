@@ -4,10 +4,11 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
 const cloudinary = require('../cloudinary');
+const authenticate = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', authenticate, upload.single('image'), async (req, res) => {
   try {
     const db = req.app.locals.db;
 
@@ -26,6 +27,21 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     const timestamp = admin.firestore.Timestamp.fromDate(new Date(date));
     let imageURL = "https://via.placeholder.com/300"; // default fallback
+
+    const uid = req.user.uid;
+
+    // If your users collection uses doc IDs == uid (recommended):
+    let userDocRef = db.collection('users').doc(uid);
+    const userSnap = await userDocRef.get();
+
+    if (!userSnap.exists) {
+      // Fallback if your users docs have random IDs but store { uid: <uid> } (matches your screenshot)
+      const q = await db.collection('users').where('uid', '==', uid).limit(1).get();
+      if (q.empty) {
+        return res.status(400).json({ message: 'User profile not found for current user.' });
+      }
+      userDocRef = q.docs[0].ref;
+    }
 
     if (req.file) {
       console.log("📷 Received file:", req.file.originalname);
@@ -73,7 +89,7 @@ router.post('/', upload.single('image'), async (req, res) => {
       date: timestamp,
       status,
       imageURL,
-      postedBy: null // Add user reference later
+      postedBy: userDocRef 
     });
 
     res.status(201).json({ message: 'Item added!', id: docRef.id });
