@@ -20,12 +20,10 @@ router.post('/', upload.single('image'), async (req, res) => {
       status
     } = req.body;
 
-    // You can log or validate these
     if (!title || !description || !type || !location || !date || !status) {
       return res.status(400).json({ message: 'Missing required fields.' });
     }
 
-    // Optional: convert date to Firestore Timestamp
     const timestamp = admin.firestore.Timestamp.fromDate(new Date(date));
     let imageURL = "https://via.placeholder.com/300"; // default fallback
 
@@ -58,7 +56,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
       try {
         const result = await streamUpload(buffer);
-        imageURL = result.secure_url; // ✅ replace placeholder with real URL
+        imageURL = result.secure_url; 
       } catch (uploadError) {
         console.error("❌ Error uploading to Cloudinary:", uploadError);
         return res.status(500).json({ message: 'Image upload failed.' });
