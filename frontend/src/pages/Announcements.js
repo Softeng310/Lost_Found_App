@@ -14,10 +14,16 @@ const AnnouncementsPage = () => {
     const fetchAnnouncements = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "announcements"));
-        const data = querySnapshot.docs.map((doc) => ({
+        let data = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
+        // Sort by datePosted descending (newest first)
+        data = data.sort((a, b) => {
+          const dateA = new Date(a.datePosted).getTime();
+          const dateB = new Date(b.datePosted).getTime();
+          return dateB - dateA;
+        });
         setAnnouncements(data);
       } catch (err) {
         console.error("Error fetching announcements:", err);
