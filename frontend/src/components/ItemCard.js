@@ -2,12 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Badge from './ui/Badge';
 import { ShieldCheck } from './ui/icons';
+import { cardStyles } from '../lib/utils';
 
 const ItemCard = ({ item }) => {
   return (
     <Link to={`/items/${item.id}`} className="block">
-      <div className="rounded-lg border-0 bg-white text-gray-900 shadow-sm hover:shadow-lg transition-all duration-200 h-full group">
-        <div className="p-6 pt-0 p-4">
+      <div className={`${cardStyles.hover} h-full group`}>
+        <div className="p-4">
           <div className="flex gap-4">
             {/* Item Image */}
             <img
