@@ -41,13 +41,24 @@ const AnnouncementsPage = () => {
     );
   } else {
     content = (
-      <div className="space-y-6">
+      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         {announcements.map((a) => (
           <div
             key={a.id}
-            className="bg-emerald-50 border border-emerald-100 rounded-lg p-6 shadow-sm"
+            className="flex flex-col h-full bg-white border border-emerald-200 rounded-2xl shadow-md p-6 transition-transform hover:scale-[1.02] hover:shadow-lg"
           >
-            <p className="text-gray-800 text-lg">{a.announcement}</p>
+            <div className="flex items-center gap-2 mb-3">
+              <Bell className="h-5 w-5 text-emerald-500" />
+              <h2 className="text-lg font-bold text-emerald-700 tracking-tight line-clamp-2">{a.title}</h2>
+            </div>
+            <p className="text-gray-700 text-base mb-4 flex-1 whitespace-pre-line">{a.announcement}</p>
+            {a.datePosted && (
+              <div className="flex justify-end">
+                <span className="inline-block bg-emerald-100 text-emerald-700 text-xs px-3 py-1 rounded-full font-medium">
+                  {new Date(a.datePosted).toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>
