@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, setDoc } from "firebase/firestore";
+import { app } from "../firebase/config";
 import { Bell, Map, ShieldCheck, Siren, GitBranch } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { cn } from "../lib/utils";
@@ -21,11 +23,15 @@ function NavLink({ href, label, icon }) {
 }
 
 export default function SignUpPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const db = getFirestore(app);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [name, setName] = useState("");
+    const [profilePic, setProfilePic] = useState("");
+    const [upi, setUpi] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const auth = getAuth();
 
@@ -56,7 +62,19 @@ export default function SignUpPage() {
     }
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+        // Add user to Firestore 'users' collection with all required fields
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          email: user.email,
+          name: name,
+          profilePic: profilePic,
+          upi: upi,
+          claimed_items: [],
+          reported_items: [],
+          createdAt: new Date().toISOString()
+        });
       navigate("/");
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -103,16 +121,46 @@ export default function SignUpPage() {
         <form onSubmit={handleSignUp} className="bg-white p-6 rounded shadow-md w-full max-w-sm">
           <h2 className="text-2xl font-bold mb-4">Create Account</h2>
           {error && <div className="text-red-500 mb-2 text-sm">{error}</div>}
-          <div className="mb-4">
-            <label className="block mb-1 text-sm font-medium">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              required
-            />
-          </div>
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">Profile Picture URL</label>
+              <input
+                type="url"
+                value={profilePic}
+                onChange={(e) => setProfilePic(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="https://imgur.com/a/yourpic"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium">UPI ID</label>
+              <input
+                type="text"
+                value={upi}
+                onChange={(e) => setUpi(e.target.value)}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="your-upi-id"
+              />
+            </div>
           <div className="mb-4">
             <label className="block mb-1 text-sm font-medium">Password</label>
             <input
