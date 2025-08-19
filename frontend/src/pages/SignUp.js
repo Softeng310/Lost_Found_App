@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import { useNavigate, Link } from "react-router-dom";
 import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
@@ -21,6 +22,12 @@ function NavLink({ href, label, icon }) {
     </Link>
   );
 }
+
+NavLink.propTypes = {
+  href: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  icon: PropTypes.node
+};
 
 export default function SignUpPage() {
   const db = getFirestore(app);
@@ -122,8 +129,9 @@ export default function SignUpPage() {
           <h2 className="text-2xl font-bold mb-4">Create Account</h2>
           {error && <div className="text-red-500 mb-2 text-sm">{error}</div>}
             <div className="mb-4">
-              <label className="block mb-1 text-sm font-medium">Name</label>
+              <label htmlFor="name" className="block mb-1 text-sm font-medium">Name</label>
               <input
+                id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -132,8 +140,9 @@ export default function SignUpPage() {
               />
             </div>
             <div className="mb-4">
-              <label className="block mb-1 text-sm font-medium">Email</label>
+              <label htmlFor="email" className="block mb-1 text-sm font-medium">Email</label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -142,8 +151,9 @@ export default function SignUpPage() {
               />
             </div>
             <div className="mb-4">
-              <label className="block mb-1 text-sm font-medium">Profile Picture URL</label>
+              <label htmlFor="profilePic" className="block mb-1 text-sm font-medium">Profile Picture URL</label>
               <input
+                id="profilePic"
                 type="url"
                 value={profilePic}
                 onChange={(e) => setProfilePic(e.target.value)}
@@ -152,8 +162,9 @@ export default function SignUpPage() {
               />
             </div>
             <div className="mb-4">
-              <label className="block mb-1 text-sm font-medium">UPI ID</label>
+              <label htmlFor="upi" className="block mb-1 text-sm font-medium">UPI ID</label>
               <input
+                id="upi"
                 type="text"
                 value={upi}
                 onChange={(e) => setUpi(e.target.value)}
@@ -162,8 +173,9 @@ export default function SignUpPage() {
               />
             </div>
           <div className="mb-4">
-            <label className="block mb-1 text-sm font-medium">Password</label>
+            <label htmlFor="password" className="block mb-1 text-sm font-medium">Password</label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -173,8 +185,9 @@ export default function SignUpPage() {
             />
           </div>
           <div className="mb-6">
-            <label className="block mb-1 text-sm font-medium">Confirm Password</label>
+            <label htmlFor="confirmPassword" className="block mb-1 text-sm font-medium">Confirm Password</label>
             <input
+              id="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
