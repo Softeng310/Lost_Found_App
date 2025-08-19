@@ -6,7 +6,12 @@ const admin = require('firebase-admin');
 const cloudinary = require('../cloudinary');
 const authenticate = require('../middleware/auth');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // Limit to 5MB
+  }
+});
 
 router.post('/', authenticate, upload.single('image'), async (req, res) => {
   try {
