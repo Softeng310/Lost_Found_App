@@ -77,7 +77,7 @@ export default function Navigation() {
           <NavLink href="/items/new" label="Report" />
           <NavLink href="/map" label="Map" icon={<Map className="h-4 w-4" />} />
           <NavLink href="/stats" label="Stats" />
-          <NavLink href="/announcements" label="Notices" icon={<Bell className="h-4 w-4" />} />
+          <NavLink href="/announcements" label="Announcements" icon={<Bell className="h-4 w-4" />} />
           <NavLink href="/admin" label="Admin" />
           
           {user ? (
