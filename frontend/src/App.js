@@ -4,7 +4,7 @@ import './App.css';
 import Layout from './components/layouts/Layout';
 import HomePage from './pages/Home';
 import FeedPage from './pages/Feed';
-import ProfilePage from './components/ProfilePage';
+import ProfilePage from './pages/ProfilePage';
 import ItemDetailPage from './pages/ItemDetail';
 import ReportPage from './pages/ReportPage';
 
