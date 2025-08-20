@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Navigation from "../components/Navigation";
 import { Bell } from "lucide-react";
 
 import { db } from "../firebase/config";
@@ -76,7 +75,6 @@ const AnnouncementsPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-3 mb-8">
           <Bell className="h-8 w-8 text-emerald-600" />

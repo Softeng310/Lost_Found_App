@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
-import { Bell, Map, ShieldCheck, Siren, GitBranch, User, LogOut } from 'lucide-react';
+import {ShieldCheck, Siren, User, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 
@@ -75,50 +75,40 @@ export default function Navigation() {
         <nav className="ml-auto flex items-center gap-1 sm:gap-2">
           <NavLink href="/feed" label="Feed" />
           <NavLink href="/items/new" label="Report" />
-          <NavLink href="/map" label="Map" icon={<Map className="h-4 w-4" />} />
-          <NavLink href="/stats" label="Stats" />
-          <NavLink href="/announcements" label="Announcements" icon={<Bell className="h-4 w-4" />} />
-          <NavLink href="/admin" label="Admin" />
+          <NavLink href="/announcements" label="Announcements" />
           
           {user ? (
-            <>
-              <Button
-                onClick={handleProfileClick}
-                variant="ghost"
-                size="sm"
-                className="gap-1"
-              >
-                <User className="h-4 w-4" />
-                Profile
-              </Button>
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                size="sm"
-                className="gap-1"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </>
-          ) : (
-            <Button
-              onClick={handleProfileClick}
-              variant="ghost"
-              size="sm"
-              className="gap-1"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Sign In
-            </Button>
-          )}
-          
-          <a href="https://github.com/Softeng310/Lost_Found_App.git" target="_blank" rel="noopener noreferrer" className="ml-1">
-            <Button variant="outline" size="sm" className="gap-1 bg-transparent">
-              <GitBranch className="h-4 w-4" />
-              {"Repo"}
-            </Button>
-          </a>
+  <>
+    <Button
+      onClick={handleProfileClick}
+      variant="ghost"
+      size="sm"
+      className="gap-1"
+    >
+      <User className="h-4 w-4" />
+      Profile
+    </Button>
+    <Button
+      onClick={handleLogout}
+      variant="outline"
+      size="sm"
+      className="gap-1"
+    >
+      <LogOut className="h-4 w-4" />
+      Logout
+    </Button>
+  </>
+) : (
+  <Button
+    onClick={handleProfileClick}
+    variant="ghost"
+    size="sm"
+    className="gap-1"
+  >
+    <ShieldCheck className="h-4 w-4" />
+    Sign In
+  </Button>
+)}
         </nav>
       </div>
     </header>
