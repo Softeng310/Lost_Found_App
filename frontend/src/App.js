@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
+
 import HomePage from './pages/Home';
 import FeedPage from './pages/Feed';
 import ProfilePage from './components/ProfilePage';
@@ -10,6 +11,7 @@ import ReportPage from './pages/ReportPage';
 
 import LoginPage from './pages/Login';
 import SignUpPage from './pages/SignUp';
+import AnnouncementsPage from './pages/Announcements';
 
 function App() {
   return (
@@ -23,6 +25,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
            <Route path="/items/new" element={<ReportPage />} />
+          <Route path="/announcements" element={<AnnouncementsPage />} />
         </Routes>
       </div>
     </Router>
