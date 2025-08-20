@@ -6,6 +6,9 @@ import HomePage from './pages/Home';
 import FeedPage from './pages/Feed';
 import ProfilePage from './components/ProfilePage';
 import ItemDetailPage from './pages/ItemDetail';
+import ReportPage from './pages/ReportPage';
+
+
 import LoginPage from './pages/Login';
 import SignUpPage from './pages/SignUp';
 import AnnouncementsPage from './pages/Announcements';
@@ -21,6 +24,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
+           <Route path="/items/new" element={<ReportPage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
         </Routes>
       </div>
