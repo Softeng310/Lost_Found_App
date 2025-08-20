@@ -4,7 +4,6 @@ import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "fir
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { app } from "../firebase/config";
 import { Button } from "../components/ui/button";
-import Navigation from "../components/Navigation";
 import "../App.css";
 
 export default function SignUpPage() {

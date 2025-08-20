@@ -1,5 +1,4 @@
 import React from 'react';
-import Navigation from '../components/Navigation';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Search, MapPin, Bell, Plus } from 'lucide-react';
