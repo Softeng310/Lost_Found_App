@@ -34,7 +34,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-dvh flex flex-col bg-white">
-      <Navigation />
       <main className="flex-1 flex items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
         <form onSubmit={handleLogin} className="bg-white p-6 rounded shadow-md w-full max-w-sm">
           <h2 className="text-2xl font-bold mb-4">Login</h2>
