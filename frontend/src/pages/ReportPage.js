@@ -1,5 +1,5 @@
 import React from 'react';
-import ItemForm from '../components/ItemReportForm';
+import ItemReportForm from '../components/ItemReportForm';
 
 export default function ReportPage() {
   return (
@@ -8,7 +8,7 @@ export default function ReportPage() {
       <p className="text-gray-600 mb-6">
         Add details so the community can help reconnect items with owners.
       </p>
-      <ItemForm />
+      <ItemReportForm />
     </div>
   );
 }

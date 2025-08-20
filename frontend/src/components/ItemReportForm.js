@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from "../firebase/config";
 import { getIdToken } from "firebase/auth";
@@ -17,13 +17,29 @@ const ItemReportForm = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    // cleanup preview URL when component unmounts
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
 
   const handleChange = (e) => {
-    setItem({ ...item, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setItem(prev => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e) => {
-    setItem({ ...item, image: e.target.files[0] });
+    const file = e.target.files[0];
+    setItem(prev => ({ ...prev, image: file || null }));
+
+    // revoke previous preview then set new one
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+    setPreview(file ? URL.createObjectURL(file) : null);
   };
 
   const validate = () => {
@@ -74,12 +90,24 @@ const ItemReportForm = () => {
         body: formData
       });
 
-      const data = await response.json();
+      // guard in case server returns non-json
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        // ignore JSON parse errors
+      }
 
       if (response.ok) {
         setLoading(false);
-        navigate(`/items/${data.id}`);
+        // show confirmation then navigate
         alert("Item reported successfully!");
+        navigate(`/items/${data?.id || ''}`);
+        // reset state and revoke preview
+        if (preview) {
+          URL.revokeObjectURL(preview);
+          setPreview(null);
+        }
         setItem({
           title: '',
           description: '',
@@ -90,13 +118,32 @@ const ItemReportForm = () => {
           image: null
         });
       } else {
-        console.error("❌ Error submitting form:", data.message);
+        console.error("❌ Error submitting form:", data?.message || response.statusText);
         setLoading(false);
+        alert(data?.message || 'Failed to submit item');
       }
     } catch (error) {
       console.error("🚨 Network error:", error);
       setLoading(false);
+      alert('Network error — please try again');
     }
+  };
+
+  const handleReset = () => {
+    if (preview) {
+      URL.revokeObjectURL(preview);
+      setPreview(null);
+    }
+    setItem({
+      title: '',
+      description: '',
+      type: '',
+      location: '',
+      date: '',
+      status: 'lost',
+      image: null
+    });
+    setErrors({});
   };
 
   return (
@@ -188,9 +235,9 @@ const ItemReportForm = () => {
         {/* Right column */}
         <div className="space-y-4">
           <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-            {item.image ? (
+            {preview ? (
               <img
-                src={URL.createObjectURL(item.image)}
+                src={preview}
                 alt="Preview"
                 className="object-cover w-full h-full"
               />
@@ -238,17 +285,7 @@ const ItemReportForm = () => {
           <div className="flex justify-end gap-4 mt-4">
             <button
               type="reset"
-              onClick={() =>
-                setItem({
-                  title: '',
-                  description: '',
-                  type: '',
-                  location: '',
-                  date: '',
-                  status: 'lost',
-                  image: null
-                })
-              }
+              onClick={handleReset}
               className="bg-gray-200 text-black px-4 py-2 rounded"
             >
               Reset

@@ -1,16 +1,4 @@
-export interface Item {
-  id: string
-  title: string
-  status: string
-  reporter: {
-    name: string
-  }
-  claims: Array<{
-    claimer: string
-  }>
-}
-
-export function getItemsClient(): Item[] {
+export function getItemsClient() {
   return [
     {
       id: "1",

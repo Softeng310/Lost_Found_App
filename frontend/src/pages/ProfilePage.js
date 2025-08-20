@@ -2,12 +2,12 @@ import React, { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { getAuth, signOut } from "firebase/auth"
 import { LogOut } from "lucide-react"
-import { getItemsClient } from "../lib/profile-mock-data"
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { ProfileBadge } from './ui/ProfileBadge'
+import { getProfileItems } from "../lib/mock-data"
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
+import { ProfileBadge } from '../components/ui/ProfileBadge'
 
 export default function ProfilePage() {
-  const items = getItemsClient()
+  const items = getProfileItems()
   const myName = "Guest User"
   const myPosts = useMemo(() => items.filter((i) => i.reporter.name === myName), [items])
   const myClaims = useMemo(() => items.filter((i) => i.claims.some((c) => c.claimer === myName)), [items])
