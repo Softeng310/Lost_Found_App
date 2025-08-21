@@ -65,20 +65,37 @@ app.get('/health', (req, res) => {
 // Initialize Firebase Admin SDK
 try {
   const serviceAccountPath = path.join(__dirname, 'firebase-service-account.json');
-  const serviceAccount = require(serviceAccountPath);
-  
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: SERVER_CONFIG.FIREBASE_DATABASE_URL,
-    storageBucket: SERVER_CONFIG.FIREBASE_STORAGE_BUCKET
-  });
-  
-  console.log('✅ Firebase Admin initialized successfully');
+  let serviceAccount;
+
+  try {
+    serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: SERVER_CONFIG.FIREBASE_DATABASE_URL,
+      storageBucket: SERVER_CONFIG.FIREBASE_STORAGE_BUCKET
+    });
+    console.log('✅ Firebase Admin initialized with service account');
+  } catch (innerErr) {
+    console.warn(`⚠️ Failed to load service account file: ${innerErr.message}`);
+
+    // Fallback to application default credentials
+    try {
+      admin.initializeApp();
+      console.log('✅ Firebase Admin initialized with application default credentials');
+    } catch (fallbackErr) {
+      console.error('❌ Firebase Admin initialization failed with default credentials:', fallbackErr.message);
+      throw fallbackErr; // rethrow so it gets caught by outer catch
+    }
+  }
 } catch (error) {
-  console.error('❌ Failed to initialize Firebase Admin:', error.message);
-  // In production, we can't run without Firebase - exit gracefully
+  console.error('❌ Failed to initialize Firebase Admin completely:', error);
+
+  // In production, exit gracefully
   if (SERVER_CONFIG.NODE_ENV === 'production') {
     process.exit(1);
+  } else {
+    // In dev, rethrow so you see the stack trace
+    throw error;
   }
 }
 
