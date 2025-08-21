@@ -139,6 +139,15 @@ const ItemReportForm = () => {
     return newErrors;
   }, [item]);
 
+  const handleReset = useCallback(() => {
+    if (preview) {
+      URL.revokeObjectURL(preview);
+      setPreview(null);
+    }
+    setItem(INITIAL_ITEM_STATE);
+    setErrors(INITIAL_ERRORS_STATE);
+  }, [preview]);
+
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
@@ -196,15 +205,6 @@ const ItemReportForm = () => {
       setLoading(false);
     }
   }, [item, validateForm, navigate, handleReset]);
-
-  const handleReset = useCallback(() => {
-    if (preview) {
-      URL.revokeObjectURL(preview);
-      setPreview(null);
-    }
-    setItem(INITIAL_ITEM_STATE);
-    setErrors(INITIAL_ERRORS_STATE);
-  }, [preview]);
 
   const renderFieldError = (fieldName) => {
     return errors[fieldName] ? (
