@@ -65,15 +65,23 @@ app.get('/health', (req, res) => {
 // Initialize Firebase Admin SDK
 try {
   const serviceAccountPath = path.join(__dirname, 'firebase-service-account.json');
-  const serviceAccount = require(serviceAccountPath);
-  
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: SERVER_CONFIG.FIREBASE_DATABASE_URL,
-    storageBucket: SERVER_CONFIG.FIREBASE_STORAGE_BUCKET
-  });
-  
-  console.log('✅ Firebase Admin initialized successfully');
+  let initialized = false;
+  let serviceAccount;
+  try {
+    serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: SERVER_CONFIG.FIREBASE_DATABASE_URL,
+      storageBucket: SERVER_CONFIG.FIREBASE_STORAGE_BUCKET
+    });
+    console.log('✅ Firebase Admin initialized with service account');
+    initialized = true;
+  } catch (innerErr) {
+    // If service account file is missing, fallback to default credentials
+    admin.initializeApp();
+    console.log('✅ Firebase Admin initialized with application default credentials');
+    initialized = true;
+  }
 } catch (error) {
   console.error('❌ Failed to initialize Firebase Admin:', error.message);
   // In production, we can't run without Firebase - exit gracefully
