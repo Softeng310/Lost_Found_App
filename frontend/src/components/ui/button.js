@@ -8,13 +8,14 @@ const Button = React.forwardRef(({
   children, 
   ...props 
 }, ref) => {
-  const baseClasses = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background";
+  const baseClasses = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background";
   
   const variants = {
-    default: "bg-emerald-600 text-white hover:bg-emerald-700",
-    outline: "border border-input hover:bg-accent hover:text-accent-foreground",
-    ghost: "hover:bg-accent hover:text-accent-foreground",
-    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    default: "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm",
+    outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100",
+    ghost: "text-gray-700 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200",
+    secondary: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100",
+    destructive: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-sm"
   };
   
   const sizes = {
@@ -41,4 +42,4 @@ const Button = React.forwardRef(({
 
 Button.displayName = "Button";
 
-export { Button };
+export { Button }; 

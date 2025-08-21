@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { Button } from "../components/ui/button";
+import { Button } from "../components/ui/Button";
 import "../App.css";
 
 export default function LoginPage() {

@@ -23,7 +23,7 @@ const DEFAULT_REPORTER = { name: 'Unknown', trust: false };
 export const normalizeFirestoreItem = (data, id) => {
   try {
     // Handle image URL with fallbacks
-    const imageUrl = data.imageUrl || data.imageURL || DEFAULT_IMAGE_URL;
+    const imageUrl = data.imageURL || data.imageUrl || DEFAULT_IMAGE_URL;
     
     // Normalize status/kind
     const kindRaw = data.kind || data.status || '';

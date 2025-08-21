@@ -12,7 +12,7 @@ const app = express();
 app.disable('x-powered-by');
 
 // Configuration constants
-const CONFIG = {
+const SERVER_CONFIG = {
   PORT: process.env.PORT || 5876,
   NODE_ENV: process.env.NODE_ENV || 'development',
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS 
@@ -28,7 +28,7 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (CONFIG.ALLOWED_ORIGINS.includes(origin)) {
+    if (SERVER_CONFIG.ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked request from origin: ${origin}`);
@@ -56,7 +56,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    environment: CONFIG.NODE_ENV,
+    environment: SERVER_CONFIG.NODE_ENV,
     uptime: process.uptime()
   });
 });
@@ -68,14 +68,14 @@ try {
   
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: CONFIG.FIREBASE_DATABASE_URL,
-    storageBucket: CONFIG.FIREBASE_STORAGE_BUCKET
+    databaseURL: SERVER_CONFIG.FIREBASE_DATABASE_URL,
+    storageBucket: SERVER_CONFIG.FIREBASE_STORAGE_BUCKET
   });
   
   console.log('✅ Firebase Admin initialized successfully');
 } catch (error) {
   console.error('❌ Failed to initialize Firebase Admin:', error.message);
-  if (CONFIG.NODE_ENV === 'production') {
+  if (SERVER_CONFIG.NODE_ENV === 'production') {
     process.exit(1);
   }
 }
@@ -129,14 +129,14 @@ app.use((error, req, res, next) => {
   
   // Default error response
   const statusCode = error.statusCode || 500;
-  const message = CONFIG.NODE_ENV === 'production' 
+  const message = SERVER_CONFIG.NODE_ENV === 'production' 
     ? 'Internal server error' 
     : error.message;
   
   res.status(statusCode).json({ 
     error: 'Server error',
     message,
-    ...(CONFIG.NODE_ENV === 'development' && { stack: error.stack })
+    ...(SERVER_CONFIG.NODE_ENV === 'development' && { stack: error.stack })
   });
 });
 
@@ -158,10 +158,10 @@ process.on('SIGINT', () => {
 });
 
 // Start server
-const server = app.listen(CONFIG.PORT, () => {
-  console.log(`🚀 Server running on port ${CONFIG.PORT}`);
-  console.log(`🌍 Environment: ${CONFIG.NODE_ENV}`);
-  console.log(`🔒 CORS origins: ${CONFIG.ALLOWED_ORIGINS.join(', ')}`);
+const server = app.listen(SERVER_CONFIG.PORT, () => {
+  console.log(`🚀 Server running on port ${SERVER_CONFIG.PORT}`);
+  console.log(`🌍 Environment: ${SERVER_CONFIG.NODE_ENV}`);
+  console.log(`🔒 CORS origins: ${SERVER_CONFIG.ALLOWED_ORIGINS.join(', ')}`);
 });
 
 // Handle server errors
@@ -170,7 +170,7 @@ server.on('error', (error) => {
     throw error;
   }
   
-  const bind = typeof CONFIG.PORT === 'string' ? 'Pipe ' + CONFIG.PORT : 'Port ' + CONFIG.PORT;
+  const bind = typeof SERVER_CONFIG.PORT === 'string' ? 'Pipe ' + SERVER_CONFIG.PORT : 'Port ' + SERVER_CONFIG.PORT;
   
   switch (error.code) {
     case 'EACCES':

@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { app } from "../firebase/config";
-import { Button } from "../components/ui/button";
+import { Button } from "../components/ui/Button";
 import "../App.css";
 
 export default function SignUpPage() {

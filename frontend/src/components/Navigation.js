@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import { ShieldCheck, Siren, User, LogOut } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from './ui/Button';
 import { cn } from '../lib/utils';
 
 // Constants for better maintainability

@@ -26,11 +26,11 @@ const upload = multer({
   limits: {
     fileSize: UPLOAD_CONFIG.MAX_FILE_SIZE
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req, file, callback) => {
     if (UPLOAD_CONFIG.ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(null, true);
+      callback(null, true);
     } else {
-      cb(new Error(`Invalid file type. Allowed types: ${UPLOAD_CONFIG.ALLOWED_MIME_TYPES.join(', ')}`));
+      callback(new Error(`Invalid file type. Allowed types: ${UPLOAD_CONFIG.ALLOWED_MIME_TYPES.join(', ')}`));
     }
   }
 });
@@ -38,58 +38,58 @@ const upload = multer({
 // Input validation middleware
 const validateItemInput = (req, res, next) => {
   const { title, description, type, location, date, status } = req.body;
-  const errors = [];
+  const validationErrors = [];
 
   // Validate title
   if (!title || typeof title !== 'string') {
-    errors.push('Title is required and must be a string');
+    validationErrors.push('Title is required and must be a string');
   } else if (title.trim().length < VALIDATION_RULES.TITLE_MIN_LENGTH) {
-    errors.push(`Title must be at least ${VALIDATION_RULES.TITLE_MIN_LENGTH} characters long`);
+    validationErrors.push(`Title must be at least ${VALIDATION_RULES.TITLE_MIN_LENGTH} characters long`);
   } else if (title.trim().length > VALIDATION_RULES.TITLE_MAX_LENGTH) {
-    errors.push(`Title must be no more than ${VALIDATION_RULES.TITLE_MAX_LENGTH} characters long`);
+    validationErrors.push(`Title must be no more than ${VALIDATION_RULES.TITLE_MAX_LENGTH} characters long`);
   }
 
   // Validate description
   if (!description || typeof description !== 'string') {
-    errors.push('Description is required and must be a string');
+    validationErrors.push('Description is required and must be a string');
   } else if (description.trim().length < VALIDATION_RULES.DESCRIPTION_MIN_LENGTH) {
-    errors.push(`Description must be at least ${VALIDATION_RULES.DESCRIPTION_MIN_LENGTH} characters long`);
+    validationErrors.push(`Description must be at least ${VALIDATION_RULES.DESCRIPTION_MIN_LENGTH} characters long`);
   } else if (description.trim().length > VALIDATION_RULES.DESCRIPTION_MAX_LENGTH) {
-    errors.push(`Description must be no more than ${VALIDATION_RULES.DESCRIPTION_MAX_LENGTH} characters long`);
+    validationErrors.push(`Description must be no more than ${VALIDATION_RULES.DESCRIPTION_MAX_LENGTH} characters long`);
   }
 
   // Validate type/category
   if (!type || typeof type !== 'string') {
-    errors.push('Category is required and must be a string');
+    validationErrors.push('Category is required and must be a string');
   }
 
   // Validate location
   if (!location || typeof location !== 'string') {
-    errors.push('Location is required and must be a string');
+    validationErrors.push('Location is required and must be a string');
   }
 
   // Validate date
   if (!date || typeof date !== 'string') {
-    errors.push('Date is required and must be a string');
+    validationErrors.push('Date is required and must be a string');
   } else {
     const parsedDate = new Date(date);
     if (isNaN(parsedDate.getTime())) {
-      errors.push('Date must be a valid date string');
+      validationErrors.push('Date must be a valid date string');
     } else if (parsedDate > new Date()) {
-      errors.push('Date cannot be in the future');
+      validationErrors.push('Date cannot be in the future');
     }
   }
 
   // Validate status
   if (!status || !['lost', 'found'].includes(status)) {
-    errors.push('Status must be either "lost" or "found"');
+    validationErrors.push('Status must be either "lost" or "found"');
   }
 
-  if (errors.length > 0) {
+  if (validationErrors.length > 0) {
     return res.status(400).json({ 
       error: 'Validation failed',
       message: 'Please check your input',
-      details: errors
+      details: validationErrors
     });
   }
 

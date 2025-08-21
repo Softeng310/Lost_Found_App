@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { getAuth, signOut } from "firebase/auth"
 import { LogOut } from "lucide-react"
 import { getProfileItems } from "../lib/mock-data"
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
 
 export default function ProfilePage() {
