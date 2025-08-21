@@ -112,7 +112,7 @@ This project uses Git for versioning. There is only 1 release with A1 features p
 
 ## Contributing
 
- ([CONTRIBUTING.md](CONTRIBUTING.md)) for contribution guidelines, the code of conduct, and development workflow.
+ [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, the code of conduct, and development workflow.
 
 ## Acknowledgements & Contributors
 
@@ -126,6 +126,6 @@ https://github.com/Softeng310/Lost_Found_App/graphs/contributors
 
 ## License
 
-This project is licensed under the MIT License — see ([LICENSE](LICENSE)) for full text.
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for full text.
 
 In short: you may use, copy, modify, and distribute this software under the MIT terms; it is provided "as is", without warranty.
