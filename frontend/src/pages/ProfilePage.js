@@ -7,14 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
 
 export default function ProfilePage() {
+  // Get mock data for now - will be replaced with real user data
   const items = getProfileItems()
   const myName = "Guest User"
+  
+  // Filter items based on current user
   const myPosts = useMemo(() => items.filter((i) => i.reporter.name === myName), [items])
   const myClaims = useMemo(() => items.filter((i) => i.claims.some((c) => c.claimer === myName)), [items])
   
   const navigate = useNavigate()
   const auth = getAuth()
 
+  // Handle user logout
   const handleLogout = async () => {
     try {
       await signOut(auth)
@@ -30,7 +34,7 @@ export default function ProfilePage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Header */}
+          {/* Page header with logout button */}
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Profile & History</h1>
@@ -38,6 +42,7 @@ export default function ProfilePage() {
                 Mock user context. Integrate UPI-backed SSO for identity and trust badges (A2).
               </p>
             </div>
+            {/* Logout button - red to indicate destructive action */}
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
@@ -47,7 +52,7 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* Trust & Verification Card */}
+          {/* Trust verification status */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -60,9 +65,9 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Posts and Claims Grid */}
+          {/* User activity grid - posts and claims */}
           <div className="grid md:grid-cols-2 gap-6">
-            {/* My Posts Card */}
+            {/* Items this user has posted */}
             <Card>
               <CardHeader>
                 <CardTitle>My Posts</CardTitle>
@@ -81,7 +86,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* My Claims Card */}
+            {/* Items this user has claimed */}
             <Card>
               <CardHeader>
                 <CardTitle>My Claims</CardTitle>

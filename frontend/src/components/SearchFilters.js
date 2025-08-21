@@ -2,7 +2,33 @@ import React, { useEffect, useState } from 'react';
 import Input from './ui/Input';
 import Label from './ui/Label';
 import { Select, SelectItem } from './ui/Select';
-import { locations } from '../lib/mock-data';
+
+// Constants matching ItemReportForm for consistency
+const ITEM_CATEGORIES = [
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'stationery', label: 'Stationery' },
+  { value: 'clothing', label: 'Clothing' },
+  { value: 'documents', label: 'Documents' },
+  { value: 'wallets', label: 'Wallets' },
+  { value: 'keys/cards', label: 'Keys/Cards' },
+  { value: 'accessories', label: 'Accessories' },
+  { value: 'other', label: 'Other' }
+];
+
+const LOCATIONS = [
+  'OGGB',
+  'Engineering Building',
+  'Arts and Education Building',
+  'Kate Edgar',
+  'Law Building',
+  'General Library',
+  'Biology Building',
+  'Science Centre',
+  'Clock Tower',
+  'Old Government House',
+  'Hiwa Recreation Centre',
+  'Bioengineering Building'
+];
 
 export function SearchFilters({
   defaultValue,
@@ -26,17 +52,17 @@ export function SearchFilters({
         />
       </div>
 
-      {/* Category and Location Filters */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Category and Location Filters - Single column layout for better text handling */}
+      <div className="space-y-4">
         <div className="space-y-2">
           <Label className="text-sm font-medium text-gray-700">Category</Label>
           <Select value={state.type} onValueChange={(v) => setState({ ...state, type: v })}>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="electronics">Electronics</SelectItem>
-            <SelectItem value="apparel">Apparel</SelectItem>
-            <SelectItem value="accessory">Accessory</SelectItem>
-            <SelectItem value="card">Card/ID</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
+            <SelectItem value="all" className="text-sm">All Categories</SelectItem>
+            {ITEM_CATEGORIES.map(({ value, label }) => (
+              <SelectItem key={value} value={value} className="text-sm">
+                {label}
+              </SelectItem>
+            ))}
           </Select>
         </div>
         <div className="space-y-2">
@@ -45,9 +71,9 @@ export function SearchFilters({
             value={state.location}
             onValueChange={(v) => setState({ ...state, location: v })}
           >
-            <SelectItem value="all">All</SelectItem>
-            {Object.values(locations).map((location) => (
-              <SelectItem key={location} value={location}>
+            <SelectItem value="all" className="text-sm">All Locations</SelectItem>
+            {LOCATIONS.map((location) => (
+              <SelectItem key={location} value={location} className="text-sm">
                 {location}
               </SelectItem>
             ))}

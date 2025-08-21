@@ -1,23 +1,29 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend server for Lost & Found Community App",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"No tests specified yet\" && exit 0",
     "lint": "echo \"No linting configured yet\" && exit 0",
     "build": "echo \"No build step required for Node.js backend\" && exit 0"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "lost-found",
+    "community",
+    "nodejs",
+    "express",
+    "firebase"
+  ],
+  "author": "Lost & Found Community Team",
   "license": "ISC",
   "dependencies": {
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
-    "express": "^5.1.0",
+    "express": "^4.21.2",
     "firebase": "^12.0.0",
     "firebase-admin": "^13.4.0",
     "multer": "^2.0.2",
@@ -25,5 +31,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }

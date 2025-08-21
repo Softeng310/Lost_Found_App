@@ -1,86 +1,179 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from "../firebase/config";
 import { getIdToken } from "firebase/auth";
 
+// Constants for better maintainability
+const ITEM_CATEGORIES = [
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'stationery', label: 'Stationery' },
+  { value: 'clothing', label: 'Clothing' },
+  { value: 'documents', label: 'Documents' },
+  { value: 'wallets', label: 'Wallets' },
+  { value: 'keys/cards', label: 'Keys/Cards' },
+  { value: 'accessories', label: 'Accessories' },
+  { value: 'other', label: 'Other' }
+];
+
+const LOCATIONS = [
+  'OGGB',
+  'Engineering Building',
+  'Arts and Education Building',
+  'Kate Edgar',
+  'Law Building',
+  'General Library',
+  'Biology Building',
+  'Science Centre',
+  'Clock Tower',
+  'Old Government House',
+  'Hiwa Recreation Centre',
+  'Bioengineering Building'
+];
+
+const INITIAL_ITEM_STATE = {
+  title: '',
+  description: '',
+  type: '',
+  location: '',
+  date: '',
+  status: 'lost',
+  image: null
+};
+
+const INITIAL_ERRORS_STATE = {};
+
 const ItemReportForm = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [item, setItem] = useState({
-    title: '',
-    description: '',
-    type: '',
-    location: '',
-    date: '',
-    status: 'lost',
-    image: null
-  });
-
-  const [errors, setErrors] = useState({});
+  const [item, setItem] = useState(INITIAL_ITEM_STATE);
+  const [errors, setErrors] = useState(INITIAL_ERRORS_STATE);
   const [preview, setPreview] = useState(null);
 
+  // Cleanup preview URL when component unmounts
   useEffect(() => {
-    // cleanup preview URL when component unmounts
     return () => {
-      if (preview) URL.revokeObjectURL(preview);
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
     };
   }, [preview]);
 
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setItem(prev => ({ ...prev, [name]: value }));
-  };
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  }, [errors]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = useCallback((e) => {
     const file = e.target.files[0];
+    
+    if (file) {
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, image: 'Image must be less than 5MB' }));
+        return;
+      }
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setErrors(prev => ({ ...prev, image: 'Please select a valid image file' }));
+        return;
+      }
+    }
+
     setItem(prev => ({ ...prev, image: file || null }));
 
-    // revoke previous preview then set new one
+    // Clean up previous preview and set new one
     if (preview) {
       URL.revokeObjectURL(preview);
     }
     setPreview(file ? URL.createObjectURL(file) : null);
-  };
+    
+    // Clear image error
+    if (errors.image) {
+      setErrors(prev => ({ ...prev, image: '' }));
+    }
+  }, [preview, errors]);
 
-  const validate = () => {
-    let errs = {};
-    if (!item.title) errs.title = "Title is required.";
-    if (!item.description) errs.description = "Description is required.";
-    if (!item.type) errs.type = "Type is required.";
-    if (!item.location) errs.location = "Location is required.";
-    if (!item.date) errs.date = "Date is required.";
-    if (!item.image) errs.image = "Image is required.";
-    return errs;
-  };
+  const validateForm = useCallback(() => {
+    const newErrors = {};
+    
+    if (!item.title.trim()) {
+      newErrors.title = 'Title is required';
+    } else if (item.title.trim().length < 3) {
+      newErrors.title = 'Title must be at least 3 characters long';
+    }
+    
+    if (!item.description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (item.description.trim().length < 10) {
+      newErrors.description = 'Description must be at least 10 characters long';
+    }
+    
+    if (!item.type) {
+      newErrors.type = 'Please select a category';
+    }
+    
+    if (!item.location) {
+      newErrors.location = 'Please select a location';
+    }
+    
+    if (!item.date) {
+      newErrors.date = 'Please select a date and time';
+    } else {
+      const selectedDate = new Date(item.date);
+      const now = new Date();
+      if (selectedDate > now) {
+        newErrors.date = 'Date cannot be in the future';
+      }
+    }
+    
+    if (!item.image) {
+      newErrors.image = 'Please upload an image';
+    }
+    
+    return newErrors;
+  }, [item]);
 
-  const handleSubmit = async (e) => {
+  const handleReset = useCallback(() => {
+    if (preview) {
+      URL.revokeObjectURL(preview);
+      setPreview(null);
+    }
+    setItem(INITIAL_ITEM_STATE);
+    setErrors(INITIAL_ERRORS_STATE);
+  }, [preview]);
+
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    setLoading(true);
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      setLoading(false);
+    
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
-    const formData = new FormData();
-    formData.append("title", item.title);
-    formData.append("description", item.description);
-    formData.append("type", item.type);
-    formData.append("location", item.location);
-    formData.append("date", item.date);
-    formData.append("status", item.status);
-    formData.append("image", item.image);
-
+    setLoading(true);
+    
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        alert("You must be logged in to post an item");
-        setLoading(false);
-        return;
+        throw new Error('You must be logged in to post an item');
       }
 
       const idToken = await getIdToken(currentUser);
+      const formData = new FormData();
+      
+      // Append form data
+      Object.keys(item).forEach(key => {
+        if (item[key] !== null) {
+          formData.append(key, item[key]);
+        }
+      });
 
       const response = await fetch('http://localhost:5876/api/items', {
         method: 'POST',
@@ -90,217 +183,178 @@ const ItemReportForm = () => {
         body: formData
       });
 
-      // guard in case server returns non-json
-      let data = null;
+      let responseData = null;
       try {
-        data = await response.json();
-      } catch (_) {
-        // ignore JSON parse errors
+        responseData = await response.json();
+      } catch (parseError) {
+        console.warn('Failed to parse response as JSON:', parseError);
       }
 
       if (response.ok) {
-        setLoading(false);
-        // show confirmation then navigate
-        alert("Item reported successfully!");
-        navigate(`/items/${data?.id || ''}`);
-        // reset state and revoke preview
-        if (preview) {
-          URL.revokeObjectURL(preview);
-          setPreview(null);
-        }
-        setItem({
-          title: '',
-          description: '',
-          type: '',
-          location: '',
-          date: '',
-          status: 'lost',
-          image: null
-        });
+        alert('Item reported successfully!');
+        navigate(`/items/${responseData?.id || ''}`);
+        handleReset();
       } else {
-        console.error("❌ Error submitting form:", data?.message || response.statusText);
-        setLoading(false);
-        alert(data?.message || 'Failed to submit item');
+        const errorMessage = responseData?.message || `Failed to submit item (${response.status})`;
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error("🚨 Network error:", error);
+      console.error('Error submitting form:', error);
+      alert(error.message || 'Network error — please try again');
+    } finally {
       setLoading(false);
-      alert('Network error — please try again');
     }
+  }, [item, validateForm, navigate, handleReset]);
+
+  const renderFieldError = (fieldName) => {
+    return errors[fieldName] ? (
+      <p className="text-red-500 text-sm mt-1">{errors[fieldName]}</p>
+    ) : null;
   };
 
-  const handleReset = () => {
-    if (preview) {
-      URL.revokeObjectURL(preview);
-      setPreview(null);
-    }
-    setItem({
-      title: '',
-      description: '',
-      type: '',
-      location: '',
-      date: '',
-      status: 'lost',
-      image: null
-    });
-    setErrors({});
-  };
+  const renderSelectField = (name, label, options, placeholder = 'Select') => (
+    <div>
+      <label className="block font-semibold mb-2">{label}</label>
+      <select
+        name={name}
+        value={item[name]}
+        onChange={handleChange}
+        className={`w-full border rounded-lg px-3 py-2 transition-colors ${
+          errors[name] ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
+        } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+      >
+        <option value="">{placeholder}</option>
+        {options.map(option => (
+          <option key={option.value || option} value={option.value || option}>
+            {option.label || option}
+          </option>
+        ))}
+      </select>
+      {renderFieldError(name)}
+    </div>
+  );
+
+  const renderInputField = (name, label, type = 'text', placeholder = '') => (
+    <div>
+      <label className="block font-semibold mb-2">{label}</label>
+      <input
+        type={type}
+        name={name}
+        value={item[name]}
+        onChange={handleChange}
+        placeholder={placeholder}
+        className={`w-full border rounded-lg px-3 py-2 transition-colors ${
+          errors[name] ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
+        } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+      />
+      {renderFieldError(name)}
+    </div>
+  );
 
   return (
-    <>
+    <div className="max-w-5xl mx-auto mt-8">
       {loading && (
-        <p className="text-blue-600 text-center font-semibold">
-          Submitting item, please wait...
-        </p>
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-blue-700 text-center font-semibold">
+            Submitting item, please wait...
+          </p>
+        </div>
       )}
 
       <form
         onSubmit={handleSubmit}
-        className="max-w-5xl mx-auto mt-8 bg-white p-8 rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 gap-6"
+        className="bg-white p-8 rounded-lg shadow-lg grid grid-cols-1 md:grid-cols-2 gap-8"
       >
-        {/* Left column */}
-        <div className="space-y-4">
+        {/* Left Column */}
+        <div className="space-y-6">
+          {renderSelectField('status', 'Type', [
+            { value: 'lost', label: 'Lost' },
+            { value: 'found', label: 'Found' }
+          ])}
+          
+          {renderSelectField('type', 'Category', ITEM_CATEGORIES)}
+          {renderSelectField('location', 'Location', LOCATIONS)}
+          
           <div>
-            <label className="block font-semibold">Type</label>
-            <select
-              name="status"
-              value={item.status}
-              onChange={handleChange}
-              className="w-full border border-gray-300 p-2 rounded"
-            >
-              <option value="lost">Lost</option>
-              <option value="found">Found</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-semibold">Category</label>
-            <select
-              name="type"
-              value={item.type}
-              onChange={handleChange}
-              className="w-full border border-gray-300 p-2 rounded"
-            >
-              <option value="">Select</option>
-              <option value="electronics">Electronics</option>
-              <option value="stationery">Stationery</option>
-              <option value="clothing">Clothing</option>
-              <option value="documents">Documents</option>
-              <option value="wallets">Wallets</option>
-              <option value="keys/cards">Keys/Cards</option>
-              <option value="accessories">Accessories</option>
-              <option value="other">Other</option>
-            </select>
-            {errors.type && <p className="text-red-500 text-sm">{errors.type}</p>}
-          </div>
-
-          <div>
-            <label className="block font-semibold">Location</label>
-            <select
-              name="location"
-              value={item.location}
-              onChange={handleChange}
-              className="w-full border border-gray-300 p-2 rounded"
-            >
-              <option value="">Select</option>
-              <option value="OGGB">OGGB</option>
-              <option value="Engineering Building">Engineering Building</option>
-              <option value="Arts and Education Building">Arts and Education Building</option>
-              <option value="Kate Edgar">Kate Edgar</option>
-              <option value="Law Building">Law Building</option>
-              <option value="General Library">General Library</option>
-              <option value="Biology Building">Biology Building</option>
-              <option value="Science Centre">Science Centre</option>
-              <option value="Clock Tower">Clock Tower</option>
-              <option value="Old Government House">Old Government House</option>
-              <option value="Hiwa Recreation Centre">Hiwa Recreation Centre</option>
-              <option value="Bioengineering Building">Bioengineering Building</option>
-            </select>
-            {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
-          </div>
-
-          <div className="flex flex-col">
-            <label className="font-medium text-sm mb-1">Date & Time</label>
+            <label className="block font-semibold mb-2">Date & Time</label>
             <input
               type="datetime-local"
               name="date"
               value={item.date}
               onChange={handleChange}
-              className="border rounded-lg px-3 py-2 text-sm w-full"
+              className={`w-full border rounded-lg px-3 py-2 transition-colors ${
+                errors.date ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
+              } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
             />
-            {errors.date && <p className="text-red-500 text-sm">{errors.date}</p>}
+            {renderFieldError('date')}
           </div>
         </div>
 
-        {/* Right column */}
-        <div className="space-y-4">
-          <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-            {preview ? (
-              <img
-                src={preview}
-                alt="Preview"
-                className="object-cover w-full h-full"
-              />
-            ) : (
-              <div className="text-gray-500">Image Preview</div>
-            )}
-          </div>
-
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Image Preview */}
           <div>
-            <label className="block font-semibold">Title</label>
-            <input
-              type="text"
-              name="title"
-              value={item.title}
-              onChange={handleChange}
-              placeholder="e.g., Black iPhone 13 with green case"
-              className="w-full border border-gray-300 p-2 rounded"
-            />
-            {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
-          </div>
-
-          <div>
-            <label className="block font-semibold">Description</label>
-            <textarea
-              name="description"
-              value={item.description}
-              onChange={handleChange}
-              placeholder="Add unique identifiers/more details on where the item was found."
-              className="w-full border border-gray-300 p-2 rounded"
-            />
-            {errors.description && <p className="text-red-500 text-sm">{errors.description}</p>}
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Photo</label>
+            <label className="block font-semibold mb-2">Photo</label>
+            <div className="aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden hover:border-emerald-400 transition-colors">
+              {preview ? (
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="object-cover w-full h-full rounded-lg"
+                />
+              ) : (
+                <div className="text-center text-gray-500">
+                  <div className="text-4xl mb-2">📷</div>
+                  <div className="text-sm">Click to upload image</div>
+                </div>
+              )}
+            </div>
             <input
               type="file"
               accept="image/*"
               onChange={handleFileChange}
-              className="w-full border border-gray-300 px-4 py-2 rounded text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+              className="mt-2 w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-colors"
             />
-            {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
+            {renderFieldError('image')}
           </div>
 
-          <div className="flex justify-end gap-4 mt-4">
+          {renderInputField('title', 'Title', 'text', 'e.g., Black iPhone 13 with green case')}
+          
+          <div>
+            <label className="block font-semibold mb-2">Description</label>
+            <textarea
+              name="description"
+              value={item.description}
+              onChange={handleChange}
+              placeholder="Add unique identifiers and more details about the item..."
+              rows={4}
+              className={`w-full border rounded-lg px-3 py-2 transition-colors resize-none ${
+                errors.description ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
+              } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+            />
+            {renderFieldError('description')}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-4 pt-4">
             <button
-              type="reset"
+              type="button"
               onClick={handleReset}
-              className="bg-gray-200 text-black px-4 py-2 rounded"
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
             >
               Reset
             </button>
             <button
               type="submit"
-              className="bg-green-600 text-white px-4 py-2 rounded"
               disabled={loading}
+              className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
-              {loading ? "Submitting..." : "Submit"}
+              {loading ? 'Submitting...' : 'Submit'}
             </button>
           </div>
         </div>
       </form>
-    </>
+    </div>
   );
 };
 
