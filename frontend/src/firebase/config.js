@@ -2,7 +2,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
-// (optional) only if you actually use Firestore in frontend
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {

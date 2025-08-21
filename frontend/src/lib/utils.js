@@ -1,45 +1,47 @@
 import { clsx } from 'clsx';
 
 /**
- * Utility function to conditionally join classNames
- * @param {...any} inputs - Class names or objects
+ * Combine multiple class names conditionally
+ * Useful for applying classes based on props or state
+ * @param {...any} inputs - Class names, objects, or arrays
  * @returns {string} - Combined className string
  */
 export function cn(...inputs) {
   return clsx(inputs);
 }
 
-// Constants for better maintainability
+// Default values for when data is missing or invalid
 const DEFAULT_IMAGE_URL = '/placeholder.svg';
 const DEFAULT_LOCATION = 'Unknown';
 const DEFAULT_REPORTER = { name: 'Unknown', trust: false };
 
 /**
- * Normalizes Firestore item data to a consistent UI model
- * @param {Object} data - Raw Firestore document data
- * @param {string} id - Document ID
- * @returns {Object} Normalized item object
+ * Clean up Firestore data to match our UI expectations
+ * Handles different field names and data formats from various sources
+ * @param {Object} data - Raw document data from Firestore
+ * @param {string} id - Document ID (optional)
+ * @returns {Object} Normalized item object ready for the UI
  */
 export const normalizeFirestoreItem = (data, id) => {
   try {
-    // Handle image URL with fallbacks
+    // Handle different image URL field names (some APIs use imageURL vs imageUrl)
     const imageUrl = data.imageURL || data.imageUrl || DEFAULT_IMAGE_URL;
     
-    // Normalize status/kind
+    // Normalize status/kind - some items use 'status', others use 'kind'
     const kindRaw = data.kind || data.status || '';
     const kind = String(kindRaw).toLowerCase();
     
-    // Normalize category/type
+    // Normalize category/type - handle different naming conventions
     const typeRaw = data.category || data.type || '';
     const category = normalizeCategory(String(typeRaw).toLowerCase());
     
-    // Handle reporter information
+    // Extract reporter info - could be direct or a reference
     const reporter = normalizeReporter(data.reporter, data.postedBy);
     
-    // Normalize date
+    // Parse date - handle Firestore timestamps and strings
     const date = normalizeDate(data.date);
     
-    // Normalize location
+    // Use provided location or fallback
     const location = data.location || DEFAULT_LOCATION;
 
     return {
@@ -55,7 +57,7 @@ export const normalizeFirestoreItem = (data, id) => {
     };
   } catch (error) {
     console.error('Error normalizing Firestore item:', error);
-    // Return a safe fallback object
+    // Return a safe fallback so the UI doesn't crash
     return {
       id: id || '',
       kind: 'unknown',
@@ -71,9 +73,10 @@ export const normalizeFirestoreItem = (data, id) => {
 };
 
 /**
- * Normalizes category names for consistency
+ * Map category names to consistent values
+ * Handles variations like 'accessories' vs 'accessory'
  * @param {string} category - Raw category string
- * @returns {string} Normalized category
+ * @returns {string} Normalized category name
  */
 const normalizeCategory = (category) => {
   const categoryMap = {
@@ -91,12 +94,14 @@ const normalizeCategory = (category) => {
 };
 
 /**
- * Normalizes reporter information
- * @param {Object|undefined} reporter - Reporter object
- * @param {Object|string|undefined} postedBy - Posted by reference
- * @returns {Object} Normalized reporter object
+ * Extract reporter information from various data formats
+ * Handles both direct user objects and Firestore document references
+ * @param {Object|undefined} reporter - Direct reporter object
+ * @param {Object|string|undefined} postedBy - Firestore reference or user ID
+ * @returns {Object} Normalized reporter object with name and trust status
  */
 const normalizeReporter = (reporter, postedBy) => {
+  // If we have a direct reporter object, use it
   if (reporter && typeof reporter === 'object') {
     return {
       name: reporter.name || 'Unknown',
@@ -104,11 +109,12 @@ const normalizeReporter = (reporter, postedBy) => {
     };
   }
   
-  // Handle postedBy reference
+  // Handle postedBy reference - could be a Firestore doc ref or user ID
   if (postedBy) {
     if (typeof postedBy === 'object' && postedBy.id) {
       return { name: postedBy.id, trust: false };
     } else if (typeof postedBy === 'string') {
+      // Extract user ID from path like 'users/abc123'
       const parts = postedBy.split('/');
       const name = parts[parts.length - 1] || 'Unknown';
       return { name, trust: false };
@@ -119,33 +125,34 @@ const normalizeReporter = (reporter, postedBy) => {
 };
 
 /**
- * Normalizes date values
- * @param {any} dateValue - Date value from Firestore
- * @returns {string} ISO date string
+ * Convert various date formats to ISO strings
+ * Handles Firestore timestamps, Date objects, strings, and numbers
+ * @param {any} dateValue - Date value from Firestore or form
+ * @returns {string} ISO date string for consistent display
  */
 const normalizeDate = (dateValue) => {
   try {
+    // Handle Firestore Timestamp objects
     if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
-      // Firestore Timestamp
       return dateValue.toDate().toISOString();
     } else if (dateValue instanceof Date) {
-      // JavaScript Date
+      // Handle JavaScript Date objects
       return dateValue.toISOString();
     } else if (typeof dateValue === 'string') {
-      // String date
+      // Handle string dates
       const parsed = new Date(dateValue);
       if (!isNaN(parsed.getTime())) {
         return parsed.toISOString();
       }
     } else if (typeof dateValue === 'number') {
-      // Timestamp number
+      // Handle timestamp numbers (milliseconds since epoch)
       const parsed = new Date(dateValue);
       if (!isNaN(parsed.getTime())) {
         return parsed.toISOString();
       }
     }
     
-    // Fallback to current date
+    // Fallback to current date if parsing fails
     return new Date().toISOString();
   } catch (error) {
     console.warn('Error normalizing date:', error);
@@ -154,7 +161,8 @@ const normalizeDate = (dateValue) => {
 };
 
 /**
- * Common button style classes to reduce duplication
+ * Pre-built button styles to reduce duplication
+ * Each variant has its own color scheme and hover states
  */
 export const buttonStyles = {
   base: "inline-flex items-center justify-center rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background h-10 py-2 px-4",
@@ -166,7 +174,8 @@ export const buttonStyles = {
 };
 
 /**
- * Common card style classes to reduce duplication
+ * Card styling options for different use cases
+ * Includes hover effects and interactive states
  */
 export const cardStyles = {
   base: "rounded-lg border border-gray-200 bg-white text-gray-900 shadow-sm",
@@ -175,7 +184,8 @@ export const cardStyles = {
 };
 
 /**
- * Common input style classes
+ * Input field styling for forms
+ * Includes focus states and error handling
  */
 export const inputStyles = {
   base: "w-full border rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1",
@@ -185,7 +195,8 @@ export const inputStyles = {
 };
 
 /**
- * Common spacing utilities
+ * Common spacing utilities for consistent layouts
+ * Use these instead of hardcoded spacing values
  */
 export const spacing = {
   xs: 'space-y-1',
@@ -196,7 +207,8 @@ export const spacing = {
 };
 
 /**
- * Common text utilities
+ * Typography styles for consistent text appearance
+ * Helps maintain visual hierarchy across the app
  */
 export const textStyles = {
   h1: 'text-3xl font-bold text-gray-900',
@@ -209,7 +221,8 @@ export const textStyles = {
 };
 
 /**
- * Debounce function for performance optimization
+ * Delay function execution to improve performance
+ * Useful for search inputs and other frequent events
  * @param {Function} func - Function to debounce
  * @param {number} wait - Wait time in milliseconds
  * @returns {Function} Debounced function
@@ -227,7 +240,8 @@ export function debounce(func, wait) {
 }
 
 /**
- * Throttle function for performance optimization
+ * Limit function execution rate
+ * Useful for scroll events and other high-frequency actions
  * @param {Function} func - Function to throttle
  * @param {number} limit - Time limit in milliseconds
  * @returns {Function} Throttled function
@@ -244,10 +258,11 @@ export function throttle(func, limit) {
 }
 
 /**
- * Safe JSON parse with fallback
+ * Safely parse JSON strings without crashing
+ * Returns fallback value if parsing fails
  * @param {string} jsonString - JSON string to parse
- * @param {any} fallback - Fallback value if parsing fails
- * @returns {any} Parsed JSON or fallback
+ * @param {any} fallback - Value to return if parsing fails
+ * @returns {any} Parsed JSON or fallback value
  */
 export function safeJsonParse(jsonString, fallback = null) {
   try {
@@ -259,9 +274,10 @@ export function safeJsonParse(jsonString, fallback = null) {
 }
 
 /**
- * Format file size in human readable format
+ * Convert file size in bytes to human-readable format
+ * Shows sizes like "2.5 MB" instead of raw bytes
  * @param {number} bytes - File size in bytes
- * @returns {string} Formatted file size
+ * @returns {string} Formatted file size with units
  */
 export function formatFileSize(bytes) {
   if (bytes === 0) return '0 Bytes';

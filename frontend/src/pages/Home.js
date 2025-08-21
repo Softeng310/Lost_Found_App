@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/ui/button';
 import { Search, MapPin, Bell, Plus, Users, Shield, Heart } from 'lucide-react';
 
-// Constants for better maintainability
+// Page content constants - easy to update without digging through JSX
 const HERO_TITLE = 'Lost & Found Community';
 const HERO_SUBTITLE = 'Connect with your community to find lost items and return found belongings. Together we can make our campus a better place.';
 
+// Feature highlights - what makes our platform special
 const FEATURES = [
   {
     icon: Search,
@@ -28,6 +29,7 @@ const FEATURES = [
   }
 ];
 
+// Community stats - these could be dynamic in the future
 const STATS = [
   { label: 'Items Reunited', value: '500+', icon: Heart },
   { label: 'Active Users', value: '2,000+', icon: Users },
@@ -38,7 +40,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-emerald-50">
       <main className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
+        {/* Hero section - main call to action */}
         <section className="text-center py-20">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight">
@@ -47,6 +49,7 @@ const HomePage = () => {
             <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed">
               {HERO_SUBTITLE}
             </p>
+            {/* Action buttons - primary user flows */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/feed">
                 <Button size="lg" className="gap-3 text-lg px-8 py-4 shadow-lg hover:shadow-xl transition-all duration-200">
@@ -68,7 +71,7 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* Stats Section */}
+        {/* Stats section - build trust with numbers */}
         <section className="py-16">
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {STATS.map(({ label, value, icon: Icon }) => (
@@ -83,7 +86,7 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* Features Section */}
+        {/* Features section - explain how it works */}
         <section className="py-20">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -94,6 +97,7 @@ const HomePage = () => {
             </p>
           </div>
           
+          {/* Feature cards with hover effects */}
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {FEATURES.map(({ icon: Icon, title, description, color }) => (
               <div key={title} className="text-center p-8 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
@@ -109,7 +113,7 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* CTA Section */}
+        {/* Call to action - encourage signups */}
         <section className="py-20">
           <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-2xl p-12 text-center text-white">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
@@ -118,6 +122,7 @@ const HomePage = () => {
             <p className="text-xl mb-8 text-emerald-100 max-w-2xl mx-auto">
               Join our community and help make a difference in your campus. Every item reunited is a story of hope and community.
             </p>
+            {/* CTA buttons with inverted colors */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/signup">
                 <Button 
@@ -140,23 +145,26 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* Trust Indicators */}
+        {/* Trust indicators - why users should trust us */}
         <section className="py-16 text-center">
           <div className="max-w-4xl mx-auto">
             <h3 className="text-2xl font-semibold text-gray-900 mb-8">
               Trusted by the Community
             </h3>
             <div className="grid md:grid-cols-3 gap-8">
+              {/* Security focus */}
               <div className="p-6">
                 <div className="text-4xl mb-4">🔒</div>
                 <h4 className="font-semibold text-gray-900 mb-2">Secure & Private</h4>
                 <p className="text-gray-600">Your information is protected with enterprise-grade security</p>
               </div>
+              {/* Performance focus */}
               <div className="p-6">
                 <div className="text-4xl mb-4">⚡</div>
                 <h4 className="font-semibold text-gray-900 mb-2">Fast & Reliable</h4>
                 <p className="text-gray-600">Built for speed and reliability to serve you when it matters most</p>
               </div>
+              {/* Community focus */}
               <div className="p-6">
                 <div className="text-4xl mb-4">🤝</div>
                 <h4 className="font-semibold text-gray-900 mb-2">Community Driven</h4>

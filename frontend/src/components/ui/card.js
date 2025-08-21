@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 
+// Main card container - wraps content with consistent styling
 const Card = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
@@ -13,6 +14,7 @@ const Card = React.forwardRef(({ className, ...props }, ref) => (
 ));
 Card.displayName = "Card";
 
+// Card header section - typically contains title and actions
 const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
@@ -22,6 +24,7 @@ const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardHeader.displayName = "CardHeader";
 
+// Card title - main heading for the card content
 const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
   <h3
     ref={ref}
@@ -31,6 +34,7 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardTitle.displayName = "CardTitle";
 
+// Card description - subtitle or explanatory text
 const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
   <p
     ref={ref}
@@ -40,11 +44,13 @@ const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardDescription.displayName = "CardDescription";
 
+// Card content - main body area with reduced top padding
 const CardContent = React.forwardRef(({ className, ...props }, ref) => (
   <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
+// Card footer - action buttons or additional info at bottom
 const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
