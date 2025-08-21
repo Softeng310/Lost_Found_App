@@ -18,7 +18,7 @@
     "firebase"
   ],
   "author": "Lost & Found Community Team",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
