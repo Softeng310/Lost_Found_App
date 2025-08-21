@@ -195,7 +195,7 @@ const ItemReportForm = () => {
     } finally {
       setLoading(false);
     }
-  }, [item, validateForm, navigate]);
+  }, [item, validateForm, navigate, handleReset]);
 
   const handleReset = useCallback(() => {
     if (preview) {
