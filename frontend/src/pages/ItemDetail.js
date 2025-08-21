@@ -3,26 +3,52 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
 import { ArrowLeft, ShieldCheck } from '../components/ui/icons';
 import { db } from '../firebase/config';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { normalizeFirestoreItem, buttonStyles, cardStyles } from '../lib/utils';
 
 const ItemDetailPage = () => {
   const params = useParams();
   const navigate = useNavigate();
   const [item, setItem] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
 
   useEffect(() => {
     const itemId = String(params?.id || '');
     if (!itemId) return;
+
     const ref = doc(db, 'items', itemId);
-    const unsubscribe = onSnapshot(ref, (snapshot) => {
+    const unsubscribe = onSnapshot(ref, async (snapshot) => {
       const data = snapshot.data();
       if (!data) {
         setItem(null);
         return;
       }
-      setItem(normalizeFirestoreItem(data, snapshot.id));
+
+      const normalizedItem = normalizeFirestoreItem(data, snapshot.id);
+      setItem(normalizedItem);
+
+      // Fetch user information from the postedBy reference
+      if (data.postedBy && data.postedBy.path) {
+        try {
+          const userDoc = await getDoc(doc(db, data.postedBy.path));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUserInfo({
+              name: userData.displayName || userData.name || userData.email || 'Unknown User',
+              trust: userData.trust || false
+            });
+          } else {
+            setUserInfo({ name: 'Unknown User', trust: false });
+          }
+        } catch (userError) {
+          console.error('Error fetching user info:', userError);
+          setUserInfo({ name: 'Unknown User', trust: false });
+        }
+      } else {
+        setUserInfo({ name: 'Unknown User', trust: false });
+      }
     });
+
     return () => unsubscribe();
   }, [params]);
 
@@ -34,9 +60,9 @@ const ItemDetailPage = () => {
           className={`mb-4 gap-2 ${buttonStyles.base} ${buttonStyles.ghost}`}
         >
           <ArrowLeft />
-          {"Back"}
+          Back
         </button>
-        <p className="text-muted-foreground">{"Item not found."}</p>
+        <p className="text-muted-foreground">Item not found.</p>
       </div>
     );
   }
@@ -49,12 +75,12 @@ const ItemDetailPage = () => {
           className={`gap-2 ${buttonStyles.base} ${buttonStyles.ghost}`}
         >
           <ArrowLeft />
-          {"Back to feed"}
+          Back to feed
         </Link>
 
         <div className="grid sm:grid-cols-[320px_1fr] gap-6">
           <img
-            src={item.imageUrl || "/placeholder.svg"}
+            src={item.imageURL || item.imageUrl || "/placeholder.svg"}
             width={320}
             height={240}
             alt={item.title}
@@ -63,13 +89,15 @@ const ItemDetailPage = () => {
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <Badge variant="secondary" className="capitalize">
-                {item.kind}
+                {item.kind || item.status}
               </Badge>
-              <Badge className="bg-emerald-600 hover:bg-emerald-700">{item.category}</Badge>
-              {item.reporter.trust && (
+              <Badge className="bg-emerald-600 hover:bg-emerald-700">
+                {item.category || item.type}
+              </Badge>
+              {userInfo?.trust && (
                 <Badge variant="outline" className="gap-1">
                   <ShieldCheck />
-                  {"Trusted"}
+                  Trusted
                 </Badge>
               )}
             </div>
@@ -77,24 +105,24 @@ const ItemDetailPage = () => {
             <p className="text-muted-foreground mt-2">{item.description}</p>
             <div className="mt-4 text-sm">
               <p>
-                <span className="font-medium">{"Location:"}</span>
+                <span className="font-medium">Location:</span>
                 {` ${item.location}`}
               </p>
               <p>
-                <span className="font-medium">{"Posted:"}</span>
+                <span className="font-medium">Posted:</span>
                 {` ${new Date(item.date).toLocaleString()}`}
               </p>
               <p>
-                <span className="font-medium">{"Reporter:"}</span>
-                {` ${item.reporter.name}`}
+                <span className="font-medium">Reporter:</span>
+                {` ${userInfo?.name || 'Unknown User'}`}
               </p>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <button className={`${buttonStyles.base} ${buttonStyles.primary}`}>
-                {"Claim Item"}
+                Claim Item
               </button>
               <button className={`${buttonStyles.base} ${buttonStyles.secondary}`}>
-                {"Message"}
+                Message
               </button>
             </div>
           </div>
@@ -104,19 +132,19 @@ const ItemDetailPage = () => {
       <aside className="space-y-4">
         <div className={cardStyles.base}>
           <div className="p-4">
-            <h3 className="font-medium mb-2">{"Safety & Verification"}</h3>
+            <h3 className="font-medium mb-2">Safety & Verification</h3>
             <p className="text-sm text-muted-foreground">
-              {"To verify ownership, be ready to share specific details such as color, engravings, or unique marks."}
+              To verify ownership, be ready to share specific details such as color, engravings, or unique marks.
             </p>
           </div>
         </div>
         <div className={cardStyles.base}>
           <div className="p-4">
-            <h3 className="font-medium mb-2">{"Tips for Pickup"}</h3>
+            <h3 className="font-medium mb-2">Tips for Pickup</h3>
             <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-              <li>{"Meet in a public campus area."}</li>
-              <li>{"Bring an ID if requested by the finder."}</li>
-              <li>{"Confirm item details before handover."}</li>
+              <li>Meet in a public campus area.</li>
+              <li>Bring an ID if requested by the finder.</li>
+              <li>Confirm item details before handover.</li>
             </ul>
           </div>
         </div>
