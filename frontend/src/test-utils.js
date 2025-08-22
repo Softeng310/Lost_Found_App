@@ -271,31 +271,6 @@ export const MockIcons = {
   Info: () => <div data-testid="info-icon">Info</div>,
 };
 
-// Mock Firebase functions
-export const MockFirebase = {
-  auth: {
-    getAuth: jest.fn(),
-    createUserWithEmailAndPassword: jest.fn(),
-    signInWithEmailAndPassword: jest.fn(),
-    onAuthStateChanged: jest.fn(),
-    signOut: jest.fn(),
-  },
-  firestore: {
-    getFirestore: jest.fn(),
-    collection: jest.fn(),
-    doc: jest.fn(),
-    setDoc: jest.fn(),
-    onSnapshot: jest.fn(),
-    query: jest.fn(),
-    orderBy: jest.fn(),
-    getDocs: jest.fn(),
-  },
-  config: {
-    db: {},
-    auth: {},
-  },
-};
-
 // Mock router functions
 export const MockRouter = {
   mockNavigate: jest.fn(),
@@ -352,7 +327,6 @@ export const testHelpers = {
           }
         } catch (error) {
           // Element not found, continue checking
-          // Log error for debugging if needed
           console.debug('Element not found yet:', error.message);
         }
         
@@ -381,81 +355,4 @@ export const testHelpers = {
       fireEvent.change(input, { target: { value } });
     });
   },
-};
-
-// Shared test utilities to reduce duplication
-export const SharedTestUtils = {
-  // Common mock user data
-  createMockUser: (overrides = {}) => ({
-    uid: 'test-uid',
-    email: 'test@example.com',
-    displayName: 'Test User',
-    photoURL: 'https://example.com/avatar.jpg',
-    ...overrides
-  }),
-
-  // Common mock items data
-  createMockItems: (count = 3) => Array.from({ length: count }, (_, i) => ({
-    id: String(i + 1),
-    title: `Test Item ${i + 1}`,
-    description: `Test description ${i + 1}`,
-    kind: i % 2 === 0 ? 'lost' : 'found',
-    category: ['electronics', 'clothing', 'personal'][i % 3],
-    location: ['OGGB', 'library', 'cafeteria'][i % 3],
-    date: new Date(`2024-01-${String(i + 1).padStart(2, '0')}`),
-  })),
-
-  // Common auth state setup
-  setupAuthState: (onAuthStateChanged, mockUser, mockUnsubscribe) => {
-    onAuthStateChanged.mockImplementation((auth, callback) => {
-      callback(mockUser);
-      return mockUnsubscribe;
-    });
-  },
-
-  // Common Firebase snapshot setup
-  setupFirebaseSnapshot: (onSnapshot, mockItems, mockUnsubscribe) => {
-    onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-      successCallback({
-        docs: mockItems.map(item => ({
-          data: () => item,
-          id: item.id
-        }))
-      });
-      return mockUnsubscribe;
-    });
-  },
-
-  // Common test assertions
-  assertCommonElements: (screen) => {
-    expect(screen.getByRole('main')).toBeInTheDocument();
-  },
-
-  // Common form interaction helpers
-  fillFormField: (screen, testId, value) => {
-    const field = screen.getByTestId(testId);
-    fireEvent.change(field, { target: { value } });
-    return field;
-  },
-
-  submitForm: (screen, testId = 'submit-button') => {
-    const submitButton = screen.getByTestId(testId);
-    fireEvent.click(submitButton);
-  },
-
-  // Common navigation helpers
-  clickLink: (screen, text) => {
-    const link = screen.getByText(text);
-    fireEvent.click(link);
-  },
-
-  // Common error handling setup
-  setupErrorMock: (mockFunction, errorMessage) => {
-    mockFunction.mockRejectedValueOnce(new Error(errorMessage));
-  },
-
-  // Common success handling setup
-  setupSuccessMock: (mockFunction, returnValue = {}) => {
-    mockFunction.mockResolvedValue(returnValue);
-  }
 };
