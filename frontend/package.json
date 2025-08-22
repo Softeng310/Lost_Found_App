@@ -22,7 +22,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "generate-passwords": "node scripts/secure-password-manager.js",
+    "validate-passwords": "node -e \"require('./src/config/secure-test-config').rotateTestPasswords()\""
   },
   "eslintConfig": {
     "extends": [

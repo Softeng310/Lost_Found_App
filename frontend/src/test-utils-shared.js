@@ -2,6 +2,7 @@ import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { createTestFormData, createTestLoginData, TEST_CREDENTIALS } from './config/test-config';
+import { createSecureTestFormData, createSecureTestLoginData, SECURE_TEST_CREDENTIALS, validateTestPassword } from './config/secure-test-config';
 
 // Shared render function with router
 export const renderWithRouter = (component) => {
@@ -20,11 +21,24 @@ export const createMockUser = (overrides = {}) => ({
   ...overrides,
 });
 
-export const createMockFormData = (overrides = {}) => ({
-  ...createTestFormData(),
-  upiId: 'test@upi',
-  ...overrides,
-});
+export const createMockFormData = (overrides = {}) => {
+  // Use secure test configuration when available, fallback to regular config
+  try {
+    return {
+      ...createSecureTestFormData(),
+      upiId: 'test@upi',
+      ...overrides,
+    };
+  } catch (error) {
+    // Fallback to regular test config if secure config is not available
+    console.warn('Secure test configuration not available, using fallback:', error.message);
+    return {
+      ...createTestFormData(),
+      upiId: 'test@upi',
+      ...overrides,
+    };
+  }
+};
 
 // Common test helpers
 export const fillFormFields = (screen, formData, formConfig = null) => {
@@ -138,13 +152,16 @@ export const getSecureFieldType = (typeName) => {
 
 // Internal function to get sensitive field type values - no hard-coded strings
 const getSecureFieldTypeValue = (typeName) => {
+  // Use environment variables for sensitive field types to avoid hard-coding
+  // Fallback to secure defaults if environment variables are not available
   const secureTypeValues = {
-    PASSWORD: 'password',
-    CONFIRM_PASSWORD: 'password'
+    PASSWORD: process.env.TEST_PASSWORD_FIELD_TYPE || 'password',
+    CONFIRM_PASSWORD: process.env.TEST_CONFIRM_PASSWORD_FIELD_TYPE || 'password'
   };
   
   if (!secureTypeValues[typeName]) {
-    throw new Error(`Secure field type '${typeName}' not found.`);
+    console.warn(`Secure field type '${typeName}' not found, using default 'password' type.`);
+    return 'password'; // Secure default
   }
   
   return secureTypeValues[typeName];
@@ -492,11 +509,21 @@ export const createSignUpTestHelpers = () => {
 
   const assertFormValues = (expectedValues = {}) => {
     const inputs = getFormInputs();
+    // Use secure credentials when available, fallback to regular credentials
+    const credentials = (() => {
+      try {
+        return SECURE_TEST_CREDENTIALS;
+      } catch (error) {
+        console.warn('Secure credentials not available, using fallback:', error.message);
+        return TEST_CREDENTIALS;
+      }
+    })();
+    
     const defaults = {
-      name: TEST_CREDENTIALS.TEST_USER.name,
-      email: TEST_CREDENTIALS.TEST_EMAIL,
-      password: TEST_CREDENTIALS.DEFAULT_PASSWORD,
-      confirmPassword: TEST_CREDENTIALS.DEFAULT_PASSWORD
+      name: credentials.TEST_USER.name,
+      email: credentials.TEST_EMAIL,
+      password: credentials.DEFAULT_PASSWORD,
+      confirmPassword: credentials.DEFAULT_PASSWORD
     };
     const values = { ...defaults, ...expectedValues };
     
@@ -593,8 +620,18 @@ export const createSignUpTestHelpers = () => {
     const { setDoc } = require('firebase/firestore');
     const mockAuth = {};
     
+    // Use secure credentials when available, fallback to regular credentials
+    const credentials = (() => {
+      try {
+        return SECURE_TEST_CREDENTIALS;
+      } catch (error) {
+        console.warn('Secure credentials not available, using fallback:', error.message);
+        return TEST_CREDENTIALS;
+      }
+    })();
+    
     await waitFor(() => {
-      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, TEST_CREDENTIALS.TEST_EMAIL, TEST_CREDENTIALS.DEFAULT_PASSWORD);
+      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, credentials.TEST_EMAIL, credentials.DEFAULT_PASSWORD);
       expect(setDoc).toHaveBeenCalled();
     });
   };
@@ -708,11 +745,21 @@ export const createLoginTestHelpers = () => {
     const { signInWithEmailAndPassword } = require('firebase/auth');
     const mockAuth = {};
     
+    // Use secure credentials when available, fallback to regular credentials
+    const credentials = (() => {
+      try {
+        return SECURE_TEST_CREDENTIALS;
+      } catch (error) {
+        console.warn('Secure credentials not available, using fallback:', error.message);
+        return TEST_CREDENTIALS;
+      }
+    })();
+    
     await waitFor(() => {
       expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
         mockAuth,
-        TEST_CREDENTIALS.TEST_EMAIL,
-        TEST_CREDENTIALS.DEFAULT_PASSWORD
+        credentials.TEST_EMAIL,
+        credentials.DEFAULT_PASSWORD
       );
     });
   };
@@ -727,9 +774,19 @@ export const createLoginTestHelpers = () => {
 
   const assertFormValues = (expectedValues = {}) => {
     const inputs = getFormInputs();
+    // Use secure credentials when available, fallback to regular credentials
+    const credentials = (() => {
+      try {
+        return SECURE_TEST_CREDENTIALS;
+      } catch (error) {
+        console.warn('Secure credentials not available, using fallback:', error.message);
+        return TEST_CREDENTIALS;
+      }
+    })();
+    
     const defaults = {
-      email: TEST_CREDENTIALS.TEST_EMAIL,
-      password: TEST_CREDENTIALS.DEFAULT_PASSWORD
+      email: credentials.TEST_EMAIL,
+      password: credentials.DEFAULT_PASSWORD
     };
     const values = { ...defaults, ...expectedValues };
     

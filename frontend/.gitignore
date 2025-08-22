@@ -17,6 +17,7 @@ dist/
 
 # Test configuration with sensitive data
 src/config/test-config.js
+src/config/secure-test-config.js
 
 # IDE files
 .vscode/
