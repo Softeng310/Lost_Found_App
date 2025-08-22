@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { createTestFormData, createTestLoginData, TEST_CREDENTIALS } from './config/test-config';
 
 // Shared render function with router
 export const renderWithRouter = (component) => {
@@ -20,10 +21,7 @@ export const createMockUser = (overrides = {}) => ({
 });
 
 export const createMockFormData = (overrides = {}) => ({
-  name: 'Test User',
-  email: 'test@example.com',
-  password: 'password123',
-  confirmPassword: 'password123',
+  ...createTestFormData(),
   upiId: 'test@upi',
   ...overrides,
 });

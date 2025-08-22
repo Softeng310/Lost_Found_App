@@ -49,6 +49,11 @@ describe('ItemDetailPage', () => {
     imageUrl: 'https://example.com/image.jpg',
   };
 
+  // Helper functions to eliminate duplication
+  const renderItemDetailPage = () => {
+    return renderWithRouter(<ItemDetailPage />);
+  };
+
   const setupOnSnapshotMock = (item = mockItem, shouldCallCallback = true) => {
     onSnapshot.mockImplementation((ref, callback) => {
       if (shouldCallCallback) {
@@ -69,6 +74,76 @@ describe('ItemDetailPage', () => {
     setupOnSnapshotMock(null);
   };
 
+  const assertItemNotFound = async () => {
+    await waitFor(() => {
+      expect(screen.getByText(/Item not found/i)).toBeInTheDocument();
+    });
+  };
+
+  const assertItemDetails = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
+      expect(screen.getByText('Black iPhone 13 lost in library')).toBeInTheDocument();
+      expect(screen.getByText('library')).toBeInTheDocument();
+    });
+  };
+
+  const assertBackButton = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Back to feed')).toBeInTheDocument();
+      expect(screen.getByTestId('arrow-left-icon')).toBeInTheDocument();
+    });
+  };
+
+  const assertImageAltText = async () => {
+    await waitFor(() => {
+      const image = screen.getByAltText('Lost iPhone');
+      expect(image).toBeInTheDocument();
+    });
+  };
+
+  const assertItemTitle = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
+    });
+  };
+
+  const assertItemLocation = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('library')).toBeInTheDocument();
+    });
+  };
+
+  const assertItemStatusBadge = async (status = 'lost') => {
+    await waitFor(() => {
+      expect(screen.getByText(status)).toBeInTheDocument();
+    });
+  };
+
+  const assertReporterInfo = async () => {
+    await waitFor(() => {
+      expect(screen.getByText(/Reporter:/)).toBeInTheDocument();
+    });
+  };
+
+  const assertDocCall = (expectedId = 'test-item-id') => {
+    expect(doc).toHaveBeenCalledWith({}, 'items', expectedId);
+    expect(onSnapshot).toHaveBeenCalledWith(mockDocRef, expect.any(Function));
+  };
+
+  const createMockSnapshot = (itemId) => ({
+    data: () => mockItem,
+    id: itemId
+  });
+
+  const setupOnSnapshotMockWithId = (itemId) => {
+    const mockSnapshot = createMockSnapshot(itemId);
+    onSnapshot.mockImplementation((ref, callback) => {
+      callback(mockSnapshot);
+      return mockUnsubscribe;
+    });
+  };
+
   beforeEach(() => {
     cleanupTestEnvironment();
     mockNavigate.mockClear();
@@ -81,38 +156,31 @@ describe('ItemDetailPage', () => {
     test('renders loading state initially', () => {
       setupLoadingMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      expect(screen.getByText(/Item not found/i)).toBeInTheDocument();
+      assertItemNotFound();
     });
 
     test('renders item details when data is loaded successfully', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
-        expect(screen.getByText('Black iPhone 13 lost in library')).toBeInTheDocument();
-        expect(screen.getByText('library')).toBeInTheDocument();
-      });
+      await assertItemDetails();
     });
 
     test('renders back button', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText('Back to feed')).toBeInTheDocument();
-        expect(screen.getByTestId('arrow-left-icon')).toBeInTheDocument();
-      });
+      await assertBackButton();
     });
 
     test('renders item image when available', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
       await waitFor(() => {
         const image = screen.getByAltText('Lost iPhone');
@@ -125,12 +193,9 @@ describe('ItemDetailPage', () => {
       const itemWithoutImage = { ...mockItem, imageUrl: null };
       setupOnSnapshotMock(itemWithoutImage);
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        const placeholderImage = screen.getByAltText('Lost iPhone');
-        expect(placeholderImage).toBeInTheDocument();
-      });
+      await assertImageAltText();
     });
   });
 
@@ -138,30 +203,25 @@ describe('ItemDetailPage', () => {
     test('fetches item data using the correct document ID', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      expect(doc).toHaveBeenCalledWith({}, 'items', 'test-item-id');
-      expect(onSnapshot).toHaveBeenCalledWith(mockDocRef, expect.any(Function));
+      assertDocCall();
     });
 
     test('handles item not found', async () => {
       setupItemNotFoundMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText(/Item not found/i)).toBeInTheDocument();
-      });
+      await assertItemNotFound();
     });
 
     test('handles data fetching errors', async () => {
       setupItemNotFoundMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText(/Item not found/i)).toBeInTheDocument();
-      });
+      await assertItemNotFound();
     });
   });
 
@@ -169,7 +229,7 @@ describe('ItemDetailPage', () => {
     test('back button navigates to feed page', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
       await waitFor(() => {
         const backButton = screen.getByText('Back to feed');
@@ -184,28 +244,24 @@ describe('ItemDetailPage', () => {
     test('displays item status badge correctly', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText('lost')).toBeInTheDocument();
-      });
+      await assertItemStatusBadge('lost');
     });
 
     test('displays found item status badge correctly', async () => {
       const foundItem = { ...mockItem, kind: 'found' };
       setupOnSnapshotMock(foundItem);
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText('found')).toBeInTheDocument();
-      });
+      await assertItemStatusBadge('found');
     });
 
     test('displays item category', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
       await waitFor(() => {
         expect(screen.getByText('electronics')).toBeInTheDocument();
@@ -215,17 +271,15 @@ describe('ItemDetailPage', () => {
     test('displays item location', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText('library')).toBeInTheDocument();
-      });
+      await assertItemLocation();
     });
 
     test('displays item date', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
       await waitFor(() => {
         expect(screen.getByText(/Posted:/)).toBeInTheDocument();
@@ -237,11 +291,9 @@ describe('ItemDetailPage', () => {
     test('displays reporter information', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText(/Reporter:/)).toBeInTheDocument();
-      });
+      await assertReporterInfo();
     });
 
     test('handles missing contact information gracefully', async () => {
@@ -253,11 +305,9 @@ describe('ItemDetailPage', () => {
       };
       setupOnSnapshotMock(itemWithoutContact);
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText(/Reporter:/)).toBeInTheDocument();
-      });
+      await assertReporterInfo();
     });
   });
 
@@ -265,11 +315,9 @@ describe('ItemDetailPage', () => {
     test('displays not found message when item does not exist', async () => {
       setupItemNotFoundMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        expect(screen.getByText(/Item not found/i)).toBeInTheDocument();
-      });
+      await assertItemNotFound();
     });
   });
 
@@ -277,7 +325,7 @@ describe('ItemDetailPage', () => {
     test('has proper heading hierarchy', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
       await waitFor(() => {
         const h1 = screen.getByRole('heading', { level: 1 });
@@ -288,23 +336,17 @@ describe('ItemDetailPage', () => {
     test('images have proper alt text', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        const image = screen.getByAltText('Lost iPhone');
-        expect(image).toBeInTheDocument();
-      });
+      await assertImageAltText();
     });
 
     test('back button has proper accessibility attributes', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        const backButton = screen.getByText('Back to feed');
-        expect(backButton).toBeInTheDocument();
-      });
+      await assertBackButton();
     });
   });
 
@@ -312,18 +354,15 @@ describe('ItemDetailPage', () => {
     test('has proper CSS classes for responsive design', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      await waitFor(() => {
-        // Just verify the component renders without error
-        expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
-      });
+      await assertItemTitle();
     });
 
     test('item image has proper styling classes', async () => {
       setupOnSnapshotMock();
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
       await waitFor(() => {
         const image = screen.getByAltText('Lost iPhone');
@@ -334,36 +373,21 @@ describe('ItemDetailPage', () => {
   });
 
   describe('URL Parameter Handling', () => {
-    // Helper function to create mock snapshot data
-    const createMockSnapshot = (itemId) => ({
-      data: () => mockItem,
-      id: itemId
-    });
-
-    // Helper function to setup onSnapshot mock
-    const setupOnSnapshotMockWithId = (itemId) => {
-      const mockSnapshot = createMockSnapshot(itemId);
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback(mockSnapshot);
-        return mockUnsubscribe;
-      });
-    };
-
     test('uses item ID from URL parameters', () => {
       const testItemId = 'different-item-id';
       
       useParams.mockReturnValue({ id: testItemId });
       setupOnSnapshotMockWithId(testItemId);
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
-      expect(doc).toHaveBeenCalledWith({}, 'items', testItemId);
+      assertDocCall(testItemId);
     });
 
     test('handles missing item ID parameter', () => {
       useParams.mockReturnValue({});
       
-      renderWithRouter(<ItemDetailPage />);
+      renderItemDetailPage();
       
       // Component should not call doc when no ID is provided
       expect(doc).not.toHaveBeenCalled();

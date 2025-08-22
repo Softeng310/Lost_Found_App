@@ -17,6 +17,7 @@ import {
   setupSuccessMock,
   setupErrorMock
 } from '../../test-utils-shared';
+import { TEST_CREDENTIALS, TEST_ERROR_SCENARIOS } from '../../config/test-config';
 
 // Mock Firebase modules
 jest.mock('firebase/auth', () => ({
@@ -71,7 +72,7 @@ describe('SignUpPage', () => {
     setDoc.mockResolvedValue();
   });
 
-  // Helper functions to eliminate duplication
+  // Consolidated helper functions to eliminate all duplication patterns
   const renderSignUpPage = (user = null) => {
     setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
     return renderWithRouter(<SignUpPage />);
@@ -136,7 +137,7 @@ describe('SignUpPage', () => {
 
   const assertSuccessfulSignup = async () => {
     await waitFor(() => {
-      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, 'test@example.com', 'password123');
+      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, TEST_CREDENTIALS.TEST_EMAIL, TEST_CREDENTIALS.DEFAULT_PASSWORD);
       expect(setDoc).toHaveBeenCalled();
     });
   };
@@ -157,10 +158,10 @@ describe('SignUpPage', () => {
   const assertFormValues = (expectedValues = {}) => {
     const { name, email, password, confirmPassword } = getFormInputs();
     const defaults = {
-      name: 'Test User',
-      email: 'test@example.com',
-      password: 'password123',
-      confirmPassword: 'password123'
+      name: TEST_CREDENTIALS.TEST_USER.name,
+      email: TEST_CREDENTIALS.TEST_EMAIL,
+      password: TEST_CREDENTIALS.DEFAULT_PASSWORD,
+      confirmPassword: TEST_CREDENTIALS.DEFAULT_PASSWORD
     };
     const values = { ...defaults, ...expectedValues };
     
@@ -176,6 +177,32 @@ describe('SignUpPage', () => {
     expect(email.value).toBe('');
     expect(password.value).toBe('');
     expect(confirmPassword.value).toBe('');
+  };
+
+  const assertFormAccessibility = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    expect(name).toHaveAttribute('id', 'name');
+    expect(email).toHaveAttribute('id', 'email');
+    expect(password).toHaveAttribute('id', 'password');
+    expect(confirmPassword).toHaveAttribute('id', 'confirmPassword');
+  };
+
+  const assertMainContainerStyling = () => {
+    const mainContainer = screen.getAllByText('Create Account')[0].closest('div');
+    expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
+  };
+
+  const assertFormContainerStyling = () => {
+    const form = screen.getAllByRole('button', { name: 'Create Account' })[0].closest('form');
+    expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
+  };
+
+  const assertErrorElement = async (errorMessage) => {
+    await waitFor(() => {
+      const errorElement = screen.getByText(errorMessage);
+      expect(errorElement).toBeInTheDocument();
+      expect(errorElement).toHaveClass('text-red-500');
+    });
   };
 
   describe('Rendering', () => {
@@ -232,7 +259,7 @@ describe('SignUpPage', () => {
     test('handles password mismatch error', async () => {
       renderSignUpPage();
       
-      const formData = createMockFormData({ confirmPassword: 'different' });
+      const formData = createMockFormData({ confirmPassword: TEST_CREDENTIALS.DIFFERENT_PASSWORD });
       await submitFormWithData(formData);
       await assertPasswordMismatchError();
     });
@@ -278,12 +305,7 @@ describe('SignUpPage', () => {
   describe('Accessibility', () => {
     test('has proper form labels and associations', () => {
       renderSignUpPage();
-      
-      const { name, email, password, confirmPassword } = getFormInputs();
-      expect(name).toHaveAttribute('id', 'name');
-      expect(email).toHaveAttribute('id', 'email');
-      expect(password).toHaveAttribute('id', 'password');
-      expect(confirmPassword).toHaveAttribute('id', 'confirmPassword');
+      assertFormAccessibility();
     });
 
     test('submit button has proper role and text', () => {
@@ -297,28 +319,19 @@ describe('SignUpPage', () => {
       renderSignUpPage();
       
       await submitFormWithData();
-      
-      await waitFor(() => {
-        const errorElement = screen.getByText(errorMessage);
-        expect(errorElement).toBeInTheDocument();
-        expect(errorElement).toHaveClass('text-red-500');
-      });
+      await assertErrorElement(errorMessage);
     });
   });
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for styling', () => {
       renderSignUpPage();
-      
-      const mainContainer = screen.getAllByText('Create Account')[0].closest('div');
-      expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
+      assertMainContainerStyling();
     });
 
     test('form container has proper styling classes', () => {
       renderSignUpPage();
-      
-      const form = screen.getAllByRole('button', { name: 'Create Account' })[0].closest('form');
-      expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
+      assertFormContainerStyling();
     });
 
     test('input fields have proper styling classes', () => {
