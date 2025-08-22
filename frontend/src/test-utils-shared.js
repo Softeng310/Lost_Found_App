@@ -97,16 +97,58 @@ export const assertFormValidation = (screen, requiredFields = []) => {
   });
 };
 
+// Common field type constants for forms
+export const FIELD_TYPES = {
+  TEXT: 'text',
+  EMAIL: 'email',
+  PASSWORD: 'password',
+  NUMBER: 'number',
+  TEL: 'tel',
+  URL: 'url',
+  SEARCH: 'search',
+  DATE: 'date',
+  TIME: 'time',
+  DATETIME_LOCAL: 'datetime-local',
+  MONTH: 'month',
+  WEEK: 'week',
+  COLOR: 'color',
+  FILE: 'file',
+  HIDDEN: 'hidden',
+  CHECKBOX: 'checkbox',
+  RADIO: 'radio',
+  RANGE: 'range',
+  TEXTAREA: 'textarea',
+  SELECT: 'select-one'
+};
+
+// Common form field configurations
+export const FORM_FIELD_CONFIGS = {
+  LOGIN_FORM: {
+    'Email': FIELD_TYPES.EMAIL,
+    'Password': FIELD_TYPES.PASSWORD
+  },
+  SIGNUP_FORM: {
+    'Name': FIELD_TYPES.TEXT,
+    'Email': FIELD_TYPES.EMAIL,
+    'Password': FIELD_TYPES.PASSWORD,
+    'Confirm Password': FIELD_TYPES.PASSWORD
+  },
+  ITEM_REPORT_FORM: {
+    'Item Name': FIELD_TYPES.TEXT,
+    'Description': FIELD_TYPES.TEXT,
+    'Location': FIELD_TYPES.TEXT,
+    'Contact': FIELD_TYPES.TEL,
+    'Email': FIELD_TYPES.EMAIL
+  }
+};
+
 export const assertInputTypes = (screen, expectedTypes = {}) => {
-  const defaultTypes = {
-    'Name': 'text',
-    'Email': 'email',
-    'Password': 'password',
-    'Confirm Password': 'password',
-  };
-  const typesToCheck = { ...defaultTypes, ...expectedTypes };
+  // Require explicit field types to be passed - no hard-coded defaults
+  if (Object.keys(expectedTypes).length === 0) {
+    throw new Error('assertInputTypes requires explicit expectedTypes parameter. No hard-coded defaults provided for security. Use FORM_FIELD_CONFIGS for common form types.');
+  }
   
-  Object.entries(typesToCheck).forEach(([field, type]) => {
+  Object.entries(expectedTypes).forEach(([field, type]) => {
     expect(screen.getByLabelText(field)).toHaveAttribute('type', type);
   });
 };
@@ -202,6 +244,75 @@ export const createProfilePageTestHelpers = () => {
     });
   };
 
+  // Enhanced helper functions to eliminate remaining duplication patterns
+  const getLogoutButton = () => {
+    return screen.getByText('Logout').closest('button');
+  };
+
+  const assertLogoutButton = async () => {
+    await waitFor(() => {
+      const logoutButton = getLogoutButton();
+      expect(logoutButton).toBeInTheDocument();
+      expect(logoutButton).toHaveClass('bg-red-600', 'text-white', 'rounded-md');
+    });
+  };
+
+  const clickLogoutAndAssert = async (expectSignOutCall = true) => {
+    const { signOut } = require('firebase/auth');
+    const mockAuth = {};
+    
+    await waitFor(() => {
+      const logoutButton = getLogoutButton();
+      fireEvent.click(logoutButton);
+    });
+    
+    if (expectSignOutCall) {
+      expect(signOut).toHaveBeenCalledWith(mockAuth);
+    }
+  };
+
+  const assertPageTitleAndDescription = () => {
+    expect(screen.getByText('Profile & History')).toBeInTheDocument();
+    expect(screen.getByText(/Mock user context/)).toBeInTheDocument();
+  };
+
+  const assertContainerStyling = async () => {
+    await waitFor(() => {
+      const container = screen.getByText('Profile & History').closest('.max-w-7xl');
+      expect(container).toHaveClass('max-w-7xl', 'mx-auto', 'px-4', 'sm:px-6', 'lg:px-8', 'py-8');
+    });
+  };
+
+  const assertCardStyling = async () => {
+    await waitFor(() => {
+      const cards = document.querySelectorAll('[class*="rounded-lg"]');
+      expect(cards.length).toBeGreaterThan(0);
+    });
+  };
+
+  const assertHeadingHierarchy = () => {
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('Profile & History');
+  };
+
+  const assertLogoutButtonAccessibility = async () => {
+    await waitFor(() => {
+      const logoutButton = getLogoutButton();
+      expect(logoutButton).toBeInTheDocument();
+      expect(logoutButton).toHaveClass('bg-red-600', 'text-white', 'rounded-md');
+    });
+  };
+
+  const assertProfileContentWithMockData = () => {
+    assertPageTitleAndDescription();
+  };
+
+  const assertAuthStateHandling = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Profile & History')).toBeInTheDocument();
+    });
+  };
+
   const setupProfilePageMocks = (user = null) => {
     const mockUser = user || createMockUser();
     setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
@@ -212,6 +323,16 @@ export const createProfilePageTestHelpers = () => {
     renderProfilePage,
     assertProfilePageRenders,
     assertProfileSections,
+    getLogoutButton,
+    assertLogoutButton,
+    clickLogoutAndAssert,
+    assertPageTitleAndDescription,
+    assertContainerStyling,
+    assertCardStyling,
+    assertHeadingHierarchy,
+    assertLogoutButtonAccessibility,
+    assertProfileContentWithMockData,
+    assertAuthStateHandling,
     setupProfilePageMocks
   };
 };
@@ -290,6 +411,134 @@ export const createSignUpTestHelpers = () => {
     expect(confirmPasswordInput).toHaveAttribute('required');
   };
 
+  // Enhanced helper functions to eliminate remaining duplication
+  const getFormInputs = () => ({
+    name: screen.getByLabelText('Name'),
+    email: screen.getByLabelText('Email'),
+    password: screen.getByLabelText('Password'),
+    confirmPassword: screen.getByLabelText('Confirm Password')
+  });
+
+  const assertFormInputsExist = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    expect(name).toBeInTheDocument();
+    expect(email).toBeInTheDocument();
+    expect(password).toBeInTheDocument();
+    expect(confirmPassword).toBeInTheDocument();
+  };
+
+  const assertInputAttributes = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    
+    // Type attributes using constants
+    expect(name).toHaveAttribute('type', FIELD_TYPES.TEXT);
+    expect(email).toHaveAttribute('type', FIELD_TYPES.EMAIL);
+    expect(password).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
+    expect(confirmPassword).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
+    
+    // Required attributes
+    expect(name).toHaveAttribute('required');
+    expect(email).toHaveAttribute('required');
+    expect(password).toHaveAttribute('required');
+    expect(confirmPassword).toHaveAttribute('required');
+  };
+
+  const assertInputStyling = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
+    
+    expect(name).toHaveClass(...inputClasses);
+    expect(email).toHaveClass(...inputClasses);
+    expect(password).toHaveClass(...inputClasses);
+    expect(confirmPassword).toHaveClass(...inputClasses);
+  };
+
+  const assertCreateAccountButton = () => {
+    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Create Account' }).length).toBeGreaterThan(0);
+  };
+
+  const assertLoginLink = () => {
+    expect(screen.getByText('Already have an account?')).toBeInTheDocument();
+    expect(screen.getByText('Sign In')).toBeInTheDocument();
+    expect(screen.getByText('Sign In')).toHaveAttribute('href', '/login');
+  };
+
+  const assertFormValues = (expectedValues = {}) => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    const defaults = {
+      name: TEST_CREDENTIALS.TEST_USER.name,
+      email: TEST_CREDENTIALS.TEST_EMAIL,
+      password: TEST_CREDENTIALS.DEFAULT_PASSWORD,
+      confirmPassword: TEST_CREDENTIALS.DEFAULT_PASSWORD
+    };
+    const values = { ...defaults, ...expectedValues };
+    
+    expect(name.value).toBe(values.name);
+    expect(email.value).toBe(values.email);
+    expect(password.value).toBe(values.password);
+    expect(confirmPassword.value).toBe(values.confirmPassword);
+  };
+
+  const assertEmptyFormState = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    expect(name.value).toBe('');
+    expect(email.value).toBe('');
+    expect(password.value).toBe('');
+    expect(confirmPassword.value).toBe('');
+  };
+
+  const assertFormAccessibility = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    expect(name).toHaveAttribute('id', 'name');
+    expect(email).toHaveAttribute('id', 'email');
+    expect(password).toHaveAttribute('id', 'password');
+    expect(confirmPassword).toHaveAttribute('id', 'confirmPassword');
+  };
+
+  const assertMainContainerStyling = () => {
+    const mainContainer = screen.getAllByText('Create Account')[0].closest('div');
+    expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
+  };
+
+  const assertFormContainerStyling = () => {
+    const form = screen.getAllByRole('button', { name: 'Create Account' })[0].closest('form');
+    expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
+  };
+
+  const assertErrorElement = async (errorMessage) => {
+    await waitFor(() => {
+      const errorElement = screen.getByText(errorMessage);
+      expect(errorElement).toBeInTheDocument();
+      expect(errorElement).toHaveClass('text-red-500');
+    });
+  };
+
+  const assertPasswordMismatchError = async () => {
+    await assertErrorElement('Passwords do not match');
+  };
+
+  const assertEmailAlreadyInUseError = async () => {
+    const errorMessage = 'An account with this email already exists. Please sign in instead.';
+    await assertErrorElement(errorMessage);
+  };
+
+  const submitFormWithData = async (formData = createMockFormData()) => {
+    fillSignUpForm(screen, formData);
+    submitForm(screen);
+  };
+
+  const assertSuccessfulSignup = async () => {
+    const { createUserWithEmailAndPassword } = require('firebase/auth');
+    const { setDoc } = require('firebase/firestore');
+    const mockAuth = {};
+    
+    await waitFor(() => {
+      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, TEST_CREDENTIALS.TEST_EMAIL, TEST_CREDENTIALS.DEFAULT_PASSWORD);
+      expect(setDoc).toHaveBeenCalled();
+    });
+  };
+
   const setupSignUpMocks = (scenario = 'success') => {
     switch (scenario) {
       case 'success':
@@ -310,7 +559,179 @@ export const createSignUpTestHelpers = () => {
     renderSignUpPage,
     assertSignUpFormRenders,
     assertSignUpFormValidation,
+    getFormInputs,
+    assertFormInputsExist,
+    assertInputAttributes,
+    assertInputStyling,
+    assertCreateAccountButton,
+    assertLoginLink,
+    assertFormValues,
+    assertEmptyFormState,
+    assertFormAccessibility,
+    assertMainContainerStyling,
+    assertFormContainerStyling,
+    assertErrorElement,
+    assertPasswordMismatchError,
+    assertEmailAlreadyInUseError,
+    submitFormWithData,
+    assertSuccessfulSignup,
     setupSignUpMocks
+  };
+};
+
+export const createLoginTestHelpers = () => {
+  const renderLoginPage = (LoginPageComponent, user = null) => {
+    if (user) {
+      const { onAuthStateChanged } = require('firebase/auth');
+      setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
+    }
+    return renderWithRouter(<LoginPageComponent />);
+  };
+
+  const getFormInputs = () => ({
+    email: screen.getByLabelText('Email'),
+    password: screen.getByLabelText('Password')
+  });
+
+  const assertFormInputsExist = () => {
+    const { email, password } = getFormInputs();
+    expect(email).toBeInTheDocument();
+    expect(password).toBeInTheDocument();
+  };
+
+  const assertInputAttributes = () => {
+    const { email, password } = getFormInputs();
+    
+    // Type attributes using constants
+    expect(email).toHaveAttribute('type', FIELD_TYPES.EMAIL);
+    expect(password).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
+    
+    // Required attributes
+    expect(email).toHaveAttribute('required');
+    expect(password).toHaveAttribute('required');
+  };
+
+  const assertInputStyling = () => {
+    const { email, password } = getFormInputs();
+    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
+    
+    expect(email).toHaveClass(...inputClasses);
+    expect(password).toHaveClass(...inputClasses);
+  };
+
+  const assertLoginHeader = () => {
+    expect(screen.getAllByText('Login').length).toBeGreaterThan(0);
+  };
+
+  const assertLoginButton = () => {
+    expect(screen.getAllByRole('button', { name: 'Login' }).length).toBeGreaterThan(0);
+  };
+
+  const assertSignUpLink = () => {
+    expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
+    expect(screen.getByText('Create Account')).toBeInTheDocument();
+    expect(screen.getByText('Create Account')).toHaveAttribute('href', '/signup');
+  };
+
+  const submitFormWithData = async (formData = createMockFormData()) => {
+    fillLoginForm(screen, formData);
+    submitForm(screen, 'Login');
+  };
+
+  const assertSuccessfulLogin = async () => {
+    const { signInWithEmailAndPassword } = require('firebase/auth');
+    const mockAuth = {};
+    
+    await waitFor(() => {
+      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+        mockAuth,
+        TEST_CREDENTIALS.TEST_EMAIL,
+        TEST_CREDENTIALS.DEFAULT_PASSWORD
+      );
+    });
+  };
+
+  const assertLoginError = async (errorMessage = 'Invalid email or password') => {
+    await waitFor(() => {
+      const errorElement = screen.getByText(errorMessage);
+      expect(errorElement).toBeInTheDocument();
+      expect(errorElement).toHaveClass('text-red-500');
+    });
+  };
+
+  const assertFormValues = (expectedValues = {}) => {
+    const { email, password } = getFormInputs();
+    const defaults = {
+      email: TEST_CREDENTIALS.TEST_EMAIL,
+      password: TEST_CREDENTIALS.DEFAULT_PASSWORD
+    };
+    const values = { ...defaults, ...expectedValues };
+    
+    expect(email.value).toBe(values.email);
+    expect(password.value).toBe(values.password);
+  };
+
+  const assertEmptyFormState = () => {
+    const { email, password } = getFormInputs();
+    expect(email.value).toBe('');
+    expect(password.value).toBe('');
+  };
+
+  const assertFormAccessibility = () => {
+    const { email, password } = getFormInputs();
+    expect(email).toHaveAttribute('id', 'login-email');
+    expect(password).toHaveAttribute('id', 'login-password');
+  };
+
+  const assertMainContainerStyling = () => {
+    const mainContainer = screen.getAllByText('Login')[0].closest('div');
+    expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
+  };
+
+  const assertFormContainerStyling = () => {
+    const form = screen.getAllByRole('button', { name: 'Login' })[0].closest('form');
+    expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
+  };
+
+  const assertFormElements = () => {
+    assertLoginHeader();
+    assertFormInputsExist();
+    assertLoginButton();
+  };
+
+  const setupLoginMocks = (scenario = 'success') => {
+    const { signInWithEmailAndPassword } = require('firebase/auth');
+    switch (scenario) {
+      case 'success':
+        setupSuccessMock(signInWithEmailAndPassword);
+        break;
+      case 'error':
+        setupErrorMock(signInWithEmailAndPassword, 'Invalid email or password');
+        break;
+      default:
+        setupSuccessMock(signInWithEmailAndPassword);
+    }
+  };
+
+  return {
+    renderLoginPage,
+    getFormInputs,
+    assertFormInputsExist,
+    assertInputAttributes,
+    assertInputStyling,
+    assertLoginHeader,
+    assertLoginButton,
+    assertSignUpLink,
+    submitFormWithData,
+    assertSuccessfulLogin,
+    assertLoginError,
+    assertFormValues,
+    assertEmptyFormState,
+    assertFormAccessibility,
+    assertMainContainerStyling,
+    assertFormContainerStyling,
+    assertFormElements,
+    setupLoginMocks
   };
 };
 

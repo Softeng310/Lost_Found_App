@@ -14,7 +14,8 @@ import {
   assertStylingClasses,
   setupAuthStateMock,
   setupSuccessMock,
-  setupErrorMock
+  setupErrorMock,
+  createLoginTestHelpers
 } from '../../test-utils-shared';
 import { TEST_CREDENTIALS, createTestLoginData, TEST_ERROR_SCENARIOS } from '../../config/test-config';
 
@@ -53,6 +54,28 @@ describe('LoginPage', () => {
   const mockAuth = {};
   const mockUnsubscribe = jest.fn();
 
+  // Get enhanced helper functions
+  const {
+    renderLoginPage,
+    getFormInputs,
+    assertFormInputsExist,
+    assertInputAttributes,
+    assertInputStyling,
+    assertLoginHeader,
+    assertLoginButton,
+    assertSignUpLink,
+    submitFormWithData,
+    assertSuccessfulLogin,
+    assertLoginError,
+    assertFormValues,
+    assertEmptyFormState,
+    assertFormAccessibility,
+    assertMainContainerStyling,
+    assertFormContainerStyling,
+    assertFormElements,
+    setupLoginMocks
+  } = createLoginTestHelpers();
+
   beforeEach(() => {
     jest.clearAllMocks();
     
@@ -64,149 +87,36 @@ describe('LoginPage', () => {
     });
   });
 
-  // Consolidated helper functions to eliminate all duplication patterns
-  const renderLoginPage = () => {
-    return renderWithRouter(<LoginPage />);
-  };
-
-  const getFormInputs = () => ({
-    email: screen.getByLabelText('Email'),
-    password: screen.getByLabelText('Password')
-  });
-
-  const assertFormInputsExist = () => {
-    const { email, password } = getFormInputs();
-    expect(email).toBeInTheDocument();
-    expect(password).toBeInTheDocument();
-  };
-
-  const assertInputAttributes = () => {
-    const { email, password } = getFormInputs();
-    
-    // Type attributes
-    expect(email).toHaveAttribute('type', 'email');
-    expect(password).toHaveAttribute('type', 'password');
-    
-    // Required attributes
-    expect(email).toHaveAttribute('required');
-    expect(password).toHaveAttribute('required');
-  };
-
-  const assertInputStyling = () => {
-    const { email, password } = getFormInputs();
-    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
-    
-    expect(email).toHaveClass(...inputClasses);
-    expect(password).toHaveClass(...inputClasses);
-  };
-
-  const assertLoginHeader = () => {
-    expect(screen.getAllByText('Login').length).toBeGreaterThan(0);
-  };
-
-  const assertLoginButton = () => {
-    expect(screen.getAllByRole('button', { name: 'Login' }).length).toBeGreaterThan(0);
-  };
-
-  const assertSignUpLink = () => {
-    expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
-    expect(screen.getByText('Create Account')).toBeInTheDocument();
-    expect(screen.getByText('Create Account')).toHaveAttribute('href', '/signup');
-  };
-
-  const submitFormWithData = async (formData = createMockFormData()) => {
-    fillLoginForm(screen, formData);
-    submitForm(screen, 'Login');
-  };
-
-  const assertSuccessfulLogin = async () => {
-    await waitFor(() => {
-      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
-        mockAuth,
-        TEST_CREDENTIALS.TEST_EMAIL,
-        TEST_CREDENTIALS.DEFAULT_PASSWORD
-      );
-    });
-  };
-
-  const assertLoginError = async (errorMessage = 'Invalid email or password') => {
-    await waitFor(() => {
-      const errorElement = screen.getByText(errorMessage);
-      expect(errorElement).toBeInTheDocument();
-      expect(errorElement).toHaveClass('text-red-500');
-    });
-  };
-
-  const assertFormValues = (expectedValues = {}) => {
-    const { email, password } = getFormInputs();
-    const defaults = {
-      email: TEST_CREDENTIALS.TEST_EMAIL,
-      password: TEST_CREDENTIALS.DEFAULT_PASSWORD
-    };
-    const values = { ...defaults, ...expectedValues };
-    
-    expect(email.value).toBe(values.email);
-    expect(password.value).toBe(values.password);
-  };
-
-  const assertEmptyFormState = () => {
-    const { email, password } = getFormInputs();
-    expect(email.value).toBe('');
-    expect(password.value).toBe('');
-  };
-
-  const assertFormAccessibility = () => {
-    const { email, password } = getFormInputs();
-    expect(email).toHaveAttribute('id', 'login-email');
-    expect(password).toHaveAttribute('id', 'login-password');
-  };
-
-  const assertMainContainerStyling = () => {
-    const mainContainer = screen.getAllByText('Login')[0].closest('div');
-    expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
-  };
-
-  const assertFormContainerStyling = () => {
-    const form = screen.getAllByRole('button', { name: 'Login' })[0].closest('form');
-    expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
-  };
-
-  const assertFormElements = () => {
-    assertLoginHeader();
-    assertFormInputsExist();
-    assertLoginButton();
-  };
-
   describe('Rendering', () => {
     test('renders login form with all required elements', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertFormElements();
     });
 
     test('renders sign up link for new users', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertSignUpLink();
     });
 
     test('form inputs have correct attributes', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertInputAttributes();
     });
 
     test('form has proper accessibility labels', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertFormInputsExist();
     });
   });
 
   describe('Form State Management', () => {
     test('initializes with empty form state', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertEmptyFormState();
     });
 
     test('updates email input value when user types', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       const { email } = getFormInputs();
       fireEvent.change(email, { target: { value: TEST_CREDENTIALS.TEST_EMAIL } });
@@ -215,7 +125,7 @@ describe('LoginPage', () => {
     });
 
     test('updates password input value when user types', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       const { password } = getFormInputs();
       fireEvent.change(password, { target: { value: TEST_CREDENTIALS.DEFAULT_PASSWORD } });
@@ -226,13 +136,13 @@ describe('LoginPage', () => {
 
   describe('Authentication State Management', () => {
     test('sets up auth state listener on mount', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       expect(onAuthStateChanged).toHaveBeenCalledWith(mockAuth, expect.any(Function));
     });
 
     test('cleans up auth state listener on unmount', () => {
-      const { unmount } = renderLoginPage();
+      const { unmount } = renderLoginPage(LoginPage);
       
       unmount();
       
@@ -242,7 +152,7 @@ describe('LoginPage', () => {
     test('redirects to home if user is already authenticated', () => {
       setupAuthStateMock(onAuthStateChanged, createMockUser(), mockUnsubscribe);
       
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       expect(onAuthStateChanged).toHaveBeenCalled();
     });
@@ -252,7 +162,7 @@ describe('LoginPage', () => {
     test('calls signInWithEmailAndPassword with form data on submit', async () => {
       setupSuccessMock(signInWithEmailAndPassword);
       
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       await submitFormWithData();
       await assertSuccessfulLogin();
@@ -261,7 +171,7 @@ describe('LoginPage', () => {
     test('redirects to home page on successful login', async () => {
       setupSuccessMock(signInWithEmailAndPassword);
       
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       await submitFormWithData();
       await waitFor(() => {
@@ -273,7 +183,7 @@ describe('LoginPage', () => {
       const mockPreventDefault = jest.fn();
       setupSuccessMock(signInWithEmailAndPassword);
       
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       const form = screen.getAllByRole('button', { name: 'Login' })[0].closest('form');
       fireEvent.submit(form, { preventDefault: mockPreventDefault });
@@ -289,7 +199,7 @@ describe('LoginPage', () => {
       const errorMessage = 'Invalid email or password';
       setupErrorMock(signInWithEmailAndPassword, errorMessage);
       
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       const formData = createMockFormData({ password: TEST_CREDENTIALS.WRONG_PASSWORD });
       await submitFormWithData(formData);
@@ -302,7 +212,7 @@ describe('LoginPage', () => {
         .mockRejectedValueOnce(new Error(errorMessage))
         .mockResolvedValueOnce({ user: { uid: 'test-uid' } });
       
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       const formData = createMockFormData({ password: TEST_CREDENTIALS.WRONG_PASSWORD });
       await submitFormWithData(formData);
@@ -320,12 +230,12 @@ describe('LoginPage', () => {
 
   describe('Validation', () => {
     test('requires email and password fields', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertInputAttributes();
     });
 
     test('email input has email type validation', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       const { email } = getFormInputs();
       expect(email).toHaveAttribute('type', 'email');
@@ -334,12 +244,12 @@ describe('LoginPage', () => {
 
   describe('Accessibility', () => {
     test('has proper form labels and associations', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertFormAccessibility();
     });
 
     test('submit button has proper role and text', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertLoginButton();
     });
 
@@ -347,7 +257,7 @@ describe('LoginPage', () => {
       const errorMessage = 'Invalid email or password';
       setupErrorMock(signInWithEmailAndPassword, errorMessage);
       
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       
       const formData = createMockFormData({ password: TEST_CREDENTIALS.WRONG_PASSWORD });
       await submitFormWithData(formData);
@@ -357,17 +267,17 @@ describe('LoginPage', () => {
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for styling', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertMainContainerStyling();
     });
 
     test('form container has proper styling classes', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertFormContainerStyling();
     });
 
     test('input fields have proper styling classes', () => {
-      renderLoginPage();
+      renderLoginPage(LoginPage);
       assertInputStyling();
     });
   });

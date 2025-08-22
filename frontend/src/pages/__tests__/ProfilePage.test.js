@@ -13,7 +13,8 @@ import {
   setupAuthStateMock,
   setupSuccessMock,
   setupErrorMock,
-  assertStylingClasses
+  assertStylingClasses,
+  createProfilePageTestHelpers
 } from '../../test-utils-shared';
 
 // Mock react-router-dom
@@ -54,6 +55,24 @@ describe('ProfilePage', () => {
   const { mockAuth, mockUnsubscribe } = setupTestEnvironment();
   const mockUser = createMockUser();
 
+  // Get enhanced helper functions
+  const {
+    renderProfilePage,
+    assertProfilePageRenders,
+    assertProfileSections,
+    getLogoutButton,
+    assertLogoutButton,
+    clickLogoutAndAssert,
+    assertPageTitleAndDescription,
+    assertContainerStyling,
+    assertCardStyling,
+    assertHeadingHierarchy,
+    assertLogoutButtonAccessibility,
+    assertProfileContentWithMockData,
+    assertAuthStateHandling,
+    setupProfilePageMocks
+  } = createProfilePageTestHelpers();
+
   beforeEach(() => {
     cleanupTestEnvironment();
     
@@ -62,105 +81,33 @@ describe('ProfilePage', () => {
     onAuthStateChanged.mockReturnValue(mockUnsubscribe);
   });
 
-  // Consolidated helper functions to eliminate all duplication patterns
-  const renderProfilePage = (user = mockUser) => {
-    setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
-    return renderWithRouter(<ProfilePage />);
-  };
-
-  const assertProfilePageRenders = async () => {
-    await waitFor(() => {
-      expect(screen.getByText('Profile & History')).toBeInTheDocument();
-      expect(screen.getByText('Logout')).toBeInTheDocument();
-    });
-  };
-
-  const assertProfileSections = async () => {
-    await waitFor(() => {
-      // Trust & Verification section
-      expect(screen.getByText('Trust & Verification')).toBeInTheDocument();
-      expect(screen.getByText('Unverified')).toBeInTheDocument();
-      
-      // My Posts and Claims sections
-      expect(screen.getByText('My Posts')).toBeInTheDocument();
-      expect(screen.getByText('My Claims')).toBeInTheDocument();
-    });
-  };
-
-  const getLogoutButton = () => {
-    return screen.getByText('Logout').closest('button');
-  };
-
-  const assertLogoutButton = async () => {
-    await waitFor(() => {
-      const logoutButton = getLogoutButton();
-      expect(logoutButton).toBeInTheDocument();
-      expect(logoutButton).toHaveClass('bg-red-600', 'text-white', 'rounded-md');
-    });
-  };
-
-  const clickLogoutAndAssert = async (expectSignOutCall = true) => {
-    await waitFor(() => {
-      const logoutButton = getLogoutButton();
-      fireEvent.click(logoutButton);
-    });
-    
-    if (expectSignOutCall) {
-      expect(signOut).toHaveBeenCalledWith(mockAuth);
-    }
-  };
-
-  const assertPageTitleAndDescription = () => {
-    expect(screen.getByText('Profile & History')).toBeInTheDocument();
-    expect(screen.getByText(/Mock user context/)).toBeInTheDocument();
-  };
-
-  const assertContainerStyling = async () => {
-    await waitFor(() => {
-      const container = screen.getByText('Profile & History').closest('.max-w-7xl');
-      expect(container).toHaveClass('max-w-7xl', 'mx-auto', 'px-4', 'sm:px-6', 'lg:px-8', 'py-8');
-    });
-  };
-
-  const assertCardStyling = async () => {
-    await waitFor(() => {
-      const cards = document.querySelectorAll('[class*="rounded-lg"]');
-      expect(cards.length).toBeGreaterThan(0);
-    });
-  };
-
-  const assertHeadingHierarchy = () => {
-    const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1).toHaveTextContent('Profile & History');
-  };
-
   describe('Rendering', () => {
     test('renders profile page with user information when authenticated', async () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       await assertProfilePageRenders();
     });
 
     test('renders all profile sections', async () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       await assertProfileSections();
     });
   });
 
   describe('Authentication State Management', () => {
     test('displays profile content with mock data', () => {
-      renderProfilePage();
-      assertPageTitleAndDescription();
+      renderProfilePage(ProfilePage, mockUser);
+      assertProfileContentWithMockData();
     });
   });
 
   describe('User Information Display', () => {
     test('displays page title and description', () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       assertPageTitleAndDescription();
     });
 
     test('displays logout button with proper styling', async () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       await assertLogoutButton();
     });
   });
@@ -168,32 +115,30 @@ describe('ProfilePage', () => {
   describe('Logout Functionality', () => {
     test('calls signOut when logout button is clicked', async () => {
       setupSuccessMock(signOut);
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       
       await clickLogoutAndAssert();
     });
 
     test('redirects to home page after successful logout', async () => {
       setupSuccessMock(signOut);
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       
       await clickLogoutAndAssert();
     });
 
     test('handles logout errors gracefully', async () => {
       setupErrorMock(signOut, 'Logout failed');
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       
       await clickLogoutAndAssert(false);
-      await waitFor(() => {
-        expect(screen.getByText('Profile & History')).toBeInTheDocument();
-      });
+      await assertAuthStateHandling();
     });
   });
 
   describe('Navigation', () => {
     test('renders logout button for navigation', async () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       await assertLogoutButton();
     });
   });
@@ -205,52 +150,49 @@ describe('ProfilePage', () => {
         return mockUnsubscribe;
       });
       
-      renderProfilePage();
-      
-      await waitFor(() => {
-        expect(screen.getByText('Profile & History')).toBeInTheDocument();
-      });
+      renderProfilePage(ProfilePage, mockUser);
+      await assertAuthStateHandling();
     });
 
     test('handles missing user data gracefully', () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       assertPageTitleAndDescription();
     });
   });
 
   describe('Accessibility', () => {
     test('has proper heading hierarchy', () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       assertHeadingHierarchy();
     });
 
     test('logout button has proper accessibility attributes', async () => {
-      renderProfilePage();
-      await assertLogoutButton();
+      renderProfilePage(ProfilePage, mockUser);
+      await assertLogoutButtonAccessibility();
     });
   });
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for responsive design', async () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       await assertContainerStyling();
     });
 
     test('logout button has proper styling classes', async () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       await assertLogoutButton();
     });
 
     test('cards have proper styling', async () => {
-      renderProfilePage();
+      renderProfilePage(ProfilePage, mockUser);
       await assertCardStyling();
     });
   });
 
   describe('User Data Handling', () => {
     test('displays profile content with mock data', () => {
-      renderProfilePage();
-      assertPageTitleAndDescription();
+      renderProfilePage(ProfilePage, mockUser);
+      assertProfileContentWithMockData();
     });
   });
 });
