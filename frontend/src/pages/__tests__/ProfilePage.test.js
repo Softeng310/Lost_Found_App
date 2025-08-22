@@ -2,7 +2,7 @@ import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import ProfilePage from '../ProfilePage';
-import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
+import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter, SharedTestUtils } from '../../test-utils';
 
 // Mock react-router-dom
 const mockNavigate = jest.fn();
@@ -32,12 +32,7 @@ setupTestEnvironment();
 
 describe('ProfilePage', () => {
   const { mockAuth, mockUnsubscribe } = setupTestEnvironment();
-  const mockUser = {
-    uid: 'test-uid',
-    email: 'test@example.com',
-    displayName: 'Test User',
-    photoURL: 'https://example.com/avatar.jpg',
-  };
+  const mockUser = SharedTestUtils.createMockUser();
 
   beforeEach(() => {
     cleanupTestEnvironment();
@@ -50,10 +45,7 @@ describe('ProfilePage', () => {
 
   describe('Rendering', () => {
     test('renders profile page with user information when authenticated', async () => {
-      onAuthStateChanged.mockImplementation((auth, callback) => {
-        callback(mockUser);
-        return mockUnsubscribe;
-      });
+      SharedTestUtils.setupAuthState(onAuthStateChanged, mockUser, mockUnsubscribe);
       
       renderWithRouter(<ProfilePage />);
       
@@ -152,12 +144,8 @@ describe('ProfilePage', () => {
 
   describe('Logout Functionality', () => {
     test('calls signOut when logout button is clicked', async () => {
-      onAuthStateChanged.mockImplementation((auth, callback) => {
-        callback(mockUser);
-        return mockUnsubscribe;
-      });
-      
-      signOut.mockResolvedValue();
+      SharedTestUtils.setupAuthState(onAuthStateChanged, mockUser, mockUnsubscribe);
+      SharedTestUtils.setupSuccessMock(signOut);
       
       renderWithRouter(<ProfilePage />);
       
@@ -169,12 +157,8 @@ describe('ProfilePage', () => {
     });
 
     test('redirects to home page after successful logout', async () => {
-      onAuthStateChanged.mockImplementation((auth, callback) => {
-        callback(mockUser);
-        return mockUnsubscribe;
-      });
-      
-      signOut.mockResolvedValue();
+      SharedTestUtils.setupAuthState(onAuthStateChanged, mockUser, mockUnsubscribe);
+      SharedTestUtils.setupSuccessMock(signOut);
       
       renderWithRouter(<ProfilePage />);
       
@@ -191,11 +175,8 @@ describe('ProfilePage', () => {
     });
 
     test('handles logout errors gracefully', async () => {
-      signOut.mockRejectedValueOnce(new Error('Logout failed'));
-      onAuthStateChanged.mockImplementation((auth, callback) => {
-        callback(mockUser);
-        return mockUnsubscribe;
-      });
+      SharedTestUtils.setupErrorMock(signOut, 'Logout failed');
+      SharedTestUtils.setupAuthState(onAuthStateChanged, mockUser, mockUnsubscribe);
       
       renderWithRouter(<ProfilePage />);
       

@@ -140,7 +140,20 @@ export const MockComponents = {
   ),
   
   ItemCard: ({ item, onClick, ...props }) => (
-    <div data-testid="item-card" onClick={onClick} {...props}>
+    <div 
+      data-testid="item-card" 
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick && onClick(e);
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`View details for ${item?.title || 'Test Item'}`}
+      {...props}
+    >
       <h3>{item?.title || 'Test Item'}</h3>
       <p>{item?.description || 'Test description'}</p>
       <span data-testid="item-status">{item?.status || 'lost'}</span>
@@ -316,4 +329,81 @@ export const testHelpers = {
       fireEvent.change(input, { target: { value } });
     });
   },
+};
+
+// Shared test utilities to reduce duplication
+export const SharedTestUtils = {
+  // Common mock user data
+  createMockUser: (overrides = {}) => ({
+    uid: 'test-uid',
+    email: 'test@example.com',
+    displayName: 'Test User',
+    photoURL: 'https://example.com/avatar.jpg',
+    ...overrides
+  }),
+
+  // Common mock items data
+  createMockItems: (count = 3) => Array.from({ length: count }, (_, i) => ({
+    id: String(i + 1),
+    title: `Test Item ${i + 1}`,
+    description: `Test description ${i + 1}`,
+    kind: i % 2 === 0 ? 'lost' : 'found',
+    category: ['electronics', 'clothing', 'personal'][i % 3],
+    location: ['OGGB', 'library', 'cafeteria'][i % 3],
+    date: new Date(`2024-01-${String(i + 1).padStart(2, '0')}`),
+  })),
+
+  // Common auth state setup
+  setupAuthState: (onAuthStateChanged, mockUser, mockUnsubscribe) => {
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(mockUser);
+      return mockUnsubscribe;
+    });
+  },
+
+  // Common Firebase snapshot setup
+  setupFirebaseSnapshot: (onSnapshot, mockItems, mockUnsubscribe) => {
+    onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
+      successCallback({
+        docs: mockItems.map(item => ({
+          data: () => item,
+          id: item.id
+        }))
+      });
+      return mockUnsubscribe;
+    });
+  },
+
+  // Common test assertions
+  assertCommonElements: (screen) => {
+    expect(screen.getByRole('main')).toBeInTheDocument();
+  },
+
+  // Common form interaction helpers
+  fillFormField: (screen, testId, value) => {
+    const field = screen.getByTestId(testId);
+    fireEvent.change(field, { target: { value } });
+    return field;
+  },
+
+  submitForm: (screen, testId = 'submit-button') => {
+    const submitButton = screen.getByTestId(testId);
+    fireEvent.click(submitButton);
+  },
+
+  // Common navigation helpers
+  clickLink: (screen, text) => {
+    const link = screen.getByText(text);
+    fireEvent.click(link);
+  },
+
+  // Common error handling setup
+  setupErrorMock: (mockFunction, errorMessage) => {
+    mockFunction.mockRejectedValueOnce(new Error(errorMessage));
+  },
+
+  // Common success handling setup
+  setupSuccessMock: (mockFunction, returnValue = {}) => {
+    mockFunction.mockResolvedValue(returnValue);
+  }
 };

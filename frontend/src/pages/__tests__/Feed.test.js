@@ -96,7 +96,20 @@ jest.mock('../../components/ui/Tabs', () => ({
 jest.mock('../../components/ItemCard', () => ({
   __esModule: true,
   default: ({ item, onClick, ...props }) => (
-    <div data-testid={`item-card-${item?.id || 'default'}`} onClick={onClick} {...props}>
+    <div 
+      data-testid={`item-card-${item?.id || 'default'}`} 
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick && onClick(e);
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={`View details for ${item?.title || 'Test Item'}`}
+      {...props}
+    >
       <h3>{item?.title || 'Test Item'}</h3>
       <p>{item?.description || 'Test description'}</p>
       <span data-testid="item-status">{item?.status || 'lost'}</span>
