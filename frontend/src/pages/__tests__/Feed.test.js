@@ -1,27 +1,75 @@
 import React from 'react';
 // PropTypes import removed as it's not needed in mocks
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot, orderBy, query, getDocs } from 'firebase/firestore';
 import FeedPage from '../Feed';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 
-// Mock Firebase modules
+// Mock Firebase modules with comprehensive mocking
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   onSnapshot: jest.fn(),
   orderBy: jest.fn(),
   query: jest.fn(),
+  getDocs: jest.fn(),
+  doc: jest.fn(),
+  setDoc: jest.fn(),
+  addDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  where: jest.fn(),
+  limit: jest.fn(),
+  startAfter: jest.fn(),
+  endBefore: jest.fn(),
 }));
 
 jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(),
+  getAuth: jest.fn(() => ({})),
   onAuthStateChanged: jest.fn(),
+  signOut: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
 }));
 
 jest.mock('../../firebase/config', () => ({
   db: {},
   auth: {},
 }));
+
+// Mock react-router-dom
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => jest.fn(),
+  useLocation: () => ({ pathname: '/feed' }),
+}));
+
+// Mock fetch globally to prevent real network requests
+global.fetch = jest.fn(() =>
+  Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ items: [] }),
+  })
+);
+
+// Mock console.error to suppress expected error messages
+const originalConsoleError = console.error;
+beforeAll(() => {
+  console.error = (...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+       args[0].includes('Warning: An invalid form control') ||
+       args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
+    ) {
+      return;
+    }
+    originalConsoleError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.error = originalConsoleError;
+});
 
 // Mock components
 jest.mock('../../components/SearchFilters', () => {
@@ -206,6 +254,19 @@ describe('FeedPage', () => {
     orderBy.mockReturnValue('ordered-items');
     query.mockReturnValue('items-query');
     setupOnSnapshotMock();
+    
+    // Mock all Firebase functions to prevent real calls
+    const { getAuth, onAuthStateChanged } = require('firebase/auth');
+    getAuth.mockReturnValue({});
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(null); // No user logged in
+      return mockUnsubscribe;
+    });
+    
+    // Mock getDocs to prevent real database calls
+    getDocs.mockResolvedValue({
+      docs: mockItems.map(createMockDoc)
+    });
   });
 
   describe('Rendering', () => {

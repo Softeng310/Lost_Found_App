@@ -1,7 +1,7 @@
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { useParams } from 'react-router-dom';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import ItemDetailPage from '../ItemDetail';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 
@@ -10,23 +10,66 @@ jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useParams: jest.fn(),
   useNavigate: () => jest.fn(),
+  useLocation: () => ({ pathname: '/items/test-id' }),
 }));
 
-// Mock Firebase modules
+// Mock Firebase modules with comprehensive mocking
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
   onSnapshot: jest.fn(),
+  getDoc: jest.fn(),
+  collection: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  getDocs: jest.fn(),
+  setDoc: jest.fn(),
+  addDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
 }));
 
 jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(),
+  getAuth: jest.fn(() => ({})),
   onAuthStateChanged: jest.fn(),
+  signOut: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
 }));
 
 jest.mock('../../firebase/config', () => ({
   db: {},
   auth: {},
 }));
+
+// Mock fetch globally to prevent real network requests
+global.fetch = jest.fn(() =>
+  Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ item: {} }),
+  })
+);
+
+// Mock console.error to suppress expected error messages
+const originalConsoleError = console.error;
+beforeAll(() => {
+  console.error = (...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+       args[0].includes('Warning: An invalid form control') ||
+       args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
+    ) {
+      return;
+    }
+    originalConsoleError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.error = originalConsoleError;
+});
 
 // Setup test environment
 setupTestEnvironment();
@@ -150,6 +193,21 @@ describe('ItemDetailPage', () => {
     useParams.mockReturnValue({ id: 'test-item-id' });
     doc.mockReturnValue(mockDocRef);
     onSnapshot.mockReturnValue(mockUnsubscribe);
+    
+    // Mock all Firebase functions to prevent real calls
+    const { getAuth, onAuthStateChanged } = require('firebase/auth');
+    getAuth.mockReturnValue({});
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(null); // No user logged in
+      return mockUnsubscribe;
+    });
+    
+    // Mock getDoc to prevent real database calls
+    getDoc.mockResolvedValue({
+      data: () => mockItem,
+      id: 'test-item-id',
+      exists: () => true
+    });
   });
 
   describe('Rendering', () => {

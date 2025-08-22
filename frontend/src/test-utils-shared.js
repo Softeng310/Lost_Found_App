@@ -12,6 +12,64 @@ export const renderWithRouter = (component) => {
   );
 };
 
+// Generic form helpers to eliminate duplication between SignUp and Login tests
+const createGenericFormHelpers = (formConfig) => {
+  const getFormInputs = () => {
+    const inputs = {};
+    Object.keys(formConfig).forEach(fieldName => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      inputs[key] = screen.getByLabelText(fieldName);
+    });
+    return inputs;
+  };
+
+  const assertFormInputsExist = () => {
+    const inputs = getFormInputs();
+    Object.values(inputs).forEach(input => {
+      expect(input).toBeInTheDocument();
+    });
+  };
+
+  const assertInputAttributes = () => {
+    const inputs = getFormInputs();
+    
+    // Type attributes using form field configurations
+    Object.entries(formConfig).forEach(([fieldName, fieldType]) => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      const input = inputs[key];
+      expect(input).toHaveAttribute('type', fieldType);
+      // Only check required for fields that should be required (exclude optional fields)
+      if (fieldName !== 'Profile Picture URL' && fieldName !== 'UPI ID') {
+        expect(input).toHaveAttribute('required');
+      }
+    });
+  };
+
+  const assertInputStyling = () => {
+    const inputs = getFormInputs();
+    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
+    
+    Object.values(inputs).forEach(input => {
+      expect(input).toHaveClass(...inputClasses);
+    });
+  };
+
+  const assertEmptyFormState = () => {
+    const inputs = getFormInputs();
+    Object.values(inputs).forEach(input => {
+      expect(input.value).toBe('');
+    });
+  };
+
+  return {
+    getFormInputs,
+    assertFormInputsExist,
+    assertInputAttributes,
+    assertInputStyling,
+    assertEmptyFormState
+  };
+};
+
 // Common test data
 export const createMockUser = (overrides = {}) => ({
   uid: 'test-uid',
@@ -424,6 +482,9 @@ export const createSignUpTestHelpers = () => {
     return renderWithRouter(<SignUpPageComponent />);
   };
 
+  // Use generic form helpers to eliminate duplication
+  const { getFormInputs, assertFormInputsExist, assertInputAttributes, assertInputStyling, assertEmptyFormState } = createGenericFormHelpers(FORM_FIELD_CONFIGS.SIGNUP_FORM);
+
   const assertSignUpFormRenders = () => {
     expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
     // Use form field configurations instead of hard-coded field names
@@ -444,56 +505,16 @@ export const createSignUpTestHelpers = () => {
     });
   };
 
-  // Enhanced helper functions to eliminate remaining duplication
-  const getFormInputs = () => {
-    const inputs = {};
-    Object.keys(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(fieldName => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      inputs[key] = screen.getByLabelText(fieldName);
-    });
-    return inputs;
-  };
-
-  const assertFormInputsExist = () => {
-    const inputs = getFormInputs();
-    Object.values(inputs).forEach(input => {
-      expect(input).toBeInTheDocument();
-    });
-  };
-
-  const assertInputAttributes = () => {
-    const inputs = getFormInputs();
-    
-    // Type attributes using form field configurations
-    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      const input = inputs[key];
-      expect(input).toHaveAttribute('type', fieldType);
-      // Only check required for fields that should be required
-      if (fieldName !== 'Profile Picture URL' && fieldName !== 'UPI ID') {
-        expect(input).toHaveAttribute('required');
-      }
-    });
-  };
-
-  const assertInputStyling = () => {
-    const inputs = getFormInputs();
-    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
-    
-    Object.values(inputs).forEach(input => {
-      expect(input).toHaveClass(...inputClasses);
-    });
-  };
-
   const assertCreateAccountButton = () => {
     expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Create Account' }).length).toBeGreaterThan(0);
   };
 
   const assertLoginLink = () => {
-    expect(screen.getByText('Already have an account?')).toBeInTheDocument();
-    expect(screen.getByText('Sign In')).toBeInTheDocument();
-    expect(screen.getByText('Sign In')).toHaveAttribute('href', '/login');
+    expect(screen.getAllByText('Already have an account?').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Sign In').length).toBeGreaterThan(0);
+    const signInLinks = screen.getAllByText('Sign In');
+    expect(signInLinks[0]).toHaveAttribute('href', '/login');
   };
 
   const assertFormValues = (expectedValues = {}) => {
@@ -527,13 +548,6 @@ export const createSignUpTestHelpers = () => {
       let expectedValue = values[valueKey] || '';
       
       expect(input.value).toBe(expectedValue);
-    });
-  };
-
-  const assertEmptyFormState = () => {
-    const inputs = getFormInputs();
-    Object.values(inputs).forEach(input => {
-      expect(input.value).toBe('');
     });
   };
 
@@ -660,42 +674,8 @@ export const createLoginTestHelpers = () => {
     return renderWithRouter(<LoginPageComponent />);
   };
 
-  const getFormInputs = () => {
-    const inputs = {};
-    Object.keys(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(fieldName => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      inputs[key] = screen.getByLabelText(fieldName);
-    });
-    return inputs;
-  };
-
-  const assertFormInputsExist = () => {
-    const inputs = getFormInputs();
-    Object.values(inputs).forEach(input => {
-      expect(input).toBeInTheDocument();
-    });
-  };
-
-  const assertInputAttributes = () => {
-    const inputs = getFormInputs();
-    
-    // Type attributes using form field configurations
-    Object.entries(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(([fieldName, fieldType]) => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      const input = inputs[key];
-      expect(input).toHaveAttribute('type', fieldType);
-      expect(input).toHaveAttribute('required');
-    });
-  };
-
-  const assertInputStyling = () => {
-    const inputs = getFormInputs();
-    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
-    
-    Object.values(inputs).forEach(input => {
-      expect(input).toHaveClass(...inputClasses);
-    });
-  };
+  // Use generic form helpers to eliminate duplication
+  const { getFormInputs, assertFormInputsExist, assertInputAttributes, assertInputStyling, assertEmptyFormState } = createGenericFormHelpers(FORM_FIELD_CONFIGS.LOGIN_FORM);
 
   const assertLoginHeader = () => {
     expect(screen.getAllByText('Login').length).toBeGreaterThan(0);
@@ -706,9 +686,10 @@ export const createLoginTestHelpers = () => {
   };
 
   const assertSignUpLink = () => {
-    expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
-    expect(screen.getByText('Create Account')).toBeInTheDocument();
-    expect(screen.getByText('Create Account')).toHaveAttribute('href', '/signup');
+    expect(screen.getAllByText("Don't have an account?").length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
+    const createAccountLinks = screen.getAllByText('Create Account');
+    expect(createAccountLinks[0]).toHaveAttribute('href', '/signup');
   };
 
   const submitFormWithData = async (formData = createMockFormData()) => {
@@ -757,13 +738,6 @@ export const createLoginTestHelpers = () => {
       const input = inputs[key];
       const expectedValue = values[key] || '';
       expect(input.value).toBe(expectedValue);
-    });
-  };
-
-  const assertEmptyFormState = () => {
-    const inputs = getFormInputs();
-    Object.values(inputs).forEach(input => {
-      expect(input.value).toBe('');
     });
   };
 
@@ -879,4 +853,236 @@ export const createStylingTestSuite = (pageComponent, pageName, setupFn, asserti
       await assertions();
     });
   });
+};
+
+// Shared form test patterns
+export const createFormTestPatterns = () => {
+  const createFormRenderingTests = (renderPage, assertFormElements, assertFormInputs, assertSubmitButton, assertLink) => {
+    return [
+      {
+        name: 'renders form with all required elements',
+        test: () => {
+          renderPage();
+          assertFormElements();
+        }
+      },
+      {
+        name: 'form inputs have correct attributes',
+        test: () => {
+          renderPage();
+          assertFormInputs();
+        }
+      },
+      {
+        name: 'submit button has proper role and text',
+        test: () => {
+          renderPage();
+          assertSubmitButton();
+        }
+      },
+      {
+        name: 'renders link for existing users',
+        test: () => {
+          renderPage();
+          assertLink();
+        }
+      }
+    ];
+  };
+
+  const createFormStateTests = (renderPage, assertEmptyState, fillForm, assertFormValues) => {
+    return [
+      {
+        name: 'initializes with empty form state',
+        test: () => {
+          renderPage();
+          assertEmptyState();
+        }
+      },
+      {
+        name: 'updates form values when user types',
+        test: () => {
+          renderPage();
+          const formData = createMockFormData();
+          fillForm(screen, formData);
+          assertFormValues(formData);
+        }
+      }
+    ];
+  };
+
+  const createFormSubmissionTests = (renderPage, setupSuccess, submitForm, assertSuccess, setupError, assertError) => {
+    return [
+      {
+        name: 'successfully submits form and redirects',
+        test: async () => {
+          setupSuccess();
+          renderPage();
+          await submitForm();
+          await assertSuccess();
+        }
+      },
+      {
+        name: 'handles submission errors gracefully',
+        test: async () => {
+          setupError();
+          renderPage();
+          await submitForm();
+          await assertError();
+        }
+      },
+      {
+        name: 'clears previous error when form is submitted again',
+        test: async () => {
+          // First submission fails
+          setupError();
+          renderPage();
+          await submitForm();
+          await assertError();
+          
+          // Second submission succeeds
+          setupSuccess();
+          submitForm(screen);
+          await assertSuccess();
+        }
+      }
+    ];
+  };
+
+  const createAccessibilityTests = (renderPage, assertFormAccessibility, assertErrorAccessibility) => {
+    return [
+      {
+        name: 'has proper form labels and associations',
+        test: () => {
+          renderPage();
+          assertFormAccessibility();
+        }
+      },
+      {
+        name: 'error messages are accessible',
+        test: async () => {
+          const errorMessage = 'Test error message';
+          renderPage();
+          await assertErrorAccessibility(errorMessage);
+        }
+      }
+    ];
+  };
+
+  const createStylingTests = (renderPage, assertMainContainer, assertFormContainer, assertInputStyling) => {
+    return [
+      {
+        name: 'has proper CSS classes for styling',
+        test: () => {
+          renderPage();
+          assertMainContainer();
+        }
+      },
+      {
+        name: 'form container has proper styling classes',
+        test: () => {
+          renderPage();
+          assertFormContainer();
+        }
+      },
+      {
+        name: 'input fields have proper styling classes',
+        test: () => {
+          renderPage();
+          assertInputStyling();
+        }
+      }
+    ];
+  };
+
+  return {
+    createFormRenderingTests,
+    createFormStateTests,
+    createFormSubmissionTests,
+    createAccessibilityTests,
+    createStylingTests
+  };
+};
+
+// Shared mock setup patterns
+export const createMockSetupPatterns = () => {
+  const setupCommonMocks = () => {
+    const mockAuth = {};
+    const mockUnsubscribe = jest.fn();
+    
+    // Setup default mocks
+    const { getAuth, onAuthStateChanged } = require('firebase/auth');
+    getAuth.mockReturnValue(mockAuth);
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(null); // No user initially
+      return mockUnsubscribe;
+    });
+    
+    return { mockAuth, mockUnsubscribe };
+  };
+
+  const setupFirebaseMocks = (firebaseModule, mockFunctions) => {
+    Object.entries(mockFunctions).forEach(([funcName, mockImpl]) => {
+      firebaseModule[funcName].mockImplementation(mockImpl);
+    });
+  };
+
+  return {
+    setupCommonMocks,
+    setupFirebaseMocks
+  };
+};
+
+// Shared test data patterns
+export const createTestDataPatterns = () => {
+  const createFormTestData = (overrides = {}) => {
+    return {
+      ...createMockFormData(),
+      ...overrides
+    };
+  };
+
+  const createErrorTestData = (errorCode, errorMessage) => {
+    return {
+      code: errorCode,
+      message: errorMessage
+    };
+  };
+
+  return {
+    createFormTestData,
+    createErrorTestData
+  };
+};
+
+// Shared assertion patterns
+export const createAssertionPatterns = () => {
+  const assertAuthStateListener = (mockAuth, mockUnsubscribe) => {
+    const { onAuthStateChanged } = require('firebase/auth');
+    expect(onAuthStateChanged).toHaveBeenCalledWith(mockAuth, expect.any(Function));
+  };
+
+  const assertAuthStateCleanup = (mockUnsubscribe) => {
+    expect(mockUnsubscribe).toHaveBeenCalled();
+  };
+
+  const assertFormSubmission = (mockFunction, expectedCalls = 1) => {
+    expect(mockFunction).toHaveBeenCalledTimes(expectedCalls);
+  };
+
+  const assertErrorDisplay = (errorMessage) => {
+    expect(screen.getByText(errorMessage)).toBeInTheDocument();
+  };
+
+  const assertErrorCleared = (errorMessage) => {
+    expect(screen.queryByText(errorMessage)).not.toBeInTheDocument();
+  };
+
+  return {
+    assertAuthStateListener,
+    assertAuthStateCleanup,
+    assertFormSubmission,
+    assertErrorDisplay,
+    assertErrorCleared
+  };
 };

@@ -1,23 +1,72 @@
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
+import { collection, getDocs } from 'firebase/firestore';
 import AnnouncementsPage from '../Announcements';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter, mockTestData } from '../../test-utils';
 
-// Mock Firebase modules
+// Mock Firebase modules with comprehensive mocking
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   getDocs: jest.fn(),
+  doc: jest.fn(),
+  setDoc: jest.fn(),
+  addDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  onSnapshot: jest.fn(),
+  query: jest.fn(),
+  orderBy: jest.fn(),
+  where: jest.fn(),
+  limit: jest.fn(),
 }));
 
 jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(),
+  getAuth: jest.fn(() => ({})),
   onAuthStateChanged: jest.fn(),
+  signOut: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
 }));
 
 jest.mock('../../firebase/config', () => ({
   db: {},
   auth: {},
 }));
+
+// Mock react-router-dom
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => jest.fn(),
+  useLocation: () => ({ pathname: '/announcements' }),
+}));
+
+// Mock fetch globally to prevent real network requests
+global.fetch = jest.fn(() =>
+  Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ announcements: [] }),
+  })
+);
+
+// Mock console.error to suppress expected error messages
+const originalConsoleError = console.error;
+beforeAll(() => {
+  console.error = (...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+       args[0].includes('Warning: An invalid form control') ||
+       args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
+    ) {
+      return;
+    }
+    originalConsoleError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.error = originalConsoleError;
+});
 
 // Setup test environment
 setupTestEnvironment();
@@ -102,6 +151,14 @@ describe('AnnouncementsPage', () => {
   beforeEach(() => {
     cleanupTestEnvironment();
     setupGetDocsMock();
+    
+    // Mock all Firebase functions to prevent real calls
+    const { getAuth, onAuthStateChanged } = require('firebase/auth');
+    getAuth.mockReturnValue({});
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(null); // No user logged in
+      return jest.fn(); // Mock unsubscribe function
+    });
   });
 
   describe('Rendering', () => {

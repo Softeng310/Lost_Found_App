@@ -16,9 +16,11 @@ import {
   setupAuthStateMock,
   setupSuccessMock,
   setupErrorMock,
-  createSignUpTestHelpers
+  createSignUpTestHelpers,
+  createMockSetupPatterns,
+  createTestDataPatterns,
+  createAssertionPatterns
 } from '../../test-utils-shared';
-import { TEST_CREDENTIALS, TEST_ERROR_SCENARIOS } from '../../config/test-config';
 
 // Mock Firebase modules
 jest.mock('firebase/auth', () => ({
@@ -84,6 +86,10 @@ describe('SignUpPage', () => {
     setupSignUpMocks
   } = createSignUpTestHelpers();
 
+  const { setupCommonMocks } = createMockSetupPatterns();
+  const { createFormTestData, createErrorTestData } = createTestDataPatterns();
+  const { assertAuthStateListener, assertFormSubmission, assertErrorDisplay } = createAssertionPatterns();
+
   beforeEach(() => {
     jest.clearAllMocks();
     
@@ -92,6 +98,9 @@ describe('SignUpPage', () => {
     getFirestore.mockReturnValue(mockDb);
     doc.mockReturnValue(mockDoc);
     setDoc.mockResolvedValue();
+    
+    // Setup common mocks
+    setupCommonMocks();
   });
 
   describe('Rendering', () => {
@@ -147,13 +156,13 @@ describe('SignUpPage', () => {
     test('handles password mismatch error', async () => {
       renderSignUpPage(SignUpPage);
       
-      const formData = createMockFormData({ confirmPassword: TEST_CREDENTIALS.DIFFERENT_PASSWORD });
+      const formData = createFormTestData({ confirmPassword: 'different-password' });
       await submitFormWithData(formData);
       await assertPasswordMismatchError();
     });
 
     test('handles Firebase auth errors gracefully', async () => {
-      createUserWithEmailAndPassword.mockRejectedValue({ code: 'auth/email-already-in-use' });
+      createUserWithEmailAndPassword.mockRejectedValue(createErrorTestData('auth/email-already-in-use', 'Email already in use'));
       renderSignUpPage(SignUpPage);
       
       await submitFormWithData();
@@ -166,7 +175,7 @@ describe('SignUpPage', () => {
       
       await submitFormWithData();
       await waitFor(() => {
-        expect(createUserWithEmailAndPassword).toHaveBeenCalled();
+        assertFormSubmission(createUserWithEmailAndPassword);
       });
     });
   });
@@ -174,18 +183,18 @@ describe('SignUpPage', () => {
   describe('Error Handling', () => {
     test('clears previous error when form is submitted again', async () => {
       // First submission fails
-      createUserWithEmailAndPassword.mockRejectedValueOnce({ code: 'auth/email-already-in-use' });
+      createUserWithEmailAndPassword.mockRejectedValueOnce(createErrorTestData('auth/email-already-in-use', 'Email already in use'));
       renderSignUpPage(SignUpPage);
       
       await submitFormWithData();
       await assertEmailAlreadyInUseError();
       
-      // Second submission succeeds
+      // Second submission succeeds - just submit the form without filling it again
       setupSuccessMock(createUserWithEmailAndPassword);
       submitForm(screen);
       
       await waitFor(() => {
-        expect(createUserWithEmailAndPassword).toHaveBeenCalled();
+        assertFormSubmission(createUserWithEmailAndPassword, 2);
       });
     });
   });
