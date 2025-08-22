@@ -1,7 +1,7 @@
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import ItemDetailPage from '../ItemDetail';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 
@@ -15,7 +15,6 @@ jest.mock('react-router-dom', () => ({
 // Mock Firebase modules
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
-  getDoc: jest.fn(),
   onSnapshot: jest.fn(),
 }));
 
@@ -50,6 +49,26 @@ describe('ItemDetailPage', () => {
     imageUrl: 'https://example.com/image.jpg',
   };
 
+  const setupOnSnapshotMock = (item = mockItem, shouldCallCallback = true) => {
+    onSnapshot.mockImplementation((ref, callback) => {
+      if (shouldCallCallback) {
+        callback({
+          data: () => item,
+          id: 'test-item-id'
+        });
+      }
+      return mockUnsubscribe;
+    });
+  };
+
+  const setupLoadingMock = () => {
+    setupOnSnapshotMock(mockItem, false);
+  };
+
+  const setupItemNotFoundMock = () => {
+    setupOnSnapshotMock(null);
+  };
+
   beforeEach(() => {
     cleanupTestEnvironment();
     mockNavigate.mockClear();
@@ -60,10 +79,7 @@ describe('ItemDetailPage', () => {
 
   describe('Rendering', () => {
     test('renders loading state initially', () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        // Don't call callback immediately to simulate loading
-        return mockUnsubscribe;
-      });
+      setupLoadingMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -71,13 +87,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('renders item details when data is loaded successfully', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -89,13 +99,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('renders back button', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -106,13 +110,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('renders item image when available', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -125,13 +123,7 @@ describe('ItemDetailPage', () => {
 
     test('renders placeholder image when no image is available', async () => {
       const itemWithoutImage = { ...mockItem, imageUrl: null };
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => itemWithoutImage,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock(itemWithoutImage);
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -144,13 +136,7 @@ describe('ItemDetailPage', () => {
 
   describe('Data Fetching', () => {
     test('fetches item data using the correct document ID', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -159,13 +145,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('handles item not found', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => null,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupItemNotFoundMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -175,13 +155,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('handles data fetching errors', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => null,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupItemNotFoundMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -193,13 +167,7 @@ describe('ItemDetailPage', () => {
 
   describe('Navigation', () => {
     test('back button navigates to feed page', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -214,13 +182,7 @@ describe('ItemDetailPage', () => {
 
   describe('Item Information Display', () => {
     test('displays item status badge correctly', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -231,13 +193,7 @@ describe('ItemDetailPage', () => {
 
     test('displays found item status badge correctly', async () => {
       const foundItem = { ...mockItem, kind: 'found' };
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => foundItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock(foundItem);
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -247,13 +203,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('displays item category', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -263,13 +213,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('displays item location', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -279,13 +223,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('displays item date', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -297,13 +235,7 @@ describe('ItemDetailPage', () => {
 
   describe('Contact Information', () => {
     test('displays reporter information', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -319,13 +251,7 @@ describe('ItemDetailPage', () => {
         contactEmail: null,
         contactPhone: null,
       };
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => itemWithoutContact,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock(itemWithoutContact);
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -337,13 +263,7 @@ describe('ItemDetailPage', () => {
 
   describe('Error States', () => {
     test('displays not found message when item does not exist', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => null,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupItemNotFoundMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -355,13 +275,7 @@ describe('ItemDetailPage', () => {
 
   describe('Accessibility', () => {
     test('has proper heading hierarchy', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -372,13 +286,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('images have proper alt text', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -389,13 +297,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('back button has proper accessibility attributes', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -408,13 +310,7 @@ describe('ItemDetailPage', () => {
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for responsive design', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -425,13 +321,7 @@ describe('ItemDetailPage', () => {
     });
 
     test('item image has proper styling classes', async () => {
-      onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'test-item-id'
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock();
       
       renderWithRouter(<ItemDetailPage />);
       
@@ -451,7 +341,7 @@ describe('ItemDetailPage', () => {
     });
 
     // Helper function to setup onSnapshot mock
-    const setupOnSnapshotMock = (itemId) => {
+    const setupOnSnapshotMockWithId = (itemId) => {
       const mockSnapshot = createMockSnapshot(itemId);
       onSnapshot.mockImplementation((ref, callback) => {
         callback(mockSnapshot);
@@ -463,7 +353,7 @@ describe('ItemDetailPage', () => {
       const testItemId = 'different-item-id';
       
       useParams.mockReturnValue({ id: testItemId });
-      setupOnSnapshotMock(testItemId);
+      setupOnSnapshotMockWithId(testItemId);
       
       renderWithRouter(<ItemDetailPage />);
       

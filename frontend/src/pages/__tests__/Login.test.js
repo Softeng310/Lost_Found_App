@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { BrowserRouter } from 'react-router-dom';
@@ -17,10 +18,8 @@ jest.mock('../../firebase/config', () => ({
 
 // Mock react-router-dom
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
-  Link: ({ children, to, ...props }) => {
+jest.mock('react-router-dom', () => {
+  const Link = ({ children, to, ...props }) => {
     // ESLint disable for test mock component
     // eslint-disable-next-line react/prop-types
     return (
@@ -28,8 +27,16 @@ jest.mock('react-router-dom', () => ({
         {children}
       </a>
     );
-  },
-}));
+  };
+  
+  // PropTypes removed from mock to avoid Jest scope issues
+  
+  return {
+    ...jest.requireActual('react-router-dom'),
+    useNavigate: () => mockNavigate,
+    Link,
+  };
+});
 
 // Custom render function with router
 const renderWithRouter = (component) => {

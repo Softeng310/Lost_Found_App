@@ -25,18 +25,35 @@ setupTestEnvironment();
 describe('AnnouncementsPage', () => {
   const { mockAnnouncements } = mockTestData;
 
-  beforeEach(() => {
-    cleanupTestEnvironment();
-    
-    // Mock Firestore collection and getDocs
+  const setupGetDocsMock = (announcements = mockAnnouncements) => {
     const { collection, getDocs } = require('firebase/firestore');
     collection.mockReturnValue('mock-collection');
     getDocs.mockResolvedValue({
-      docs: mockAnnouncements.map(announcement => ({
+      docs: announcements.map(announcement => ({
         id: announcement.id,
         data: () => announcement,
       })),
     });
+  };
+
+  const setupLoadingMock = () => {
+    const { getDocs } = require('firebase/firestore');
+    getDocs.mockImplementation(() => new Promise(() => {})); // Never resolves
+  };
+
+  const setupErrorMock = (errorMessage = 'Failed to fetch') => {
+    const { getDocs } = require('firebase/firestore');
+    getDocs.mockRejectedValue(new Error(errorMessage));
+  };
+
+  const setupEmptyMock = () => {
+    const { getDocs } = require('firebase/firestore');
+    getDocs.mockResolvedValue({ docs: [] });
+  };
+
+  beforeEach(() => {
+    cleanupTestEnvironment();
+    setupGetDocsMock();
   });
 
   describe('Rendering', () => {
@@ -45,7 +62,6 @@ describe('AnnouncementsPage', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Announcements')).toBeInTheDocument();
-        // The page contains SVG bell icons, so we can check for the title instead
         expect(screen.getByText('Announcements')).toBeInTheDocument();
       });
     });
@@ -74,7 +90,6 @@ describe('AnnouncementsPage', () => {
       renderWithRouter(<AnnouncementsPage />);
       
       await waitFor(() => {
-        // Check for date elements with emerald styling
         const dateElements = document.querySelectorAll('.bg-emerald-100.text-emerald-700');
         expect(dateElements.length).toBeGreaterThan(0);
       });
@@ -83,8 +98,7 @@ describe('AnnouncementsPage', () => {
 
   describe('Loading State', () => {
     test('shows loading state initially', () => {
-      const { getDocs } = require('firebase/firestore');
-      getDocs.mockImplementation(() => new Promise(() => {})); // Never resolves
+      setupLoadingMock();
       
       renderWithRouter(<AnnouncementsPage />);
       
@@ -94,8 +108,7 @@ describe('AnnouncementsPage', () => {
 
   describe('Error State', () => {
     test('shows error message when fetch fails', async () => {
-      const { getDocs } = require('firebase/firestore');
-      getDocs.mockRejectedValue(new Error('Failed to fetch'));
+      setupErrorMock();
       
       renderWithRouter(<AnnouncementsPage />);
       
@@ -107,8 +120,7 @@ describe('AnnouncementsPage', () => {
 
   describe('Empty State', () => {
     test('shows empty state when no announcements', async () => {
-      const { getDocs } = require('firebase/firestore');
-      getDocs.mockResolvedValue({ docs: [] });
+      setupEmptyMock();
       
       renderWithRouter(<AnnouncementsPage />);
       

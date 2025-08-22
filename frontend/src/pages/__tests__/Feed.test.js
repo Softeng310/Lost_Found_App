@@ -1,8 +1,9 @@
 import React from 'react';
+// PropTypes import removed as it's not needed in mocks
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import FeedPage from '../Feed';
-import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter, mockTestData } from '../../test-utils';
+import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 
 // Mock Firebase modules
 jest.mock('firebase/firestore', () => ({
@@ -23,9 +24,8 @@ jest.mock('../../firebase/config', () => ({
 }));
 
 // Mock components
-jest.mock('../../components/SearchFilters', () => ({
-  __esModule: true,
-  SearchFilters: ({ defaultValue, onChange, ...props }) => (
+jest.mock('../../components/SearchFilters', () => {
+  const SearchFilters = ({ defaultValue, onChange, ...props }) => (
     <div data-testid="search-filters" {...props}>
       <input
         data-testid="search-input"
@@ -62,27 +62,36 @@ jest.mock('../../components/SearchFilters', () => ({
         <option value="library">General Library</option>
       </select>
     </div>
-  ),
-}));
+  );
+  
+  // PropTypes removed from mock to avoid Jest scope issues
+  
+  return {
+    __esModule: true,
+    SearchFilters,
+  };
+});
 
-jest.mock('../../components/ui/Tabs', () => ({
-  __esModule: true,
-  Tabs: ({ children, value, onValueChange, ...props }) => (
+jest.mock('../../components/ui/Tabs', () => {
+  const Tabs = ({ children, value, onValueChange, ...props }) => (
     <div data-testid="tabs" {...props}>
       {children}
     </div>
-  ),
-  TabsContent: ({ children, value, ...props }) => (
+  );
+  
+  const TabsContent = ({ children, value, ...props }) => (
     <div data-testid={`tabs-content-${value}`} {...props}>
       {children}
     </div>
-  ),
-  TabsList: ({ children, ...props }) => (
+  );
+  
+  const TabsList = ({ children, ...props }) => (
     <div data-testid="tabs-list" {...props}>
       {children}
     </div>
-  ),
-  TabsTrigger: ({ children, value, onClick, ...props }) => (
+  );
+  
+  const TabsTrigger = ({ children, value, onClick, ...props }) => (
     <button
       data-testid={`tabs-trigger-${value}`}
       onClick={onClick || (() => {})}
@@ -90,13 +99,22 @@ jest.mock('../../components/ui/Tabs', () => ({
     >
       {children}
     </button>
-  ),
-}));
+  );
+  
+  // PropTypes removed from mock to avoid Jest scope issues
+  
+  return {
+    __esModule: true,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+  };
+});
 
-jest.mock('../../components/ItemCard', () => ({
-  __esModule: true,
-  default: ({ item, onClick, ...props }) => (
-    <div 
+jest.mock('../../components/ItemCard', () => {
+  const ItemCard = ({ item, onClick, ...props }) => (
+    <button 
       data-testid={`item-card-${item?.id || 'default'}`} 
       onClick={onClick}
       onKeyDown={(e) => {
@@ -106,7 +124,6 @@ jest.mock('../../components/ItemCard', () => ({
         }
       }}
       tabIndex={0}
-      role="button"
       aria-label={`View details for ${item?.title || 'Test Item'}`}
       {...props}
     >
@@ -115,16 +132,22 @@ jest.mock('../../components/ItemCard', () => ({
       <span data-testid="item-status">{item?.status || 'lost'}</span>
       <span data-testid="item-type">{item?.type || 'electronics'}</span>
       <span data-testid="item-location">{item?.location || 'OGGB'}</span>
-    </div>
-  ),
-}));
+    </button>
+  );
+  
+  // PropTypes removed from mock to avoid Jest scope issues
+  
+  return {
+    __esModule: true,
+    default: ItemCard,
+  };
+});
 
 // Setup test environment
 setupTestEnvironment();
 
 describe('FeedPage', () => {
   const mockUnsubscribe = jest.fn();
-  const mockQuery = { q: jest.fn() };
   const mockItems = [
     {
       id: '1',
@@ -155,6 +178,18 @@ describe('FeedPage', () => {
     },
   ];
 
+  const setupOnSnapshotMock = (items = mockItems) => {
+    onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
+      successCallback({
+        docs: items.map(item => ({
+          data: () => item,
+          id: item.id
+        }))
+      });
+      return mockUnsubscribe;
+    });
+  };
+
   beforeEach(() => {
     cleanupTestEnvironment();
     
@@ -162,16 +197,7 @@ describe('FeedPage', () => {
     collection.mockReturnValue('items-collection');
     orderBy.mockReturnValue('ordered-items');
     query.mockReturnValue('items-query');
-    onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-      // Simulate successful data fetch
-      successCallback({
-        docs: mockItems.map(item => ({
-          data: () => item,
-          id: item.id
-        }))
-      });
-      return mockUnsubscribe;
-    });
+    setupOnSnapshotMock();
   });
 
   describe('Rendering', () => {
@@ -223,25 +249,12 @@ describe('FeedPage', () => {
     });
 
     test('displays loading state initially', () => {
-      // Remove this test since the component loads data immediately in test environment
-      // and doesn't show loading state
       renderWithRouter(<FeedPage />);
       
-      // Just verify the component renders without error
       expect(screen.getByText('Lost & Found Feed')).toBeInTheDocument();
     });
 
     test('displays items when data is loaded successfully', async () => {
-      onSnapshot.mockImplementation((query, successCallback) => {
-        successCallback({
-          docs: mockItems.map(item => ({
-            data: () => item,
-            id: item.id,
-          })),
-        });
-        return mockUnsubscribe;
-      });
-
       renderWithRouter(<FeedPage />);
       
       await waitFor(() => {
@@ -252,10 +265,14 @@ describe('FeedPage', () => {
     });
 
     test('displays error message when data fetching fails', async () => {
-      onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-        errorCallback(new Error('Failed to load items'));
-        return mockUnsubscribe;
-      });
+      const setupErrorMock = () => {
+        onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
+          errorCallback(new Error('Failed to load items'));
+          return mockUnsubscribe;
+        });
+      };
+
+      setupErrorMock();
 
       renderWithRouter(<FeedPage />);
       
@@ -266,18 +283,6 @@ describe('FeedPage', () => {
   });
 
   describe('Filtering and Search', () => {
-    beforeEach(() => {
-      onSnapshot.mockImplementation((query, successCallback) => {
-        successCallback({
-          docs: mockItems.map(item => ({
-            data: () => item,
-            id: item.id,
-          })),
-        });
-        return mockUnsubscribe;
-      });
-    });
-
     test('search input is functional', async () => {
       renderWithRouter(<FeedPage />);
       
@@ -313,7 +318,6 @@ describe('FeedPage', () => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
 
-      // Test that all items are shown initially
       expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
       expect(screen.getByTestId('item-card-3')).toBeInTheDocument();
@@ -326,7 +330,6 @@ describe('FeedPage', () => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
 
-      // Check that all filter components are rendered
       expect(screen.getByTestId('search-input')).toBeInTheDocument();
       expect(screen.getByTestId('type-filter')).toBeInTheDocument();
       expect(screen.getByTestId('location-filter')).toBeInTheDocument();
@@ -335,28 +338,6 @@ describe('FeedPage', () => {
   });
 
   describe('Tab Functionality', () => {
-    beforeEach(() => {
-      onSnapshot.mockImplementation((query, successCallback) => {
-        successCallback({
-          docs: mockItems.map(item => ({
-            data: () => item,
-            id: item.id,
-          })),
-        });
-        return mockUnsubscribe;
-      });
-    });
-
-    test('shows all items when "All" tab is selected', async () => {
-      renderWithRouter(<FeedPage />);
-      
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-        expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
-        expect(screen.getByTestId('item-card-3')).toBeInTheDocument();
-      });
-    });
-
     test('shows all items when "All" tab is selected', async () => {
       renderWithRouter(<FeedPage />);
       
@@ -378,7 +359,6 @@ describe('FeedPage', () => {
 
   describe('Error Handling', () => {
     test('handles Firestore connection errors gracefully', async () => {
-      // Mock the query to throw an error
       query.mockImplementation(() => {
         throw new Error('Failed to connect to database');
       });
@@ -449,23 +429,12 @@ describe('FeedPage', () => {
 
   describe('Empty States', () => {
     test('displays appropriate message when no items match filters', async () => {
-      onSnapshot.mockImplementation((query, successCallback) => {
-        successCallback({
-          docs: mockItems.map(item => ({
-            data: () => item,
-            id: item.id,
-          })),
-        });
-        return mockUnsubscribe;
-      });
-
       renderWithRouter(<FeedPage />);
       
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
 
-      // Apply filter that will show no results
       const searchInput = screen.getByTestId('search-input');
       fireEvent.change(searchInput, { target: { value: 'nonexistent-item' } });
 
@@ -477,12 +446,7 @@ describe('FeedPage', () => {
     });
 
     test('displays appropriate message when no items are loaded', async () => {
-      onSnapshot.mockImplementation((query, successCallback) => {
-        successCallback({
-          docs: [],
-        });
-        return mockUnsubscribe;
-      });
+      setupOnSnapshotMock([]);
 
       renderWithRouter(<FeedPage />);
       

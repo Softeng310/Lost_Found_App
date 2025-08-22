@@ -1,5 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import PropTypes from 'prop-types';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 
 // Common test data
@@ -110,7 +111,7 @@ export const MockComponents = {
       {children}
       <button
         data-testid="tab-change-simulator"
-        onClick={() => onValueChange && onValueChange('found')}
+        onClick={() => onValueChange?.('found')}
       >
         Simulate Tab Change
       </button>
@@ -140,17 +141,16 @@ export const MockComponents = {
   ),
   
   ItemCard: ({ item, onClick, ...props }) => (
-    <div 
+    <button 
       data-testid="item-card" 
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onClick && onClick(e);
+          onClick?.(e);
         }
       }}
       tabIndex={0}
-      role="button"
       aria-label={`View details for ${item?.title || 'Test Item'}`}
       {...props}
     >
@@ -159,7 +159,7 @@ export const MockComponents = {
       <span data-testid="item-status">{item?.status || 'lost'}</span>
       <span data-testid="item-type">{item?.type || 'electronics'}</span>
       <span data-testid="item-location">{item?.location || 'OGGB'}</span>
-    </div>
+    </button>
   ),
   
   ItemReportForm: () => (
@@ -205,6 +205,50 @@ export const MockComponents = {
       </form>
     </div>
   ),
+};
+
+// Add PropTypes for mock components
+MockComponents.Button.propTypes = {
+  children: PropTypes.node.isRequired,
+  type: PropTypes.string,
+  onClick: PropTypes.func,
+};
+
+MockComponents.SearchFilters.propTypes = {
+  value: PropTypes.string,
+  onChange: PropTypes.func,
+};
+
+MockComponents.Tabs.propTypes = {
+  children: PropTypes.node.isRequired,
+  value: PropTypes.string,
+  onValueChange: PropTypes.func,
+};
+
+MockComponents.TabsContent.propTypes = {
+  children: PropTypes.node.isRequired,
+  value: PropTypes.string.isRequired,
+};
+
+MockComponents.TabsList.propTypes = {
+  children: PropTypes.node.isRequired,
+};
+
+MockComponents.TabsTrigger.propTypes = {
+  children: PropTypes.node.isRequired,
+  value: PropTypes.string.isRequired,
+  onClick: PropTypes.func,
+};
+
+MockComponents.ItemCard.propTypes = {
+  item: PropTypes.shape({
+    title: PropTypes.string,
+    description: PropTypes.string,
+    status: PropTypes.string,
+    type: PropTypes.string,
+    location: PropTypes.string,
+  }),
+  onClick: PropTypes.func,
 };
 
 // Mock icons
@@ -264,6 +308,12 @@ export const MockRouter = {
   ),
 };
 
+// Add PropTypes for Link mock
+MockRouter.Link.propTypes = {
+  children: PropTypes.node.isRequired,
+  to: PropTypes.string.isRequired,
+};
+
 // Setup function that can be called in individual test files
 export const setupTestEnvironment = () => {
   return {
@@ -302,6 +352,8 @@ export const testHelpers = {
           }
         } catch (error) {
           // Element not found, continue checking
+          // Log error for debugging if needed
+          console.debug('Element not found yet:', error.message);
         }
         
         if (Date.now() - startTime > timeout) {
