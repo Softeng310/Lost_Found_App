@@ -62,50 +62,73 @@ describe('ProfilePage', () => {
     onAuthStateChanged.mockReturnValue(mockUnsubscribe);
   });
 
+  // Helper functions to reduce code duplication
+  const renderWithMockUser = (user = mockUser) => {
+    setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
+    return renderWithRouter(<ProfilePage />);
+  };
+
+  const assertProfilePageRenders = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Profile & History')).toBeInTheDocument();
+      expect(screen.getByText('Logout')).toBeInTheDocument();
+    });
+  };
+
+  const assertTrustVerificationSection = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Trust & Verification')).toBeInTheDocument();
+      expect(screen.getByText('Unverified')).toBeInTheDocument();
+    });
+  };
+
+  const assertMyPostsAndClaimsSections = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('My Posts')).toBeInTheDocument();
+      expect(screen.getByText('My Claims')).toBeInTheDocument();
+    });
+  };
+
+  const assertLogoutButtonPresence = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Logout')).toBeInTheDocument();
+      const logoutButton = screen.getByText('Logout').closest('button');
+      expect(logoutButton).toBeInTheDocument();
+    });
+  };
+
+  const assertLogoutButtonStyling = () => {
+    const logoutButton = screen.getByText('Logout');
+    expect(logoutButton).toBeInTheDocument();
+    expect(logoutButton.closest('button')).toHaveClass('bg-red-600');
+  };
+
+  const clickLogoutButton = async () => {
+    await waitFor(() => {
+      const logoutButton = screen.getByText('Logout').closest('button');
+      fireEvent.click(logoutButton);
+    });
+  };
+
   describe('Rendering', () => {
     test('renders profile page with user information when authenticated', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
-      
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Profile & History')).toBeInTheDocument();
-        expect(screen.getByText('Logout')).toBeInTheDocument();
-      });
+      renderWithMockUser();
+      await assertProfilePageRenders();
     });
 
     test('renders logout button with icon', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
-      
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Logout')).toBeInTheDocument();
-        const logoutButton = screen.getByText('Logout').closest('button');
-        expect(logoutButton).toBeInTheDocument();
-      });
+      renderWithMockUser();
+      await assertLogoutButtonPresence();
     });
 
     test('renders trust verification section', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
-      
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Trust & Verification')).toBeInTheDocument();
-        expect(screen.getByText('Unverified')).toBeInTheDocument();
-      });
+      renderWithMockUser();
+      await assertTrustVerificationSection();
     });
 
     test('renders my posts and claims sections', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
-      
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('My Posts')).toBeInTheDocument();
-        expect(screen.getByText('My Claims')).toBeInTheDocument();
-      });
+      renderWithMockUser();
+      await assertMyPostsAndClaimsSections();
     });
   });
 
@@ -128,54 +151,32 @@ describe('ProfilePage', () => {
 
     test('displays logout button with proper styling', () => {
       renderWithRouter(<ProfilePage />);
-      
-      const logoutButton = screen.getByText('Logout');
-      expect(logoutButton).toBeInTheDocument();
-      expect(logoutButton.closest('button')).toHaveClass('bg-red-600');
+      assertLogoutButtonStyling();
     });
   });
 
   describe('Logout Functionality', () => {
     test('calls signOut when logout button is clicked', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
       setupSuccessMock(signOut);
+      renderWithMockUser();
       
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        const logoutButton = screen.getByText('Logout').closest('button');
-        fireEvent.click(logoutButton);
-        expect(signOut).toHaveBeenCalledWith(mockAuth);
-      });
+      await clickLogoutButton();
+      expect(signOut).toHaveBeenCalledWith(mockAuth);
     });
 
     test('redirects to home page after successful logout', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
       setupSuccessMock(signOut);
+      renderWithMockUser();
       
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        const logoutButton = screen.getByText('Logout').closest('button');
-        fireEvent.click(logoutButton);
-      });
-      
-      await waitFor(() => {
-        expect(signOut).toHaveBeenCalledWith(mockAuth);
-      });
+      await clickLogoutButton();
+      expect(signOut).toHaveBeenCalledWith(mockAuth);
     });
 
     test('handles logout errors gracefully', async () => {
       setupErrorMock(signOut, 'Logout failed');
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
+      renderWithMockUser();
       
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        const logoutButton = screen.getByText('Logout');
-        fireEvent.click(logoutButton);
-      });
-      
+      await clickLogoutButton();
       await waitFor(() => {
         expect(screen.getByText('Profile & History')).toBeInTheDocument();
       });
@@ -184,39 +185,20 @@ describe('ProfilePage', () => {
 
   describe('Profile Sections', () => {
     test('displays trust verification section', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
-      
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Trust & Verification')).toBeInTheDocument();
-        expect(screen.getByText('Unverified')).toBeInTheDocument();
-      });
+      renderWithMockUser();
+      await assertTrustVerificationSection();
     });
 
     test('displays my posts and claims sections', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
-      
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('My Posts')).toBeInTheDocument();
-        expect(screen.getByText('My Claims')).toBeInTheDocument();
-      });
+      renderWithMockUser();
+      await assertMyPostsAndClaimsSections();
     });
   });
 
   describe('Navigation', () => {
     test('renders logout button for navigation', async () => {
-      setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
-      
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Logout')).toBeInTheDocument();
-        const logoutButton = screen.getByText('Logout').closest('button');
-        expect(logoutButton).toBeInTheDocument();
-      });
+      renderWithMockUser();
+      await assertLogoutButtonPresence();
     });
   });
 
