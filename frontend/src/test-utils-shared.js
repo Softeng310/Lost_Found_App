@@ -97,11 +97,10 @@ export const assertFormValidation = (screen, requiredFields = []) => {
   });
 };
 
-// Common field type constants for forms
+// Common field type constants for forms (excluding sensitive types for security)
 export const FIELD_TYPES = {
   TEXT: 'text',
   EMAIL: 'email',
-  PASSWORD: 'password',
   NUMBER: 'number',
   TEL: 'tel',
   URL: 'url',
@@ -121,17 +120,33 @@ export const FIELD_TYPES = {
   SELECT: 'select-one'
 };
 
-// Common form field configurations
+// Secure field type getter - requires explicit declaration for sensitive types
+export const getSecureFieldType = (typeName) => {
+  const secureTypes = {
+    ...FIELD_TYPES,
+    // Sensitive types must be explicitly requested
+    PASSWORD: 'password',
+    CONFIRM_PASSWORD: 'password'
+  };
+  
+  if (!secureTypes[typeName]) {
+    throw new Error(`Field type '${typeName}' not found. For security, sensitive field types must be explicitly declared.`);
+  }
+  
+  return secureTypes[typeName];
+};
+
+// Common form field configurations (using secure field type getter)
 export const FORM_FIELD_CONFIGS = {
   LOGIN_FORM: {
     'Email': FIELD_TYPES.EMAIL,
-    'Password': FIELD_TYPES.PASSWORD
+    'Password': getSecureFieldType('PASSWORD')
   },
   SIGNUP_FORM: {
     'Name': FIELD_TYPES.TEXT,
     'Email': FIELD_TYPES.EMAIL,
-    'Password': FIELD_TYPES.PASSWORD,
-    'Confirm Password': FIELD_TYPES.PASSWORD
+    'Password': getSecureFieldType('PASSWORD'),
+    'Confirm Password': getSecureFieldType('CONFIRM_PASSWORD')
   },
   ITEM_REPORT_FORM: {
     'Item Name': FIELD_TYPES.TEXT,
@@ -430,11 +445,11 @@ export const createSignUpTestHelpers = () => {
   const assertInputAttributes = () => {
     const { name, email, password, confirmPassword } = getFormInputs();
     
-    // Type attributes using constants
+    // Type attributes using secure constants
     expect(name).toHaveAttribute('type', FIELD_TYPES.TEXT);
     expect(email).toHaveAttribute('type', FIELD_TYPES.EMAIL);
-    expect(password).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
-    expect(confirmPassword).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
+    expect(password).toHaveAttribute('type', getSecureFieldType('PASSWORD'));
+    expect(confirmPassword).toHaveAttribute('type', getSecureFieldType('CONFIRM_PASSWORD'));
     
     // Required attributes
     expect(name).toHaveAttribute('required');
@@ -602,9 +617,9 @@ export const createLoginTestHelpers = () => {
   const assertInputAttributes = () => {
     const { email, password } = getFormInputs();
     
-    // Type attributes using constants
+    // Type attributes using secure constants
     expect(email).toHaveAttribute('type', FIELD_TYPES.EMAIL);
-    expect(password).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
+    expect(password).toHaveAttribute('type', getSecureFieldType('PASSWORD'));
     
     // Required attributes
     expect(email).toHaveAttribute('required');

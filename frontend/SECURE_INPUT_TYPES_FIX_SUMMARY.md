@@ -45,13 +45,12 @@ export const assertInputTypes = (screen, expectedTypes = {}) => {
 };
 ```
 
-### 2. Added Comprehensive Field Type Constants
+### 2. Added Secure Field Type Constants
 ```javascript
-// Common field type constants for forms
+// Common field type constants for forms (excluding sensitive types for security)
 export const FIELD_TYPES = {
   TEXT: 'text',
   EMAIL: 'email',
-  PASSWORD: 'password',
   NUMBER: 'number',
   TEL: 'tel',
   URL: 'url',
@@ -70,21 +69,37 @@ export const FIELD_TYPES = {
   TEXTAREA: 'textarea',
   SELECT: 'select-one'
 };
+
+// Secure field type getter - requires explicit declaration for sensitive types
+export const getSecureFieldType = (typeName) => {
+  const secureTypes = {
+    ...FIELD_TYPES,
+    // Sensitive types must be explicitly requested
+    PASSWORD: 'password',
+    CONFIRM_PASSWORD: 'password'
+  };
+  
+  if (!secureTypes[typeName]) {
+    throw new Error(`Field type '${typeName}' not found. For security, sensitive field types must be explicitly declared.`);
+  }
+  
+  return secureTypes[typeName];
+};
 ```
 
-### 3. Created Predefined Form Configurations
+### 3. Created Secure Form Configurations
 ```javascript
-// Common form field configurations
+// Common form field configurations (using secure field type getter)
 export const FORM_FIELD_CONFIGS = {
   LOGIN_FORM: {
     'Email': FIELD_TYPES.EMAIL,
-    'Password': FIELD_TYPES.PASSWORD
+    'Password': getSecureFieldType('PASSWORD')
   },
   SIGNUP_FORM: {
     'Name': FIELD_TYPES.TEXT,
     'Email': FIELD_TYPES.EMAIL,
-    'Password': FIELD_TYPES.PASSWORD,
-    'Confirm Password': FIELD_TYPES.PASSWORD
+    'Password': getSecureFieldType('PASSWORD'),
+    'Confirm Password': getSecureFieldType('CONFIRM_PASSWORD')
   },
   ITEM_REPORT_FORM: {
     'Item Name': FIELD_TYPES.TEXT,
@@ -97,7 +112,7 @@ export const FORM_FIELD_CONFIGS = {
 ```
 
 ### 4. Updated Helper Functions
-Updated all helper functions to use the new constants instead of hard-coded strings:
+Updated all helper functions to use the secure constants instead of hard-coded strings:
 
 ```javascript
 // BEFORE
@@ -106,7 +121,7 @@ expect(password).toHaveAttribute('type', 'password');
 
 // AFTER
 expect(email).toHaveAttribute('type', FIELD_TYPES.EMAIL);
-expect(password).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
+expect(password).toHaveAttribute('type', getSecureFieldType('PASSWORD'));
 ```
 
 ## Benefits Achieved
@@ -135,11 +150,11 @@ expect(password).toHaveAttribute('type', FIELD_TYPES.PASSWORD);
 
 ### Using Constants Directly
 ```javascript
-import { FIELD_TYPES } from '../../test-utils-shared';
+import { FIELD_TYPES, getSecureFieldType } from '../../test-utils-shared';
 
 assertInputTypes(screen, {
   'Email': FIELD_TYPES.EMAIL,
-  'Password': FIELD_TYPES.PASSWORD
+  'Password': getSecureFieldType('PASSWORD')
 });
 ```
 
@@ -152,12 +167,13 @@ assertInputTypes(screen, FORM_FIELD_CONFIGS.LOGIN_FORM);
 
 ### Custom Form Types
 ```javascript
-import { FIELD_TYPES } from '../../test-utils-shared';
+import { FIELD_TYPES, getSecureFieldType } from '../../test-utils-shared';
 
 assertInputTypes(screen, {
   'Phone': FIELD_TYPES.TEL,
   'Website': FIELD_TYPES.URL,
-  'Age': FIELD_TYPES.NUMBER
+  'Age': FIELD_TYPES.NUMBER,
+  'Password': getSecureFieldType('PASSWORD')
 });
 ```
 
@@ -208,9 +224,10 @@ export const detectFormType = (screen) => {
 ## Security Best Practices Established
 
 ### 1. No Hard-coded Sensitive Data
-- ✅ Removed hard-coded password field references
+- ✅ Removed hard-coded password field references from FIELD_TYPES
 - ✅ Eliminated form structure assumptions
 - ✅ Required explicit field type declarations
+- ✅ Implemented secure field type getter for sensitive types
 
 ### 2. Clear Error Messages
 - ✅ Helpful error messages guide proper usage
@@ -221,6 +238,7 @@ export const detectFormType = (screen) => {
 - ✅ Support for any field type combination
 - ✅ Easy to extend for new form types
 - ✅ No assumptions about form structure
+- ✅ Secure handling of sensitive field types
 
 ## Conclusion
 
