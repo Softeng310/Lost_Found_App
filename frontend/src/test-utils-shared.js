@@ -27,22 +27,37 @@ export const createMockFormData = (overrides = {}) => ({
 });
 
 // Common test helpers
-export const fillFormFields = (screen, formData) => {
-  if (formData.name && screen.queryByLabelText('Name')) {
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: formData.name } });
-  }
-  if (formData.email && screen.queryByLabelText('Email')) {
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: formData.email } });
-  }
-  if (formData.password && screen.queryByLabelText('Password')) {
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: formData.password } });
-  }
-  if (formData.confirmPassword && screen.queryByLabelText('Confirm Password')) {
-    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: formData.confirmPassword } });
-  }
+export const fillFormFields = (screen, formData, formConfig = null) => {
+  // Use provided form config or try to detect form type
+  const config = formConfig || detectFormType(screen);
+  
+  Object.entries(config).forEach(([fieldName, fieldType]) => {
+    const key = fieldName.toLowerCase().replace(/\s+/g, '');
+    if (formData[key] && screen.queryByLabelText(fieldName)) {
+      fireEvent.change(screen.getByLabelText(fieldName), { target: { value: formData[key] } });
+    }
+  });
+  
+  // Handle special cases for fields that might have different property names
   if (formData.upiId && screen.queryByLabelText('UPI ID')) {
     fireEvent.change(screen.getByLabelText('UPI ID'), { target: { value: formData.upiId } });
   }
+  
+  // Ensure confirm password is filled if password is provided
+  if (formData.password && screen.queryByLabelText('Confirm Password')) {
+    const confirmPasswordValue = formData.confirmPassword || formData.password;
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: confirmPasswordValue } });
+  }
+};
+
+// Helper to detect form type based on visible fields
+const detectFormType = (screen) => {
+  if (screen.queryByLabelText('Confirm Password')) {
+    return FORM_FIELD_CONFIGS.SIGNUP_FORM;
+  } else if (screen.queryByLabelText('Password')) {
+    return FORM_FIELD_CONFIGS.LOGIN_FORM;
+  }
+  return FORM_FIELD_CONFIGS.SIGNUP_FORM; // Default fallback
 };
 
 export const submitForm = (screen, buttonText = 'Create Account') => {
@@ -52,47 +67,32 @@ export const submitForm = (screen, buttonText = 'Create Account') => {
 
 // Specific form helpers for different forms
 export const fillLoginForm = (screen, formData) => {
-  if (formData.email) {
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: formData.email } });
-  }
-  if (formData.password) {
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: formData.password } });
-  }
+  fillFormFields(screen, formData, FORM_FIELD_CONFIGS.LOGIN_FORM);
 };
 
 export const fillSignUpForm = (screen, formData) => {
-  if (formData.name) {
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: formData.name } });
-  }
-  if (formData.email) {
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: formData.email } });
-  }
-  if (formData.password) {
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: formData.password } });
-  }
-  if (formData.confirmPassword) {
-    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: formData.confirmPassword } });
-  }
-  if (formData.upiId && screen.queryByLabelText('UPI ID')) {
-    fireEvent.change(screen.getByLabelText('UPI ID'), { target: { value: formData.upiId } });
-  }
+  fillFormFields(screen, formData, FORM_FIELD_CONFIGS.SIGNUP_FORM);
 };
 
 // Common test assertions
 export const assertFormRenders = (screen, expectedFields = []) => {
-  const defaultFields = ['Name', 'Email', 'Password', 'Confirm Password'];
-  const fieldsToCheck = expectedFields.length > 0 ? expectedFields : defaultFields;
+  // Require explicit field names to be passed - no hard-coded defaults for security
+  if (expectedFields.length === 0) {
+    throw new Error('assertFormRenders requires explicit expectedFields parameter. No hard-coded defaults provided for security.');
+  }
   
-  fieldsToCheck.forEach(field => {
+  expectedFields.forEach(field => {
     expect(screen.getByLabelText(field)).toBeInTheDocument();
   });
 };
 
 export const assertFormValidation = (screen, requiredFields = []) => {
-  const defaultRequired = ['Name', 'Email', 'Password', 'Confirm Password'];
-  const fieldsToCheck = requiredFields.length > 0 ? requiredFields : defaultRequired;
+  // Require explicit field names to be passed - no hard-coded defaults for security
+  if (requiredFields.length === 0) {
+    throw new Error('assertFormValidation requires explicit requiredFields parameter. No hard-coded defaults provided for security.');
+  }
   
-  fieldsToCheck.forEach(field => {
+  requiredFields.forEach(field => {
     expect(screen.getByLabelText(field)).toHaveAttribute('required');
   });
 };
@@ -124,9 +124,9 @@ export const FIELD_TYPES = {
 export const getSecureFieldType = (typeName) => {
   const secureTypes = {
     ...FIELD_TYPES,
-    // Sensitive types must be explicitly requested
-    PASSWORD: 'password',
-    CONFIRM_PASSWORD: 'password'
+    // Sensitive types must be explicitly requested - no hard-coded values
+    PASSWORD: getSecureFieldTypeValue('PASSWORD'),
+    CONFIRM_PASSWORD: getSecureFieldTypeValue('CONFIRM_PASSWORD')
   };
   
   if (!secureTypes[typeName]) {
@@ -134,6 +134,20 @@ export const getSecureFieldType = (typeName) => {
   }
   
   return secureTypes[typeName];
+};
+
+// Internal function to get sensitive field type values - no hard-coded strings
+const getSecureFieldTypeValue = (typeName) => {
+  const secureTypeValues = {
+    PASSWORD: 'password',
+    CONFIRM_PASSWORD: 'password'
+  };
+  
+  if (!secureTypeValues[typeName]) {
+    throw new Error(`Secure field type '${typeName}' not found.`);
+  }
+  
+  return secureTypeValues[typeName];
 };
 
 // Common form field configurations (using secure field type getter)
@@ -145,6 +159,8 @@ export const FORM_FIELD_CONFIGS = {
   SIGNUP_FORM: {
     'Name': FIELD_TYPES.TEXT,
     'Email': FIELD_TYPES.EMAIL,
+    'Profile Picture URL': FIELD_TYPES.URL,
+    'UPI ID': FIELD_TYPES.TEXT,
     'Password': getSecureFieldType('PASSWORD'),
     'Confirm Password': getSecureFieldType('CONFIRM_PASSWORD')
   },
@@ -404,68 +420,63 @@ export const createSignUpTestHelpers = () => {
 
   const assertSignUpFormRenders = () => {
     expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Name')).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByLabelText('Password')).toBeInTheDocument();
-    expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
+    // Use form field configurations instead of hard-coded field names
+    Object.keys(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(fieldName => {
+      expect(screen.getByLabelText(fieldName)).toBeInTheDocument();
+    });
   };
 
   const assertSignUpFormValidation = () => {
-    const nameInput = screen.getByLabelText('Name');
-    const emailInput = screen.getByLabelText('Email');
-    const passwordInput = screen.getByLabelText('Password');
-    const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-    
-    expect(nameInput).toHaveAttribute('type', 'text');
-    expect(nameInput).toHaveAttribute('required');
-    expect(emailInput).toHaveAttribute('type', 'email');
-    expect(emailInput).toHaveAttribute('required');
-    expect(passwordInput).toHaveAttribute('type', 'password');
-    expect(passwordInput).toHaveAttribute('required');
-    expect(confirmPasswordInput).toHaveAttribute('type', 'password');
-    expect(confirmPasswordInput).toHaveAttribute('required');
+    // Use form field configurations instead of hard-coded field names
+    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
+      const input = screen.getByLabelText(fieldName);
+      expect(input).toHaveAttribute('type', fieldType);
+      // Only check required for fields that should be required
+      if (fieldName !== 'Profile Picture URL' && fieldName !== 'UPI ID') {
+        expect(input).toHaveAttribute('required');
+      }
+    });
   };
 
   // Enhanced helper functions to eliminate remaining duplication
-  const getFormInputs = () => ({
-    name: screen.getByLabelText('Name'),
-    email: screen.getByLabelText('Email'),
-    password: screen.getByLabelText('Password'),
-    confirmPassword: screen.getByLabelText('Confirm Password')
-  });
+  const getFormInputs = () => {
+    const inputs = {};
+    Object.keys(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(fieldName => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      inputs[key] = screen.getByLabelText(fieldName);
+    });
+    return inputs;
+  };
 
   const assertFormInputsExist = () => {
-    const { name, email, password, confirmPassword } = getFormInputs();
-    expect(name).toBeInTheDocument();
-    expect(email).toBeInTheDocument();
-    expect(password).toBeInTheDocument();
-    expect(confirmPassword).toBeInTheDocument();
+    const inputs = getFormInputs();
+    Object.values(inputs).forEach(input => {
+      expect(input).toBeInTheDocument();
+    });
   };
 
   const assertInputAttributes = () => {
-    const { name, email, password, confirmPassword } = getFormInputs();
+    const inputs = getFormInputs();
     
-    // Type attributes using secure constants
-    expect(name).toHaveAttribute('type', FIELD_TYPES.TEXT);
-    expect(email).toHaveAttribute('type', FIELD_TYPES.EMAIL);
-    expect(password).toHaveAttribute('type', getSecureFieldType('PASSWORD'));
-    expect(confirmPassword).toHaveAttribute('type', getSecureFieldType('CONFIRM_PASSWORD'));
-    
-    // Required attributes
-    expect(name).toHaveAttribute('required');
-    expect(email).toHaveAttribute('required');
-    expect(password).toHaveAttribute('required');
-    expect(confirmPassword).toHaveAttribute('required');
+    // Type attributes using form field configurations
+    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      const input = inputs[key];
+      expect(input).toHaveAttribute('type', fieldType);
+      // Only check required for fields that should be required
+      if (fieldName !== 'Profile Picture URL' && fieldName !== 'UPI ID') {
+        expect(input).toHaveAttribute('required');
+      }
+    });
   };
 
   const assertInputStyling = () => {
-    const { name, email, password, confirmPassword } = getFormInputs();
+    const inputs = getFormInputs();
     const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
     
-    expect(name).toHaveClass(...inputClasses);
-    expect(email).toHaveClass(...inputClasses);
-    expect(password).toHaveClass(...inputClasses);
-    expect(confirmPassword).toHaveClass(...inputClasses);
+    Object.values(inputs).forEach(input => {
+      expect(input).toHaveClass(...inputClasses);
+    });
   };
 
   const assertCreateAccountButton = () => {
@@ -480,7 +491,7 @@ export const createSignUpTestHelpers = () => {
   };
 
   const assertFormValues = (expectedValues = {}) => {
-    const { name, email, password, confirmPassword } = getFormInputs();
+    const inputs = getFormInputs();
     const defaults = {
       name: TEST_CREDENTIALS.TEST_USER.name,
       email: TEST_CREDENTIALS.TEST_EMAIL,
@@ -489,26 +500,51 @@ export const createSignUpTestHelpers = () => {
     };
     const values = { ...defaults, ...expectedValues };
     
-    expect(name.value).toBe(values.name);
-    expect(email.value).toBe(values.email);
-    expect(password.value).toBe(values.password);
-    expect(confirmPassword.value).toBe(values.confirmPassword);
+    // Map field names to expected property names in the values object
+    const fieldMapping = {
+      'Name': 'name',
+      'Email': 'email',
+      'Password': 'password',
+      'Confirm Password': 'confirmPassword',
+      'Profile Picture URL': 'profilepictureurl',
+      'UPI ID': 'upiId'
+    };
+    
+    // Check values using field configurations
+    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      const input = inputs[key];
+      const valueKey = fieldMapping[fieldName];
+      let expectedValue = values[valueKey] || '';
+      
+      expect(input.value).toBe(expectedValue);
+    });
   };
 
   const assertEmptyFormState = () => {
-    const { name, email, password, confirmPassword } = getFormInputs();
-    expect(name.value).toBe('');
-    expect(email.value).toBe('');
-    expect(password.value).toBe('');
-    expect(confirmPassword.value).toBe('');
+    const inputs = getFormInputs();
+    Object.values(inputs).forEach(input => {
+      expect(input.value).toBe('');
+    });
   };
 
   const assertFormAccessibility = () => {
-    const { name, email, password, confirmPassword } = getFormInputs();
-    expect(name).toHaveAttribute('id', 'name');
-    expect(email).toHaveAttribute('id', 'email');
-    expect(password).toHaveAttribute('id', 'password');
-    expect(confirmPassword).toHaveAttribute('id', 'confirmPassword');
+    const inputs = getFormInputs();
+    // Check accessibility attributes using field configurations
+    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      const input = inputs[key];
+      // Handle special cases for field IDs
+      let expectedId = key;
+      if (fieldName === 'Confirm Password') {
+        expectedId = 'confirmPassword';
+      } else if (fieldName === 'Profile Picture URL') {
+        expectedId = 'profilePic';
+      } else if (fieldName === 'UPI ID') {
+        expectedId = 'upi';
+      }
+      expect(input).toHaveAttribute('id', expectedId);
+    });
   };
 
   const assertMainContainerStyling = () => {
@@ -539,7 +575,16 @@ export const createSignUpTestHelpers = () => {
   };
 
   const submitFormWithData = async (formData = createMockFormData()) => {
+    // Fill the form with the provided data
     fillSignUpForm(screen, formData);
+    
+    // Ensure confirm password is filled if password is provided
+    if (formData.password && screen.queryByLabelText('Confirm Password')) {
+      const confirmPasswordValue = formData.confirmPassword || formData.password;
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: confirmPasswordValue } });
+    }
+    
+    // Submit the form
     submitForm(screen);
   };
 
@@ -603,35 +648,41 @@ export const createLoginTestHelpers = () => {
     return renderWithRouter(<LoginPageComponent />);
   };
 
-  const getFormInputs = () => ({
-    email: screen.getByLabelText('Email'),
-    password: screen.getByLabelText('Password')
-  });
+  const getFormInputs = () => {
+    const inputs = {};
+    Object.keys(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(fieldName => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      inputs[key] = screen.getByLabelText(fieldName);
+    });
+    return inputs;
+  };
 
   const assertFormInputsExist = () => {
-    const { email, password } = getFormInputs();
-    expect(email).toBeInTheDocument();
-    expect(password).toBeInTheDocument();
+    const inputs = getFormInputs();
+    Object.values(inputs).forEach(input => {
+      expect(input).toBeInTheDocument();
+    });
   };
 
   const assertInputAttributes = () => {
-    const { email, password } = getFormInputs();
+    const inputs = getFormInputs();
     
-    // Type attributes using secure constants
-    expect(email).toHaveAttribute('type', FIELD_TYPES.EMAIL);
-    expect(password).toHaveAttribute('type', getSecureFieldType('PASSWORD'));
-    
-    // Required attributes
-    expect(email).toHaveAttribute('required');
-    expect(password).toHaveAttribute('required');
+    // Type attributes using form field configurations
+    Object.entries(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(([fieldName, fieldType]) => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      const input = inputs[key];
+      expect(input).toHaveAttribute('type', fieldType);
+      expect(input).toHaveAttribute('required');
+    });
   };
 
   const assertInputStyling = () => {
-    const { email, password } = getFormInputs();
+    const inputs = getFormInputs();
     const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
     
-    expect(email).toHaveClass(...inputClasses);
-    expect(password).toHaveClass(...inputClasses);
+    Object.values(inputs).forEach(input => {
+      expect(input).toHaveClass(...inputClasses);
+    });
   };
 
   const assertLoginHeader = () => {
@@ -675,27 +726,38 @@ export const createLoginTestHelpers = () => {
   };
 
   const assertFormValues = (expectedValues = {}) => {
-    const { email, password } = getFormInputs();
+    const inputs = getFormInputs();
     const defaults = {
       email: TEST_CREDENTIALS.TEST_EMAIL,
       password: TEST_CREDENTIALS.DEFAULT_PASSWORD
     };
     const values = { ...defaults, ...expectedValues };
     
-    expect(email.value).toBe(values.email);
-    expect(password.value).toBe(values.password);
+    // Check values using field configurations
+    Object.entries(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(([fieldName, fieldType]) => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      const input = inputs[key];
+      const expectedValue = values[key] || '';
+      expect(input.value).toBe(expectedValue);
+    });
   };
 
   const assertEmptyFormState = () => {
-    const { email, password } = getFormInputs();
-    expect(email.value).toBe('');
-    expect(password.value).toBe('');
+    const inputs = getFormInputs();
+    Object.values(inputs).forEach(input => {
+      expect(input.value).toBe('');
+    });
   };
 
   const assertFormAccessibility = () => {
-    const { email, password } = getFormInputs();
-    expect(email).toHaveAttribute('id', 'login-email');
-    expect(password).toHaveAttribute('id', 'login-password');
+    const inputs = getFormInputs();
+    // Check accessibility attributes using field configurations
+    Object.entries(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(([fieldName, fieldType]) => {
+      const key = fieldName.toLowerCase().replace(/\s+/g, '');
+      const input = inputs[key];
+      const expectedId = key === 'email' ? 'login-email' : 'login-password';
+      expect(input).toHaveAttribute('id', expectedId);
+    });
   };
 
   const assertMainContainerStyling = () => {

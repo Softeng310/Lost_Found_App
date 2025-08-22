@@ -124,7 +124,7 @@ describe('SignUpPage', () => {
       const formData = createMockFormData();
       fillSignUpForm(screen, formData);
       
-      assertFormValues();
+      assertFormValues(formData);
     });
   });
 
