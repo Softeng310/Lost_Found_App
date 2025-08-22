@@ -1,60 +1,39 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import ItemDetailPage from '../ItemDetail';
+import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 
 // Mock react-router-dom
-const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
   useParams: jest.fn(),
-  Link: ({ children, to, ...props }) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
+  useNavigate: () => jest.fn(),
 }));
 
-// Mock Firebase Firestore
+// Mock Firebase modules
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
   getDoc: jest.fn(),
   onSnapshot: jest.fn(),
 }));
 
-// Mock firebase config
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+  onAuthStateChanged: jest.fn(),
+}));
+
 jest.mock('../../firebase/config', () => ({
   db: {},
+  auth: {},
 }));
 
-// Mock the Button component
-jest.mock('../../components/ui/button', () => ({
-  Button: ({ children, ...props }) => (
-    <button {...props} data-testid="button">
-      {children}
-    </button>
-  ),
-}));
-
-// Mock custom icons
-jest.mock('../../components/ui/icons', () => ({
-  ArrowLeft: () => <div data-testid="arrow-left-icon">ArrowLeft</div>,
-  ShieldCheck: () => <div data-testid="shield-check-icon">ShieldCheck</div>,
-}));
-
-// Wrapper component to provide router context
-const renderWithRouter = (component) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
-};
+// Setup test environment
+setupTestEnvironment();
 
 describe('ItemDetailPage', () => {
+  const { mockNavigate } = setupTestEnvironment();
   const mockDocRef = { id: 'test-doc-ref' };
   const mockUnsubscribe = jest.fn();
   const mockItem = {
@@ -72,7 +51,7 @@ describe('ItemDetailPage', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    cleanupTestEnvironment();
     mockNavigate.mockClear();
     useParams.mockReturnValue({ id: 'test-item-id' });
     doc.mockReturnValue(mockDocRef);

@@ -1,10 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import FeedPage from '../Feed';
+import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter, mockTestData } from '../../test-utils';
 
-// Mock Firebase Firestore
+// Mock Firebase modules
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   onSnapshot: jest.fn(),
@@ -12,93 +12,102 @@ jest.mock('firebase/firestore', () => ({
   query: jest.fn(),
 }));
 
-// Mock the components that Feed page uses
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+  onAuthStateChanged: jest.fn(),
+}));
+
+jest.mock('../../firebase/config', () => ({
+  db: {},
+  auth: {},
+}));
+
+// Mock components
 jest.mock('../../components/SearchFilters', () => ({
-  SearchFilters: ({ defaultValue, onChange }) => (
-    <div data-testid="search-filters">
+  __esModule: true,
+  SearchFilters: ({ defaultValue, onChange, ...props }) => (
+    <div data-testid="search-filters" {...props}>
       <input
         data-testid="search-input"
-        value={defaultValue.q}
-        onChange={(e) => onChange({ ...defaultValue, q: e.target.value })}
+        value={defaultValue?.q || ''}
+        onChange={(e) => onChange && onChange({ ...defaultValue, q: e.target.value })}
         placeholder="Search items..."
       />
-      <select
-        data-testid="type-filter"
-        value={defaultValue.type}
-        onChange={(e) => onChange({ ...defaultValue, type: e.target.value })}
+      <select 
+        data-testid="status-filter" 
+        value={defaultValue?.type || 'all'}
+        onChange={(e) => onChange && onChange({ ...defaultValue, type: e.target.value })}
+      >
+        <option value="all">All</option>
+        <option value="lost">Lost</option>
+        <option value="found">Found</option>
+      </select>
+      <select 
+        data-testid="type-filter" 
+        value={defaultValue?.type || 'all'}
+        onChange={(e) => onChange && onChange({ ...defaultValue, type: e.target.value })}
       >
         <option value="all">All Types</option>
         <option value="electronics">Electronics</option>
         <option value="clothing">Clothing</option>
+        <option value="personal">Personal</option>
       </select>
-      <select
-        data-testid="location-filter"
-        value={defaultValue.location}
-        onChange={(e) => onChange({ ...defaultValue, location: e.target.value })}
+      <select 
+        data-testid="location-filter" 
+        value={defaultValue?.location || 'all'}
+        onChange={(e) => onChange && onChange({ ...defaultValue, location: e.target.value })}
       >
         <option value="all">All Locations</option>
-        <option value="library">Library</option>
-        <option value="cafeteria">Cafeteria</option>
+        <option value="OGGB">OGGB</option>
+        <option value="library">General Library</option>
       </select>
-    </div>
-  ),
-}));
-
-jest.mock('../../components/ItemCard', () => ({
-  __esModule: true,
-  default: ({ item }) => (
-    <div data-testid={`item-card-${item.id}`} className="item-card">
-      <h3>{item.title}</h3>
-      <p>{item.description}</p>
-      <span>{item.kind}</span>
-      <span>{item.category}</span>
-      <span>{item.location}</span>
     </div>
   ),
 }));
 
 jest.mock('../../components/ui/Tabs', () => ({
-  Tabs: ({ children, value, onValueChange }) => (
-    <div data-testid="tabs" data-value={value} data-onchange={onValueChange ? 'true' : 'false'}>
+  __esModule: true,
+  Tabs: ({ children, value, onValueChange, ...props }) => (
+    <div data-testid="tabs" {...props}>
       {children}
-      {/* Simulate tab change when value changes */}
-      {onValueChange && (
-        <button 
-          data-testid="tab-change-simulator" 
-          onClick={() => onValueChange(value === 'all' ? 'lost' : value === 'lost' ? 'found' : 'all')}
-        >
-          Change Tab
-        </button>
-      )}
     </div>
   ),
-  TabsContent: ({ value, children }) => (
-    <div data-testid={`tab-content-${value}`}>{children}</div>
+  TabsContent: ({ children, value, ...props }) => (
+    <div data-testid={`tabs-content-${value}`} {...props}>
+      {children}
+    </div>
   ),
-  TabsList: ({ children }) => <div data-testid="tabs-list">{children}</div>,
-  TabsTrigger: ({ value, children, onClick }) => (
-    <button data-testid={`tab-trigger-${value}`} onClick={onClick}>
+  TabsList: ({ children, ...props }) => (
+    <div data-testid="tabs-list" {...props}>
+      {children}
+    </div>
+  ),
+  TabsTrigger: ({ children, value, onClick, ...props }) => (
+    <button
+      data-testid={`tabs-trigger-${value}`}
+      onClick={onClick || (() => {})}
+      {...props}
+    >
       {children}
     </button>
   ),
 }));
 
-jest.mock('../../firebase/config', () => ({
-  db: {},
+jest.mock('../../components/ItemCard', () => ({
+  __esModule: true,
+  default: ({ item, onClick, ...props }) => (
+    <div data-testid={`item-card-${item?.id || 'default'}`} onClick={onClick} {...props}>
+      <h3>{item?.title || 'Test Item'}</h3>
+      <p>{item?.description || 'Test description'}</p>
+      <span data-testid="item-status">{item?.status || 'lost'}</span>
+      <span data-testid="item-type">{item?.type || 'electronics'}</span>
+      <span data-testid="item-location">{item?.location || 'OGGB'}</span>
+    </div>
+  ),
 }));
 
-jest.mock('../../lib/utils', () => ({
-  normalizeFirestoreItem: (item, id) => ({ ...item, id }),
-}));
-
-// Wrapper component to provide router context
-const renderWithRouter = (component) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
-};
+// Setup test environment
+setupTestEnvironment();
 
 describe('FeedPage', () => {
   const mockUnsubscribe = jest.fn();
@@ -134,7 +143,7 @@ describe('FeedPage', () => {
   ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    cleanupTestEnvironment();
     
     // Setup default mocks
     collection.mockReturnValue('items-collection');
@@ -164,9 +173,9 @@ describe('FeedPage', () => {
     test('renders all tab triggers', () => {
       renderWithRouter(<FeedPage />);
       
-      expect(screen.getByTestId('tab-trigger-all')).toBeInTheDocument();
-      expect(screen.getByTestId('tab-trigger-lost')).toBeInTheDocument();
-      expect(screen.getByTestId('tab-trigger-found')).toBeInTheDocument();
+      expect(screen.getByTestId('tabs-trigger-all')).toBeInTheDocument();
+      expect(screen.getByTestId('tabs-trigger-lost')).toBeInTheDocument();
+      expect(screen.getByTestId('tabs-trigger-found')).toBeInTheDocument();
     });
 
     test('renders search filters with correct initial values', () => {
@@ -308,7 +317,7 @@ describe('FeedPage', () => {
       expect(screen.getByTestId('search-input')).toBeInTheDocument();
       expect(screen.getByTestId('type-filter')).toBeInTheDocument();
       expect(screen.getByTestId('location-filter')).toBeInTheDocument();
-      expect(screen.getByTestId('tab-trigger-all')).toBeInTheDocument();
+      expect(screen.getByTestId('tabs-trigger-all')).toBeInTheDocument();
     });
   });
 
@@ -348,9 +357,9 @@ describe('FeedPage', () => {
     test('tab triggers are rendered correctly', () => {
       renderWithRouter(<FeedPage />);
       
-      expect(screen.getByTestId('tab-trigger-all')).toBeInTheDocument();
-      expect(screen.getByTestId('tab-trigger-lost')).toBeInTheDocument();
-      expect(screen.getByTestId('tab-trigger-found')).toBeInTheDocument();
+      expect(screen.getByTestId('tabs-trigger-all')).toBeInTheDocument();
+      expect(screen.getByTestId('tabs-trigger-lost')).toBeInTheDocument();
+      expect(screen.getByTestId('tabs-trigger-found')).toBeInTheDocument();
     });
   });
 
@@ -415,9 +424,9 @@ describe('FeedPage', () => {
     test('tab triggers have proper accessibility attributes', () => {
       renderWithRouter(<FeedPage />);
       
-      const allTab = screen.getByTestId('tab-trigger-all');
-      const lostTab = screen.getByTestId('tab-trigger-lost');
-      const foundTab = screen.getByTestId('tab-trigger-found');
+      const allTab = screen.getByTestId('tabs-trigger-all');
+      const lostTab = screen.getByTestId('tabs-trigger-lost');
+      const foundTab = screen.getByTestId('tabs-trigger-found');
       
       expect(allTab).toBeInTheDocument();
       expect(lostTab).toBeInTheDocument();

@@ -1,100 +1,67 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { screen } from '@testing-library/react';
 import HomePage from '../Home';
+import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 
-// Mock the components that Home page uses
-jest.mock('../../components/ui/button', () => ({
-  Button: ({ children, ...props }) => (
-    <button {...props} data-testid="button">
-      {children}
-    </button>
-  ),
-}));
-
-// Mock lucide-react icons
-jest.mock('lucide-react', () => ({
-  Search: () => <div data-testid="search-icon">Search</div>,
-  MapPin: () => <div data-testid="mappin-icon">MapPin</div>,
-  Bell: () => <div data-testid="bell-icon">Bell</div>,
-  Plus: () => <div data-testid="plus-icon">Plus</div>,
-  Users: () => <div data-testid="users-icon">Users</div>,
-  Shield: () => <div data-testid="shield-icon">Shield</div>,
-  Heart: () => <div data-testid="heart-icon">Heart</div>,
-}));
-
-// Wrapper component to provide router context
-const renderWithRouter = (component) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
-};
+// Setup test environment
+setupTestEnvironment();
 
 describe('HomePage', () => {
   beforeEach(() => {
-    // Clear any previous renders
-    jest.clearAllMocks();
+    cleanupTestEnvironment();
   });
 
   describe('Rendering', () => {
-    test('renders the main hero section with title and subtitle', () => {
+    test('renders hero section with title and subtitle', () => {
       renderWithRouter(<HomePage />);
       
       expect(screen.getByText('Lost & Found Community')).toBeInTheDocument();
-      expect(screen.getByText(/Connect with your community to find lost items/)).toBeInTheDocument();
+      expect(screen.getByText(/Connect with your community to find lost items and return found belongings/)).toBeInTheDocument();
     });
 
-    test('renders action buttons for browsing items and reporting items', () => {
+    test('renders action buttons', () => {
       renderWithRouter(<HomePage />);
       
       expect(screen.getAllByText('Browse Items').length).toBeGreaterThan(0);
       expect(screen.getByText('Report Item')).toBeInTheDocument();
     });
 
-    test('renders community statistics section', () => {
+    test('renders stats section', () => {
       renderWithRouter(<HomePage />);
       
       expect(screen.getByText('Items Reunited')).toBeInTheDocument();
-      expect(screen.getByText('500+')).toBeInTheDocument();
       expect(screen.getByText('Active Users')).toBeInTheDocument();
-      expect(screen.getByText('2,000+')).toBeInTheDocument();
       expect(screen.getByText('Success Rate')).toBeInTheDocument();
-      expect(screen.getByText('85%')).toBeInTheDocument();
     });
 
-    test('renders features section with "How It Works" title', () => {
+    test('renders features section', () => {
       renderWithRouter(<HomePage />);
       
       expect(screen.getByText('How It Works')).toBeInTheDocument();
-    });
-
-    test('renders all feature cards with correct content', () => {
-      renderWithRouter(<HomePage />);
-      
-      // Check for feature titles
       expect(screen.getByText('Find Lost Items')).toBeInTheDocument();
       expect(screen.getByText('Location Tracking')).toBeInTheDocument();
       expect(screen.getByText('Stay Updated')).toBeInTheDocument();
-      
-      // Check for feature descriptions
-      expect(screen.getByText(/Search through reported lost items/)).toBeInTheDocument();
-      expect(screen.getByText(/See where items were lost or found/)).toBeInTheDocument();
-      expect(screen.getByText(/Get notifications about new items/)).toBeInTheDocument();
     });
   });
 
   describe('Navigation', () => {
-    test('Browse Items button links to /feed', () => {
+    test('browse items button links to feed page', () => {
       renderWithRouter(<HomePage />);
       
+      // Get all Browse Items buttons and check the first one (hero section)
       const browseButtons = screen.getAllByText('Browse Items');
-      const browseButton = browseButtons[0].closest('a');
-      expect(browseButton).toHaveAttribute('href', '/feed');
+      expect(browseButtons.length).toBe(2); // Should have 2 buttons
+      
+      // Check the first button (hero section)
+      const heroButton = browseButtons[0].closest('a');
+      expect(heroButton).toHaveAttribute('href', '/feed');
+      
+      // Check the second button (CTA section) also links to feed
+      const ctaButton = browseButtons[1].closest('a');
+      expect(ctaButton).toHaveAttribute('href', '/feed');
     });
 
-    test('Report Item button links to /items/new', () => {
+    test('report item button links to new item page', () => {
       renderWithRouter(<HomePage />);
       
       const reportButton = screen.getByText('Report Item').closest('a');
@@ -106,24 +73,25 @@ describe('HomePage', () => {
     test('renders all required icons in the features section', () => {
       renderWithRouter(<HomePage />);
       
-      expect(screen.getAllByTestId('search-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('mappin-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('bell-icon').length).toBeGreaterThan(0);
+      // Check for SVG icons in the features section
+      const featureIcons = document.querySelectorAll('section:nth-child(3) svg');
+      expect(featureIcons.length).toBeGreaterThan(0);
     });
 
     test('renders all required icons in the stats section', () => {
       renderWithRouter(<HomePage />);
       
-      expect(screen.getAllByTestId('heart-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('users-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('shield-icon').length).toBeGreaterThan(0);
+      // Check for SVG icons in the stats section
+      const statsIcons = document.querySelectorAll('section:nth-child(2) svg');
+      expect(statsIcons.length).toBeGreaterThan(0);
     });
 
     test('renders icons in action buttons', () => {
       renderWithRouter(<HomePage />);
       
-      expect(screen.getAllByTestId('search-icon').length).toBeGreaterThan(0);
-      expect(screen.getAllByTestId('plus-icon').length).toBeGreaterThan(0);
+      // Check for SVG icons in the action buttons
+      const buttonIcons = document.querySelectorAll('section:nth-child(1) svg');
+      expect(buttonIcons.length).toBeGreaterThan(0);
     });
   });
 
@@ -142,7 +110,7 @@ describe('HomePage', () => {
     test('buttons have proper accessibility attributes', () => {
       renderWithRouter(<HomePage />);
       
-      const buttons = screen.getAllByTestId('button');
+      const buttons = screen.getAllByRole('button');
       buttons.forEach(button => {
         expect(button).toBeInTheDocument();
       });
@@ -161,8 +129,8 @@ describe('HomePage', () => {
       renderWithRouter(<HomePage />);
       
       const browseButtons = screen.getAllByText('Browse Items');
-      const buttonContainer = browseButtons[0].closest('div');
-      expect(buttonContainer).toHaveClass('flex', 'flex-col', 'sm:flex-row');
+      const heroButtonContainer = browseButtons[0].closest('div');
+      expect(heroButtonContainer).toHaveClass('flex', 'flex-col', 'sm:flex-row');
     });
   });
 

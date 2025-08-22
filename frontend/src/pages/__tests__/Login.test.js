@@ -1,23 +1,18 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { BrowserRouter } from 'react-router-dom';
 import LoginPage from '../Login';
 
-// Mock Firebase Auth
+// Mock Firebase modules
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(),
   signInWithEmailAndPassword: jest.fn(),
   onAuthStateChanged: jest.fn(),
 }));
 
-// Mock the Button component
-jest.mock('../../components/ui/button', () => ({
-  Button: ({ children, ...props }) => (
-    <button {...props} data-testid="button">
-      {children}
-    </button>
-  ),
+jest.mock('../../firebase/config', () => ({
+  app: {},
 }));
 
 // Mock react-router-dom
@@ -32,7 +27,7 @@ jest.mock('react-router-dom', () => ({
   ),
 }));
 
-// Wrapper component to provide router context
+// Custom render function with router
 const renderWithRouter = (component) => {
   return render(
     <BrowserRouter>
@@ -50,8 +45,10 @@ describe('LoginPage', () => {
     
     // Setup default mocks
     getAuth.mockReturnValue(mockAuth);
-    onAuthStateChanged.mockReturnValue(mockUnsubscribe);
-    mockNavigate.mockClear();
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(null); // No user initially
+      return mockUnsubscribe;
+    });
   });
 
   describe('Rendering', () => {

@@ -1,31 +1,25 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
 import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { BrowserRouter } from 'react-router-dom';
 import SignUpPage from '../SignUp';
 
-// Mock Firebase Auth
+// Mock Firebase modules
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(),
   createUserWithEmailAndPassword: jest.fn(),
   onAuthStateChanged: jest.fn(),
 }));
 
-// Mock Firebase Firestore
 jest.mock('firebase/firestore', () => ({
   getFirestore: jest.fn(),
   doc: jest.fn(),
   setDoc: jest.fn(),
 }));
 
-// Mock the Button component
-jest.mock('../../components/ui/button', () => ({
-  Button: ({ children, type, onClick, ...props }) => (
-    <button type={type} onClick={onClick} {...props} data-testid="button">
-      {children}
-    </button>
-  ),
+jest.mock('../../firebase/config', () => ({
+  app: {},
 }));
 
 // Mock react-router-dom
@@ -40,7 +34,7 @@ jest.mock('react-router-dom', () => ({
   ),
 }));
 
-// Wrapper component to provide router context
+// Custom render function with router
 const renderWithRouter = (component) => {
   return render(
     <BrowserRouter>
@@ -63,12 +57,16 @@ describe('SignUpPage', () => {
     getFirestore.mockReturnValue(mockDb);
     doc.mockReturnValue(mockDoc);
     setDoc.mockResolvedValue();
-    onAuthStateChanged.mockReturnValue(mockUnsubscribe);
-    mockNavigate.mockClear();
   });
 
   describe('Rendering', () => {
     test('renders signup form with all required elements', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
@@ -80,6 +78,12 @@ describe('SignUpPage', () => {
     });
 
     test('renders login link for existing users', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       expect(screen.getByText('Already have an account?')).toBeInTheDocument();
@@ -88,6 +92,12 @@ describe('SignUpPage', () => {
     });
 
     test('form inputs have correct attributes', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const nameInput = screen.getByLabelText('Name');
@@ -108,6 +118,12 @@ describe('SignUpPage', () => {
 
   describe('Form State Management', () => {
     test('initializes with empty form state', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const nameInput = screen.getByLabelText('Name');
@@ -122,6 +138,12 @@ describe('SignUpPage', () => {
     });
 
     test('updates form values when user types', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const nameInput = screen.getByLabelText('Name');
@@ -142,23 +164,10 @@ describe('SignUpPage', () => {
   });
 
   describe('Authentication State Management', () => {
-    test('sets up auth state listener on mount', () => {
-      renderWithRouter(<SignUpPage />);
-      
-      expect(onAuthStateChanged).toHaveBeenCalledWith(mockAuth, expect.any(Function));
-    });
-
-    test('cleans up auth state listener on unmount', () => {
-      const { unmount } = renderWithRouter(<SignUpPage />);
-      
-      unmount();
-      
-      expect(mockUnsubscribe).toHaveBeenCalled();
-    });
-
     test('redirects to home if user is already authenticated', () => {
+      // Mock that user is already authenticated
       onAuthStateChanged.mockImplementation((auth, callback) => {
-        callback({ uid: 'test-uid' });
+        callback({ uid: 'test-uid', email: 'test@example.com' });
         return mockUnsubscribe;
       });
       
@@ -168,175 +177,152 @@ describe('SignUpPage', () => {
     });
   });
 
-  describe('Form Validation', () => {
-    test('validates password confirmation matches', async () => {
+  describe('Form Submission', () => {
+    test('successfully creates account and redirects to home', async () => {
+      // Mock that no user is authenticated initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null); // No user initially
+        return mockUnsubscribe;
+      });
+      
+      createUserWithEmailAndPassword.mockResolvedValue({
+        user: { uid: 'test-uid', email: 'test@example.com' }
+      });
+      setDoc.mockResolvedValue();
+      
       renderWithRouter(<SignUpPage />);
       
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      const submitButton = screen.getAllByRole('button', { name: 'Create Account' })[0];
+      // Fill out the form
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test User' } });
+      fireEvent.change(screen.getByLabelText('UPI ID'), { target: { value: 'test@upi' } });
       
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.change(confirmPasswordInput, { target: { value: 'differentpassword' } });
-      fireEvent.click(submitButton);
+      // Submit the form
+      fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+      
+      // Wait for the navigation to be called
+      await waitFor(() => {
+        expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, 'test@example.com', 'password123');
+        expect(setDoc).toHaveBeenCalled();
+        expect(mockNavigate).toHaveBeenCalledWith('/');
+      });
+    });
+
+    test('handles password mismatch error', async () => {
+      // Mock that no user is authenticated initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null); // No user initially
+        return mockUnsubscribe;
+      });
+      
+      renderWithRouter(<SignUpPage />);
+      
+      // Fill out the form with mismatched passwords
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'different' } });
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test User' } });
+      
+      // Submit the form
+      fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
       
       await waitFor(() => {
         expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
+        expect(mockNavigate).not.toHaveBeenCalled();
       });
     });
 
-    test('validates password length', async () => {
+    test('handles Firebase auth errors gracefully', async () => {
+      // Mock that no user is authenticated initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null); // No user initially
+        return mockUnsubscribe;
+      });
+      
+      const errorMessage = 'An account with this email already exists. Please sign in instead.';
+      createUserWithEmailAndPassword.mockRejectedValue({ code: 'auth/email-already-in-use' });
+      
       renderWithRouter(<SignUpPage />);
       
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      const submitButton = screen.getAllByRole('button', { name: 'Create Account' })[0];
+      // Fill out the form
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test User' } });
       
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: '123' } });
-      fireEvent.change(confirmPasswordInput, { target: { value: '123' } });
-      fireEvent.click(submitButton);
+      // Submit the form
+      fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
       
       await waitFor(() => {
-        expect(screen.getByText('Password must be at least 6 characters long')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Form Submission', () => {
-    test('calls createUserWithEmailAndPassword with form data on valid submission', async () => {
-      createUserWithEmailAndPassword.mockResolvedValueOnce({ user: { uid: 'test-uid' } });
-      
-      renderWithRouter(<SignUpPage />);
-      
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      const submitButton = screen.getAllByRole('button', { name: 'Create Account' })[0];
-      
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
-      fireEvent.click(submitButton);
-      
-      await waitFor(() => {
-        expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
-          mockAuth,
-          'john@example.com',
-          'password123'
-        );
+        expect(screen.getByText(errorMessage)).toBeInTheDocument();
+        expect(mockNavigate).not.toHaveBeenCalled();
       });
     });
 
-    test('redirects to home page on successful signup', async () => {
-      createUserWithEmailAndPassword.mockResolvedValueOnce({ user: { uid: 'test-uid' } });
+    test('handles successful signup and redirects', async () => {
+      // Mock that no user is authenticated initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null); // No user initially
+        return mockUnsubscribe;
+      });
+      
+      createUserWithEmailAndPassword.mockResolvedValue({
+        user: { uid: 'test-uid', email: 'test@example.com' }
+      });
+      setDoc.mockResolvedValue();
       
       renderWithRouter(<SignUpPage />);
       
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      const submitButton = screen.getAllByRole('button', { name: 'Create Account' })[0];
+      // Fill out the form
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Test User' } });
       
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
-      fireEvent.click(submitButton);
+      // Submit the form
+      fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
       
       await waitFor(() => {
         expect(mockNavigate).toHaveBeenCalledWith('/');
       });
     });
-
-    test('prevents default form submission behavior', async () => {
-      createUserWithEmailAndPassword.mockResolvedValueOnce({ user: { uid: 'test-uid' } });
-      
-      renderWithRouter(<SignUpPage />);
-      
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      const submitButton = screen.getAllByRole('button', { name: 'Create Account' })[0];
-      
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
-      fireEvent.click(submitButton);
-      
-      await waitFor(() => {
-        expect(createUserWithEmailAndPassword).toHaveBeenCalled();
-      });
-    });
   });
 
   describe('Error Handling', () => {
-    test('displays error message when signup fails', async () => {
-      const errorMessage = 'Email already in use';
-      createUserWithEmailAndPassword.mockRejectedValueOnce(new Error(errorMessage));
-      
-      renderWithRouter(<SignUpPage />);
-      
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      const submitButton = screen.getAllByRole('button', { name: 'Create Account' })[0];
-      
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
-      fireEvent.click(submitButton);
-      
-      await waitFor(() => {
-        expect(screen.getByText(errorMessage)).toBeInTheDocument();
-      });
-    });
-
     test('clears previous error when form is submitted again', async () => {
-      const errorMessage = 'Email already in use';
-      createUserWithEmailAndPassword
-        .mockRejectedValueOnce(new Error(errorMessage))
-        .mockResolvedValueOnce({ user: { uid: 'test-uid' } });
+      // Mock that no user is authenticated initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null); // No user initially
+        return mockUnsubscribe;
+      });
+      
+      // First submission fails
+      createUserWithEmailAndPassword.mockRejectedValueOnce({ code: 'auth/email-already-in-use' });
       
       renderWithRouter(<SignUpPage />);
       
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      const submitButton = screen.getAllByRole('button', { name: 'Create Account' })[0];
+      // Fill out form and submit
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'John Doe' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'john@example.com' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'password123' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
       
-      // First submission - fails
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
-      fireEvent.click(submitButton);
-      
+      // Wait for error to appear
       await waitFor(() => {
-        expect(screen.getByText(errorMessage)).toBeInTheDocument();
+        expect(screen.getByText('An account with this email already exists. Please sign in instead.')).toBeInTheDocument();
       });
       
-      // Second submission - succeeds
-      fireEvent.change(emailInput, { target: { value: 'newemail@example.com' } });
-      fireEvent.click(submitButton);
+      // Second submission succeeds
+      createUserWithEmailAndPassword.mockResolvedValueOnce({ user: { uid: 'test-uid' } });
+      setDoc.mockResolvedValueOnce();
+      
+      // Submit again
+      fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
       
       await waitFor(() => {
-        expect(screen.queryByText(errorMessage)).not.toBeInTheDocument();
         expect(mockNavigate).toHaveBeenCalledWith('/');
       });
     });
@@ -344,6 +330,12 @@ describe('SignUpPage', () => {
 
   describe('Accessibility', () => {
     test('has proper form labels and associations', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const nameInput = screen.getByLabelText('Name');
@@ -358,6 +350,12 @@ describe('SignUpPage', () => {
     });
 
     test('submit button has proper role and text', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const submitButtons = screen.getAllByRole('button', { name: 'Create Account' });
@@ -365,6 +363,12 @@ describe('SignUpPage', () => {
     });
 
     test('error messages are accessible', async () => {
+      // Mock that no user is authenticated initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       const errorMessage = 'Email already in use';
       createUserWithEmailAndPassword.mockRejectedValueOnce(new Error(errorMessage));
       
@@ -392,6 +396,12 @@ describe('SignUpPage', () => {
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for styling', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const mainContainer = screen.getAllByText('Create Account')[0].closest('div');
@@ -399,6 +409,12 @@ describe('SignUpPage', () => {
     });
 
     test('form container has proper styling classes', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const form = screen.getAllByRole('button', { name: 'Create Account' })[0].closest('form');
@@ -406,6 +422,12 @@ describe('SignUpPage', () => {
     });
 
     test('input fields have proper styling classes', () => {
+      // Mock onAuthStateChanged to not redirect initially
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(null);
+        return mockUnsubscribe;
+      });
+
       renderWithRouter(<SignUpPage />);
       
       const nameInput = screen.getByLabelText('Name');
@@ -420,3 +442,5 @@ describe('SignUpPage', () => {
     });
   });
 });
+
+

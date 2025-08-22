@@ -3,67 +3,34 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import ReportPage from '../ReportPage';
 
-// Mock the ItemReportForm component
-jest.mock('../../components/ItemReportForm', () => ({
-  __esModule: true,
-  default: () => (
-    <div data-testid="item-report-form">
-      <h2>Report Lost or Found Item</h2>
-      <form>
-        <input
-          data-testid="title-input"
-          type="text"
-          placeholder="Item title"
-          defaultValue="Test Item"
-        />
-        <textarea
-          data-testid="description-input"
-          placeholder="Item description"
-          defaultValue="Test description"
-        />
-        <select data-testid="status-select" defaultValue="lost">
-          <option value="lost">Lost</option>
-          <option value="found">Found</option>
-        </select>
-        <select data-testid="type-select" defaultValue="electronics">
-          <option value="electronics">Electronics</option>
-          <option value="clothing">Clothing</option>
-          <option value="personal">Personal</option>
-        </select>
-        <select data-testid="location-select" defaultValue="OGGB">
-          <option value="OGGB">OGGB</option>
-          <option value="library">General Library</option>
-        </select>
-        <input
-          data-testid="date-input"
-          type="datetime-local"
-          defaultValue="2024-01-01T10:00"
-        />
-        <input
-          data-testid="image-input"
-          type="file"
-          accept="image/*"
-        />
-        <button type="submit" data-testid="submit-button">Submit</button>
-        <button type="button" data-testid="reset-button">Reset</button>
-      </form>
-    </div>
-  ),
-}));
-
 // Mock react-router-dom
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
-  Link: ({ children, to, ...props }) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
 }));
 
-// Wrapper component to provide router context
+// Mock Firebase auth
+jest.mock('../../firebase/config', () => ({
+  auth: {
+    currentUser: { 
+      uid: 'test-user-id',
+      getIdToken: jest.fn().mockResolvedValue('mock-token')
+    }
+  }
+}));
+
+// Mock fetch
+global.fetch = jest.fn();
+
+// Mock URL.createObjectURL and URL.revokeObjectURL
+global.URL.createObjectURL = jest.fn(() => 'mock-url');
+global.URL.revokeObjectURL = jest.fn();
+
+// Mock window.alert
+global.alert = jest.fn();
+
+// Custom render function with router
 const renderWithRouter = (component) => {
   return render(
     <BrowserRouter>
@@ -75,208 +42,228 @@ const renderWithRouter = (component) => {
 describe('ReportPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockNavigate.mockClear();
+    fetch.mockClear();
   });
 
   describe('Rendering', () => {
-    test('renders report page with title and description', () => {
+    test('renders the report page title', () => {
       renderWithRouter(<ReportPage />);
       
       expect(screen.getByText('Report a Lost or Found Item')).toBeInTheDocument();
-      expect(screen.getByText(/Add details so the community can help reconnect items with owners/)).toBeInTheDocument();
     });
 
-    test('renders ItemReportForm component', () => {
+    test('renders the description text', () => {
       renderWithRouter(<ReportPage />);
       
-      expect(screen.getByTestId('item-report-form')).toBeInTheDocument();
-      expect(screen.getByText('Report Lost or Found Item')).toBeInTheDocument();
+      expect(screen.getByText('Add details so the community can help reconnect items with owners.')).toBeInTheDocument();
     });
 
-    test('form has all required input fields', () => {
+    test('renders form elements', () => {
       renderWithRouter(<ReportPage />);
       
-      expect(screen.getByTestId('title-input')).toBeInTheDocument();
-      expect(screen.getByTestId('description-input')).toBeInTheDocument();
-      expect(screen.getByTestId('status-select')).toBeInTheDocument();
-      expect(screen.getByTestId('type-select')).toBeInTheDocument();
-      expect(screen.getByTestId('location-select')).toBeInTheDocument();
-      expect(screen.getByTestId('date-input')).toBeInTheDocument();
-      expect(screen.getByTestId('image-input')).toBeInTheDocument();
+      expect(screen.getByText('Type')).toBeInTheDocument();
+      expect(screen.getByText('Category')).toBeInTheDocument();
+      expect(screen.getByText('Location')).toBeInTheDocument();
+      expect(screen.getByText('Date & Time')).toBeInTheDocument();
+      expect(screen.getByText('Photo')).toBeInTheDocument();
+      expect(screen.getByText('Title')).toBeInTheDocument();
+      expect(screen.getByText('Description')).toBeInTheDocument();
     });
 
-    test('form has submit and reset buttons', () => {
+    test('renders submit and reset buttons', () => {
       renderWithRouter(<ReportPage />);
       
-      expect(screen.getByTestId('submit-button')).toBeInTheDocument();
-      expect(screen.getByTestId('reset-button')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
     });
   });
 
-  describe('Form Submission', () => {
-    test('handles form submission with valid data', async () => {
+  describe('Form Interactions', () => {
+    test('allows user to select item type', () => {
       renderWithRouter(<ReportPage />);
       
-      const submitButton = screen.getByTestId('submit-button');
-      fireEvent.click(submitButton);
+      const typeSelect = document.querySelector('select[name="status"]');
+      expect(typeSelect).toBeDefined();
+      fireEvent.change(typeSelect, { target: { value: 'lost' } });
       
-      await waitFor(() => {
-        // The form should submit successfully
-        expect(submitButton).toBeInTheDocument();
-      });
+      expect(typeSelect.value).toBe('lost');
     });
 
-    test('form data is properly structured on submission', async () => {
+    test('allows user to select category', () => {
       renderWithRouter(<ReportPage />);
       
-      const submitButton = screen.getByTestId('submit-button');
-      fireEvent.click(submitButton);
+      const selects = screen.getAllByDisplayValue('Select');
+      const categorySelect = selects.find(select => select.getAttribute('name') === 'type');
+      fireEvent.change(categorySelect, { target: { value: 'electronics' } });
       
-      await waitFor(() => {
-        // Check that form data is properly structured
-        expect(screen.getByTestId('title-input').value).toBe('Test Item');
-        expect(screen.getByTestId('description-input').value).toBe('Test description');
-        expect(screen.getByTestId('status-select').value).toBe('lost');
-        expect(screen.getByTestId('type-select').value).toBe('electronics');
-        expect(screen.getByTestId('location-select').value).toBe('OGGB');
-        expect(screen.getByTestId('date-input').value).toBe('2024-01-01T10:00');
-      });
+      expect(categorySelect.value).toBe('electronics');
+    });
+
+    test('allows user to select location', () => {
+      renderWithRouter(<ReportPage />);
+      
+      const selects = screen.getAllByDisplayValue('Select');
+      const locationSelect = selects.find(select => select.getAttribute('name') === 'location');
+      fireEvent.change(locationSelect, { target: { value: 'OGGB' } });
+      
+      expect(locationSelect.value).toBe('OGGB');
+    });
+
+    test('allows user to enter title', () => {
+      renderWithRouter(<ReportPage />);
+      
+      const titleInput = screen.getByPlaceholderText('e.g., Black iPhone 13 with green case');
+      fireEvent.change(titleInput, { target: { value: 'Lost iPhone' } });
+      
+      expect(titleInput.value).toBe('Lost iPhone');
+    });
+
+    test('allows user to enter description', () => {
+      renderWithRouter(<ReportPage />);
+      
+      const descriptionInput = screen.getByPlaceholderText('Add unique identifiers and more details about the item...');
+      fireEvent.change(descriptionInput, { target: { value: 'Black iPhone with cracked screen' } });
+      
+      expect(descriptionInput.value).toBe('Black iPhone with cracked screen');
+    });
+
+    test('allows user to select date and time', () => {
+      renderWithRouter(<ReportPage />);
+      
+      const inputs = screen.getAllByDisplayValue('');
+      const dateInput = inputs.find(input => input.getAttribute('type') === 'datetime-local');
+      expect(dateInput).toBeDefined();
+      const testDate = '2024-01-15T10:00';
+      fireEvent.change(dateInput, { target: { value: testDate } });
+      
+      expect(dateInput.value).toBe(testDate);
     });
   });
 
   describe('Form Validation', () => {
-    test('form inputs have proper attributes', () => {
+    test('shows validation errors when submitting empty form', async () => {
       renderWithRouter(<ReportPage />);
       
-      const titleInput = screen.getByTestId('title-input');
-      const descriptionInput = screen.getByTestId('description-input');
-      const dateInput = screen.getByTestId('date-input');
-      const imageInput = screen.getByTestId('image-input');
-      
-      expect(titleInput).toHaveAttribute('type', 'text');
-      expect(descriptionInput).toHaveAttribute('placeholder', 'Item description');
-      expect(dateInput).toHaveAttribute('type', 'datetime-local');
-      expect(imageInput).toHaveAttribute('type', 'file');
-      expect(imageInput).toHaveAttribute('accept', 'image/*');
-    });
-
-    test('select dropdowns have proper options', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const statusSelect = screen.getByTestId('status-select');
-      const typeSelect = screen.getByTestId('type-select');
-      const locationSelect = screen.getByTestId('location-select');
-      
-      expect(statusSelect).toHaveValue('lost');
-      expect(typeSelect).toHaveValue('electronics');
-      expect(locationSelect).toHaveValue('OGGB');
-    });
-  });
-
-  describe('Navigation', () => {
-    test('reset button resets form', async () => {
-      renderWithRouter(<ReportPage />);
-      
-      const resetButton = screen.getByTestId('reset-button');
-      fireEvent.click(resetButton);
-      
-      await waitFor(() => {
-        // Form should be reset
-        expect(resetButton).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Form State Management', () => {
-    test('form inputs maintain their values', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const titleInput = screen.getByTestId('title-input');
-      const descriptionInput = screen.getByTestId('description-input');
-      
-      fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
-      fireEvent.change(descriptionInput, { target: { value: 'Updated description' } });
-      
-      expect(titleInput.value).toBe('Updated Title');
-      expect(descriptionInput.value).toBe('Updated description');
-    });
-
-    test('select dropdowns can be changed', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const statusSelect = screen.getByTestId('status-select');
-      const typeSelect = screen.getByTestId('type-select');
-      
-      fireEvent.change(statusSelect, { target: { value: 'found' } });
-      fireEvent.change(typeSelect, { target: { value: 'clothing' } });
-      
-      expect(statusSelect.value).toBe('found');
-      expect(typeSelect.value).toBe('clothing');
-    });
-  });
-
-  describe('Accessibility', () => {
-    test('form has proper semantic structure', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const form = screen.getByTestId('item-report-form').querySelector('form');
-      expect(form).toBeInTheDocument();
-    });
-
-    test('form inputs have proper labels and placeholders', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const titleInput = screen.getByTestId('title-input');
-      const descriptionInput = screen.getByTestId('description-input');
-      
-      expect(titleInput).toHaveAttribute('placeholder', 'Item title');
-      expect(descriptionInput).toHaveAttribute('placeholder', 'Item description');
-    });
-
-    test('buttons have proper accessibility attributes', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const submitButton = screen.getByTestId('submit-button');
-      const resetButton = screen.getByTestId('reset-button');
-      
-      expect(submitButton).toHaveAttribute('type', 'submit');
-      expect(resetButton).toHaveAttribute('type', 'button');
-    });
-  });
-
-  describe('Styling and Layout', () => {
-    test('page has proper container styling', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const container = screen.getByText('Report a Lost or Found Item').closest('div');
-      expect(container).toHaveClass('p-6');
-    });
-
-    test('form has proper styling classes', () => {
-      renderWithRouter(<ReportPage />);
-      
-      const form = screen.getByTestId('item-report-form');
-      expect(form).toBeInTheDocument();
-    });
-  });
-
-  describe('Error Handling', () => {
-    test('handles form submission errors gracefully', async () => {
-      renderWithRouter(<ReportPage />);
-      
-      const submitButton = screen.getByTestId('submit-button');
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
       fireEvent.click(submitButton);
       
       await waitFor(() => {
-        // Should handle submission without crashing
-        expect(submitButton).toBeInTheDocument();
+        expect(screen.getByText('Title is required')).toBeInTheDocument();
+        expect(screen.getByText('Description is required')).toBeInTheDocument();
+        expect(screen.getByText('Please select a category')).toBeInTheDocument();
+        expect(screen.getByText('Please select a location')).toBeInTheDocument();
+        expect(screen.getByText('Please select a date and time')).toBeInTheDocument();
+        expect(screen.getByText('Please upload an image')).toBeInTheDocument();
       });
+    });
+
+    test('clears validation errors when user starts typing', async () => {
+      renderWithRouter(<ReportPage />);
+      
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
+      fireEvent.click(submitButton);
+      
+      await waitFor(() => {
+        expect(screen.getByText('Title is required')).toBeInTheDocument();
+      });
+      
+      const titleInput = screen.getByPlaceholderText('e.g., Black iPhone 13 with green case');
+      fireEvent.change(titleInput, { target: { value: 'Test Title' } });
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Title is required')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Form Submission', () => {
+    test('submits form successfully with valid data', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'test-item-id' })
+      });
+
+      renderWithRouter(<ReportPage />);
+      
+      // Fill out the form
+      const typeSelect = document.querySelector('select[name="status"]');
+      const categorySelect = document.querySelector('select[name="type"]');
+      const locationSelect = document.querySelector('select[name="location"]');
+      const titleInput = screen.getByPlaceholderText('e.g., Black iPhone 13 with green case');
+      const descriptionInput = screen.getByPlaceholderText('Add unique identifiers and more details about the item...');
+      const dateInput = document.querySelector('input[name="date"]');
+      expect(typeSelect).toBeDefined();
+      expect(categorySelect).toBeDefined();
+      expect(locationSelect).toBeDefined();
+      expect(dateInput).toBeDefined();
+      
+      fireEvent.change(typeSelect, { target: { value: 'lost' } });
+      fireEvent.change(categorySelect, { target: { value: 'electronics' } });
+      fireEvent.change(locationSelect, { target: { value: 'OGGB' } });
+      fireEvent.change(titleInput, { target: { value: 'Lost iPhone' } });
+      fireEvent.change(descriptionInput, { target: { value: 'Black iPhone with cracked screen' } });
+      fireEvent.change(dateInput, { target: { value: '2024-01-15T10:00' } });
+      
+      // Mock file upload
+      const fileInput = document.querySelector('input[type="file"]');
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
+      fireEvent.click(submitButton);
+      
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+          'http://localhost:5876/api/items',
+          expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({
+              Authorization: expect.stringContaining('Bearer')
+            })
+          })
+        );
+      });
+    });
+
+    test('handles submission errors gracefully', async () => {
+      fetch.mockRejectedValueOnce(new Error('Network error'));
+
+      renderWithRouter(<ReportPage />);
+      
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
+      fireEvent.click(submitButton);
+      
+      // Should show validation errors first
+      await waitFor(() => {
+        expect(screen.getByText('Title is required')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Form Reset', () => {
+    test('resets form when reset button is clicked', () => {
+      renderWithRouter(<ReportPage />);
+      
+      const titleInput = screen.getByPlaceholderText('e.g., Black iPhone 13 with green case');
+      const descriptionInput = screen.getByPlaceholderText('Add unique identifiers and more details about the item...');
+      
+      // Fill out some fields
+      fireEvent.change(titleInput, { target: { value: 'Test Title' } });
+      fireEvent.change(descriptionInput, { target: { value: 'Test Description' } });
+      
+      // Reset the form
+      const resetButton = screen.getByRole('button', { name: 'Reset' });
+      fireEvent.click(resetButton);
+      
+      // Check that fields are cleared
+      expect(titleInput.value).toBe('');
+      expect(descriptionInput.value).toBe('');
     });
 
     test('handles form reset gracefully', async () => {
       renderWithRouter(<ReportPage />);
       
-      const resetButton = screen.getByTestId('reset-button');
+      const resetButton = screen.getByRole('button', { name: 'Reset' });
       fireEvent.click(resetButton);
       
       await waitFor(() => {
@@ -290,28 +277,26 @@ describe('ReportPage', () => {
     test('validates required fields', () => {
       renderWithRouter(<ReportPage />);
       
-      const titleInput = screen.getByTestId('title-input');
-      const descriptionInput = screen.getByTestId('description-input');
-      const dateInput = screen.getByTestId('date-input');
-      
-      expect(titleInput).toBeInTheDocument();
-      expect(descriptionInput).toBeInTheDocument();
-      expect(dateInput).toBeInTheDocument();
+      // Look for actual form elements by their labels and types
+      expect(screen.getByText('Title')).toBeInTheDocument();
+      expect(screen.getByText('Description')).toBeInTheDocument();
+      expect(screen.getByText('Date & Time')).toBeInTheDocument();
     });
 
     test('validates date format', () => {
       renderWithRouter(<ReportPage />);
       
-      const dateInput = screen.getByTestId('date-input');
+      const inputs = screen.getAllByDisplayValue('');
+      const dateInput = inputs.find(input => input.getAttribute('type') === 'datetime-local');
       expect(dateInput).toHaveAttribute('type', 'datetime-local');
     });
 
     test('validates image upload', () => {
       renderWithRouter(<ReportPage />);
       
-      const imageInput = screen.getByTestId('image-input');
-      expect(imageInput).toHaveAttribute('type', 'file');
-      expect(imageInput).toHaveAttribute('accept', 'image/*');
+      // Check that photo section exists
+      expect(screen.getByText('Photo')).toBeInTheDocument();
+      expect(screen.getByText('Click to upload image')).toBeInTheDocument();
     });
   });
 
@@ -319,7 +304,7 @@ describe('ReportPage', () => {
     test('form provides clear feedback on submission', async () => {
       renderWithRouter(<ReportPage />);
       
-      const submitButton = screen.getByTestId('submit-button');
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
       fireEvent.click(submitButton);
       
       await waitFor(() => {
@@ -331,7 +316,7 @@ describe('ReportPage', () => {
     test('reset button provides clear way to reset form', () => {
       renderWithRouter(<ReportPage />);
       
-      const resetButton = screen.getByTestId('reset-button');
+      const resetButton = screen.getByRole('button', { name: 'Reset' });
       expect(resetButton).toHaveTextContent('Reset');
     });
 
@@ -339,13 +324,13 @@ describe('ReportPage', () => {
       renderWithRouter(<ReportPage />);
       
       // Check that all form elements are present and properly labeled
-      expect(screen.getByTestId('title-input')).toBeInTheDocument();
-      expect(screen.getByTestId('description-input')).toBeInTheDocument();
-      expect(screen.getByTestId('status-select')).toBeInTheDocument();
-      expect(screen.getByTestId('type-select')).toBeInTheDocument();
-      expect(screen.getByTestId('location-select')).toBeInTheDocument();
-      expect(screen.getByTestId('date-input')).toBeInTheDocument();
-      expect(screen.getByTestId('image-input')).toBeInTheDocument();
+      expect(screen.getByText('Title')).toBeInTheDocument();
+      expect(screen.getByText('Description')).toBeInTheDocument();
+      expect(screen.getByText('Type')).toBeInTheDocument();
+      expect(screen.getByText('Category')).toBeInTheDocument();
+      expect(screen.getByText('Location')).toBeInTheDocument();
+      expect(screen.getByText('Date & Time')).toBeInTheDocument();
+      expect(screen.getByText('Photo')).toBeInTheDocument();
     });
   });
 
@@ -353,20 +338,22 @@ describe('ReportPage', () => {
     test('form integrates with parent component properly', () => {
       renderWithRouter(<ReportPage />);
       
-      const form = screen.getByTestId('item-report-form');
-      expect(form).toBeInTheDocument();
+      // Check that the form is rendered (using a more specific selector)
+      expect(screen.getAllByDisplayValue('Select').length).toBeGreaterThan(0);
     });
 
     test('form data is properly structured', async () => {
       renderWithRouter(<ReportPage />);
       
-      const submitButton = screen.getByTestId('submit-button');
+      const submitButton = screen.getByRole('button', { name: 'Submit' });
       fireEvent.click(submitButton);
       
       await waitFor(() => {
         // Form data should be properly structured
-        expect(screen.getByTestId('title-input').value).toBe('Test Item');
-        expect(screen.getByTestId('description-input').value).toBe('Test description');
+        const titleInput = screen.getByPlaceholderText('e.g., Black iPhone 13 with green case');
+        const descriptionInput = screen.getByPlaceholderText('Add unique identifiers and more details about the item...');
+        expect(titleInput.value).toBe('');
+        expect(descriptionInput.value).toBe('');
       });
     });
   });

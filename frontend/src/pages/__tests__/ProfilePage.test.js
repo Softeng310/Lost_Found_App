@@ -1,24 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import ProfilePage from '../ProfilePage';
-
-// Mock Firebase Auth
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(),
-  signOut: jest.fn(),
-  onAuthStateChanged: jest.fn(),
-}));
-
-// Mock the Button component
-jest.mock('../../components/ui/button', () => ({
-  Button: ({ children, ...props }) => (
-    <button {...props} data-testid="button">
-      {children}
-    </button>
-  ),
-}));
+import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 
 // Mock react-router-dom
 const mockNavigate = jest.fn();
@@ -32,28 +16,22 @@ jest.mock('react-router-dom', () => ({
   ),
 }));
 
-// Mock lucide-react icons
-jest.mock('lucide-react', () => ({
-  User: () => <div data-testid="user-icon">User</div>,
-  Mail: () => <div data-testid="mail-icon">Mail</div>,
-  LogOut: () => <div data-testid="logout-icon">LogOut</div>,
-  Settings: () => <div data-testid="settings-icon">Settings</div>,
-  Heart: () => <div data-testid="heart-icon">Heart</div>,
-  MapPin: () => <div data-testid="mappin-icon">MapPin</div>,
+// Mock Firebase modules
+jest.mock('firebase/auth', () => ({
+  getAuth: jest.fn(),
+  signOut: jest.fn(),
+  onAuthStateChanged: jest.fn(),
 }));
 
-// Wrapper component to provide router context
-const renderWithRouter = (component) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  );
-};
+jest.mock('../../firebase/config', () => ({
+  auth: {},
+}));
+
+// Setup test environment
+setupTestEnvironment();
 
 describe('ProfilePage', () => {
-  const mockAuth = {};
-  const mockUnsubscribe = jest.fn();
+  const { mockAuth, mockUnsubscribe } = setupTestEnvironment();
   const mockUser = {
     uid: 'test-uid',
     email: 'test@example.com',
@@ -62,7 +40,7 @@ describe('ProfilePage', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    cleanupTestEnvironment();
     
     // Setup default mocks
     getAuth.mockReturnValue(mockAuth);
@@ -95,7 +73,9 @@ describe('ProfilePage', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Logout')).toBeInTheDocument();
-        expect(screen.getByTestId('logout-icon')).toBeInTheDocument();
+        // The logout button contains an SVG icon, so we can check for the button itself
+        const logoutButton = screen.getByText('Logout').closest('button');
+        expect(logoutButton).toBeInTheDocument();
       });
     });
 
@@ -123,7 +103,9 @@ describe('ProfilePage', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Logout')).toBeInTheDocument();
-        expect(screen.getByTestId('logout-icon')).toBeInTheDocument();
+        // The logout button contains an SVG icon, so we can check for the button itself
+        const logoutButton = screen.getByText('Logout').closest('button');
+        expect(logoutButton).toBeInTheDocument();
       });
     });
 
@@ -170,29 +152,40 @@ describe('ProfilePage', () => {
 
   describe('Logout Functionality', () => {
     test('calls signOut when logout button is clicked', async () => {
-      signOut.mockResolvedValueOnce();
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(mockUser);
+        return mockUnsubscribe;
+      });
+      
+      signOut.mockResolvedValue();
       
       renderWithRouter(<ProfilePage />);
       
-      const logoutButton = screen.getByText('Logout');
-      fireEvent.click(logoutButton);
-      
       await waitFor(() => {
+        const logoutButton = screen.getByText('Logout').closest('button');
+        fireEvent.click(logoutButton);
         expect(signOut).toHaveBeenCalledWith(mockAuth);
       });
     });
 
     test('redirects to home page after successful logout', async () => {
-      signOut.mockResolvedValueOnce();
+      onAuthStateChanged.mockImplementation((auth, callback) => {
+        callback(mockUser);
+        return mockUnsubscribe;
+      });
+      
+      signOut.mockResolvedValue();
       
       renderWithRouter(<ProfilePage />);
       
       await waitFor(() => {
-        const logoutButton = screen.getByText('Logout');
+        const logoutButton = screen.getByText('Logout').closest('button');
         fireEvent.click(logoutButton);
       });
       
+      // Wait for the navigation to be called after successful signOut
       await waitFor(() => {
+        expect(signOut).toHaveBeenCalledWith(mockAuth);
         expect(mockNavigate).toHaveBeenCalledWith('/');
       });
     });
@@ -259,7 +252,9 @@ describe('ProfilePage', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Logout')).toBeInTheDocument();
-        expect(screen.getByTestId('logout-icon')).toBeInTheDocument();
+        // The logout button contains an SVG icon, so we can check for the button itself
+        const logoutButton = screen.getByText('Logout').closest('button');
+        expect(logoutButton).toBeInTheDocument();
       });
     });
   });
