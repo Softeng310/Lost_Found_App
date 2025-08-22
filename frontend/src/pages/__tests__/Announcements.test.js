@@ -25,6 +25,54 @@ setupTestEnvironment();
 describe('AnnouncementsPage', () => {
   const { mockAnnouncements } = mockTestData;
 
+  // Helper functions to reduce code duplication
+  const renderAnnouncementsPage = () => {
+    return renderWithRouter(<AnnouncementsPage />);
+  };
+
+  const assertPageTitle = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Announcements')).toBeInTheDocument();
+    });
+  };
+
+  const assertAllAnnouncementsRendered = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Welcome to the Lost & Found App!')).toBeInTheDocument();
+      expect(screen.getByText('New Feature: Item Heatmap')).toBeInTheDocument();
+      expect(screen.getByText('Reminder: Keep Your Valuables Safe')).toBeInTheDocument();
+    });
+  };
+
+  const assertAnnouncementContent = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Stay tuned for important updates and campus-wide announcements here.')).toBeInTheDocument();
+      expect(screen.getByText('You can now view a heatmap of lost and found items on campus. Check it out on the map page!')).toBeInTheDocument();
+      expect(screen.getByText('Please remember to keep your belongings secure and report any lost or found items promptly.')).toBeInTheDocument();
+    });
+  };
+
+  const assertAnnouncementCards = async () => {
+    await waitFor(() => {
+      const cards = document.querySelectorAll('.bg-white.border.border-emerald-200');
+      expect(cards.length).toBeGreaterThan(0);
+    });
+  };
+
+  const assertAnnouncementDates = async () => {
+    await waitFor(() => {
+      const dateElements = document.querySelectorAll('.bg-emerald-100.text-emerald-700');
+      expect(dateElements.length).toBeGreaterThan(0);
+    });
+  };
+
+  const assertPageContainer = async () => {
+    await waitFor(() => {
+      const container = document.querySelector('.min-h-screen.bg-white');
+      expect(container).toBeInTheDocument();
+    });
+  };
+
   const setupGetDocsMock = (announcements = mockAnnouncements) => {
     const { collection, getDocs } = require('firebase/firestore');
     collection.mockReturnValue('mock-collection');
@@ -58,50 +106,30 @@ describe('AnnouncementsPage', () => {
 
   describe('Rendering', () => {
     test('renders announcements page with title', async () => {
-      renderWithRouter(<AnnouncementsPage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Announcements')).toBeInTheDocument();
-        expect(screen.getByText('Announcements')).toBeInTheDocument();
-      });
+      renderAnnouncementsPage();
+      await assertPageTitle();
     });
 
     test('renders all announcements from mock data', async () => {
-      renderWithRouter(<AnnouncementsPage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Welcome to the Lost & Found App!')).toBeInTheDocument();
-        expect(screen.getByText('New Feature: Item Heatmap')).toBeInTheDocument();
-        expect(screen.getByText('Reminder: Keep Your Valuables Safe')).toBeInTheDocument();
-      });
+      renderAnnouncementsPage();
+      await assertAllAnnouncementsRendered();
     });
 
     test('renders announcement content', async () => {
-      renderWithRouter(<AnnouncementsPage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Stay tuned for important updates and campus-wide announcements here.')).toBeInTheDocument();
-        expect(screen.getByText('You can now view a heatmap of lost and found items on campus. Check it out on the map page!')).toBeInTheDocument();
-        expect(screen.getByText('Please remember to keep your belongings secure and report any lost or found items promptly.')).toBeInTheDocument();
-      });
+      renderAnnouncementsPage();
+      await assertAnnouncementContent();
     });
 
     test('renders announcement dates', async () => {
-      renderWithRouter(<AnnouncementsPage />);
-      
-      await waitFor(() => {
-        const dateElements = document.querySelectorAll('.bg-emerald-100.text-emerald-700');
-        expect(dateElements.length).toBeGreaterThan(0);
-      });
+      renderAnnouncementsPage();
+      await assertAnnouncementDates();
     });
   });
 
   describe('Loading State', () => {
     test('shows loading state initially', () => {
       setupLoadingMock();
-      
-      renderWithRouter(<AnnouncementsPage />);
-      
+      renderAnnouncementsPage();
       expect(screen.getByText('Loading...')).toBeInTheDocument();
     });
   });
@@ -109,8 +137,7 @@ describe('AnnouncementsPage', () => {
   describe('Error State', () => {
     test('shows error message when fetch fails', async () => {
       setupErrorMock();
-      
-      renderWithRouter(<AnnouncementsPage />);
+      renderAnnouncementsPage();
       
       await waitFor(() => {
         expect(screen.getByText('Failed to load announcements. Please try again later.')).toBeInTheDocument();
@@ -121,8 +148,7 @@ describe('AnnouncementsPage', () => {
   describe('Empty State', () => {
     test('shows empty state when no announcements', async () => {
       setupEmptyMock();
-      
-      renderWithRouter(<AnnouncementsPage />);
+      renderAnnouncementsPage();
       
       await waitFor(() => {
         expect(screen.getByText('No announcements found.')).toBeInTheDocument();
@@ -132,36 +158,24 @@ describe('AnnouncementsPage', () => {
 
   describe('Styling and Layout', () => {
     test('page has proper background and spacing', async () => {
-      renderWithRouter(<AnnouncementsPage />);
-      
-      await waitFor(() => {
-        const container = document.querySelector('.min-h-screen.bg-white');
-        expect(container).toBeInTheDocument();
-      });
+      renderAnnouncementsPage();
+      await assertPageContainer();
     });
 
     test('announcement cards have proper styling', async () => {
-      renderWithRouter(<AnnouncementsPage />);
-      
-      await waitFor(() => {
-        const cards = document.querySelectorAll('.bg-white.border.border-emerald-200');
-        expect(cards.length).toBeGreaterThan(0);
-      });
+      renderAnnouncementsPage();
+      await assertAnnouncementCards();
     });
   });
 
   describe('Accessibility', () => {
     test('announcement cards have proper semantic structure', async () => {
-      renderWithRouter(<AnnouncementsPage />);
-      
-      await waitFor(() => {
-        const cards = document.querySelectorAll('.bg-white.border.border-emerald-200');
-        expect(cards.length).toBeGreaterThan(0);
-      });
+      renderAnnouncementsPage();
+      await assertAnnouncementCards();
     });
 
     test('announcement titles are properly structured', async () => {
-      renderWithRouter(<AnnouncementsPage />);
+      renderAnnouncementsPage();
       
       await waitFor(() => {
         expect(screen.getByText('Welcome to the Lost & Found App!')).toBeInTheDocument();
@@ -169,7 +183,7 @@ describe('AnnouncementsPage', () => {
     });
 
     test('announcement content is readable and well-formatted', async () => {
-      renderWithRouter(<AnnouncementsPage />);
+      renderAnnouncementsPage();
       
       await waitFor(() => {
         expect(screen.getByText('Stay tuned for important updates and campus-wide announcements here.')).toBeInTheDocument();

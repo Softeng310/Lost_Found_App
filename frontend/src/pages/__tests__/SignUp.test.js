@@ -71,152 +71,185 @@ describe('SignUpPage', () => {
     setDoc.mockResolvedValue();
   });
 
+  // Helper functions to eliminate duplication
+  const renderSignUpPage = (user = null) => {
+    setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
+    return renderWithRouter(<SignUpPage />);
+  };
+
+  const getFormInputs = () => ({
+    name: screen.getByLabelText('Name'),
+    email: screen.getByLabelText('Email'),
+    password: screen.getByLabelText('Password'),
+    confirmPassword: screen.getByLabelText('Confirm Password')
+  });
+
+  const assertFormInputsExist = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    expect(name).toBeInTheDocument();
+    expect(email).toBeInTheDocument();
+    expect(password).toBeInTheDocument();
+    expect(confirmPassword).toBeInTheDocument();
+  };
+
+  const assertInputAttributes = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    
+    // Type attributes
+    expect(name).toHaveAttribute('type', 'text');
+    expect(email).toHaveAttribute('type', 'email');
+    expect(password).toHaveAttribute('type', 'password');
+    expect(confirmPassword).toHaveAttribute('type', 'password');
+    
+    // Required attributes
+    expect(name).toHaveAttribute('required');
+    expect(email).toHaveAttribute('required');
+    expect(password).toHaveAttribute('required');
+    expect(confirmPassword).toHaveAttribute('required');
+  };
+
+  const assertInputStyling = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
+    
+    expect(name).toHaveClass(...inputClasses);
+    expect(email).toHaveClass(...inputClasses);
+    expect(password).toHaveClass(...inputClasses);
+    expect(confirmPassword).toHaveClass(...inputClasses);
+  };
+
+  const assertCreateAccountButton = () => {
+    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Create Account' }).length).toBeGreaterThan(0);
+  };
+
+  const assertLoginLink = () => {
+    expect(screen.getByText('Already have an account?')).toBeInTheDocument();
+    expect(screen.getByText('Sign In')).toBeInTheDocument();
+    expect(screen.getByText('Sign In')).toHaveAttribute('href', '/login');
+  };
+
+  const submitFormWithData = async (formData = createMockFormData()) => {
+    fillSignUpForm(screen, formData);
+    submitForm(screen);
+  };
+
+  const assertSuccessfulSignup = async () => {
+    await waitFor(() => {
+      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, 'test@example.com', 'password123');
+      expect(setDoc).toHaveBeenCalled();
+    });
+  };
+
+  const assertPasswordMismatchError = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
+    });
+  };
+
+  const assertEmailAlreadyInUseError = async () => {
+    const errorMessage = 'An account with this email already exists. Please sign in instead.';
+    await waitFor(() => {
+      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+    });
+  };
+
+  const assertFormValues = (expectedValues = {}) => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    const defaults = {
+      name: 'Test User',
+      email: 'test@example.com',
+      password: 'password123',
+      confirmPassword: 'password123'
+    };
+    const values = { ...defaults, ...expectedValues };
+    
+    expect(name.value).toBe(values.name);
+    expect(email.value).toBe(values.email);
+    expect(password.value).toBe(values.password);
+    expect(confirmPassword.value).toBe(values.confirmPassword);
+  };
+
+  const assertEmptyFormState = () => {
+    const { name, email, password, confirmPassword } = getFormInputs();
+    expect(name.value).toBe('');
+    expect(email.value).toBe('');
+    expect(password.value).toBe('');
+    expect(confirmPassword.value).toBe('');
+  };
+
   describe('Rendering', () => {
     test('renders signup form with all required elements', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
+      renderSignUpPage();
       
-      expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
-      expect(screen.getByLabelText('Name')).toBeInTheDocument();
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
-      expect(screen.getByLabelText('Password')).toBeInTheDocument();
-      expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
-      expect(screen.getAllByRole('button', { name: 'Create Account' }).length).toBeGreaterThan(0);
+      assertCreateAccountButton();
+      assertFormInputsExist();
     });
 
     test('renders login link for existing users', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
-      
-      expect(screen.getByText('Already have an account?')).toBeInTheDocument();
-      expect(screen.getByText('Sign In')).toBeInTheDocument();
-      expect(screen.getByText('Sign In')).toHaveAttribute('href', '/login');
+      renderSignUpPage();
+      assertLoginLink();
     });
 
     test('form inputs have correct attributes', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
-      
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      
-      expect(nameInput).toHaveAttribute('type', 'text');
-      expect(nameInput).toHaveAttribute('required');
-      expect(emailInput).toHaveAttribute('type', 'email');
-      expect(emailInput).toHaveAttribute('required');
-      expect(passwordInput).toHaveAttribute('type', 'password');
-      expect(passwordInput).toHaveAttribute('required');
-      expect(confirmPasswordInput).toHaveAttribute('type', 'password');
-      expect(confirmPasswordInput).toHaveAttribute('required');
+      renderSignUpPage();
+      assertInputAttributes();
     });
   });
 
   describe('Form State Management', () => {
     test('initializes with empty form state', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
-      
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      
-      expect(nameInput.value).toBe('');
-      expect(emailInput.value).toBe('');
-      expect(passwordInput.value).toBe('');
-      expect(confirmPasswordInput.value).toBe('');
+      renderSignUpPage();
+      assertEmptyFormState();
     });
 
     test('updates form values when user types', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
+      renderSignUpPage();
       
       const formData = createMockFormData();
       fillSignUpForm(screen, formData);
       
-      expect(screen.getByLabelText('Name').value).toBe('Test User');
-      expect(screen.getByLabelText('Email').value).toBe('test@example.com');
-      expect(screen.getByLabelText('Password').value).toBe('password123');
-      expect(screen.getByLabelText('Confirm Password').value).toBe('password123');
+      assertFormValues();
     });
   });
 
   describe('Authentication State Management', () => {
     test('redirects to home if user is already authenticated', () => {
-      setupAuthStateMock(onAuthStateChanged, createMockUser(), mockUnsubscribe);
-      
-      renderWithRouter(<SignUpPage />);
-      
-      // Note: This test would need to be updated based on actual navigation logic
+      renderSignUpPage(createMockUser());
       expect(onAuthStateChanged).toHaveBeenCalled();
     });
   });
 
   describe('Form Submission', () => {
     test('successfully creates account and redirects to home', async () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
       setupSuccessMock(createUserWithEmailAndPassword);
+      renderSignUpPage();
       
-      renderWithRouter(<SignUpPage />);
-      
-      const formData = createMockFormData();
-      fillSignUpForm(screen, formData);
-      submitForm(screen);
-      
-      await waitFor(() => {
-        expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, 'test@example.com', 'password123');
-        expect(setDoc).toHaveBeenCalled();
-      });
+      await submitFormWithData();
+      await assertSuccessfulSignup();
     });
 
     test('handles password mismatch error', async () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-      
-      renderWithRouter(<SignUpPage />);
+      renderSignUpPage();
       
       const formData = createMockFormData({ confirmPassword: 'different' });
-      fillSignUpForm(screen, formData);
-      submitForm(screen);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
-      });
+      await submitFormWithData(formData);
+      await assertPasswordMismatchError();
     });
 
     test('handles Firebase auth errors gracefully', async () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-      
-      const errorMessage = 'An account with this email already exists. Please sign in instead.';
       createUserWithEmailAndPassword.mockRejectedValue({ code: 'auth/email-already-in-use' });
+      renderSignUpPage();
       
-      renderWithRouter(<SignUpPage />);
-      
-      const formData = createMockFormData();
-      fillSignUpForm(screen, formData);
-      submitForm(screen);
-      
-      await waitFor(() => {
-        expect(screen.getByText(errorMessage)).toBeInTheDocument();
-      });
+      await submitFormWithData();
+      await assertEmailAlreadyInUseError();
     });
 
     test('handles successful signup and redirects', async () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
       setupSuccessMock(createUserWithEmailAndPassword);
+      renderSignUpPage();
       
-      renderWithRouter(<SignUpPage />);
-      
-      const formData = createMockFormData();
-      fillSignUpForm(screen, formData);
-      submitForm(screen);
-      
+      await submitFormWithData();
       await waitFor(() => {
         expect(createUserWithEmailAndPassword).toHaveBeenCalled();
       });
@@ -225,24 +258,15 @@ describe('SignUpPage', () => {
 
   describe('Error Handling', () => {
     test('clears previous error when form is submitted again', async () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-      
       // First submission fails
       createUserWithEmailAndPassword.mockRejectedValueOnce({ code: 'auth/email-already-in-use' });
+      renderSignUpPage();
       
-      renderWithRouter(<SignUpPage />);
-      
-      const formData = createMockFormData();
-      fillSignUpForm(screen, formData);
-      submitForm(screen);
-      
-      await waitFor(() => {
-        expect(screen.getByText('An account with this email already exists. Please sign in instead.')).toBeInTheDocument();
-      });
+      await submitFormWithData();
+      await assertEmailAlreadyInUseError();
       
       // Second submission succeeds
       setupSuccessMock(createUserWithEmailAndPassword);
-      
       submitForm(screen);
       
       await waitFor(() => {
@@ -253,41 +277,26 @@ describe('SignUpPage', () => {
 
   describe('Accessibility', () => {
     test('has proper form labels and associations', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
+      renderSignUpPage();
       
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      
-      expect(nameInput).toHaveAttribute('id', 'name');
-      expect(emailInput).toHaveAttribute('id', 'email');
-      expect(passwordInput).toHaveAttribute('id', 'password');
-      expect(confirmPasswordInput).toHaveAttribute('id', 'confirmPassword');
+      const { name, email, password, confirmPassword } = getFormInputs();
+      expect(name).toHaveAttribute('id', 'name');
+      expect(email).toHaveAttribute('id', 'email');
+      expect(password).toHaveAttribute('id', 'password');
+      expect(confirmPassword).toHaveAttribute('id', 'confirmPassword');
     });
 
     test('submit button has proper role and text', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
-      
-      const submitButtons = screen.getAllByRole('button', { name: 'Create Account' });
-      expect(submitButtons.length).toBeGreaterThan(0);
+      renderSignUpPage();
+      assertCreateAccountButton();
     });
 
     test('error messages are accessible', async () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
       const errorMessage = 'Email already in use';
       setupErrorMock(createUserWithEmailAndPassword, errorMessage);
+      renderSignUpPage();
       
-      renderWithRouter(<SignUpPage />);
-      
-      const formData = createMockFormData();
-      fillSignUpForm(screen, formData);
-      submitForm(screen);
+      await submitFormWithData();
       
       await waitFor(() => {
         const errorElement = screen.getByText(errorMessage);
@@ -299,37 +308,22 @@ describe('SignUpPage', () => {
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for styling', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
+      renderSignUpPage();
       
       const mainContainer = screen.getAllByText('Create Account')[0].closest('div');
       expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
     });
 
     test('form container has proper styling classes', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
+      renderSignUpPage();
       
       const form = screen.getAllByRole('button', { name: 'Create Account' })[0].closest('form');
       expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
     });
 
     test('input fields have proper styling classes', () => {
-      setupAuthStateMock(onAuthStateChanged, null, mockUnsubscribe);
-
-      renderWithRouter(<SignUpPage />);
-      
-      const nameInput = screen.getByLabelText('Name');
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      const confirmPasswordInput = screen.getByLabelText('Confirm Password');
-      
-      expect(nameInput).toHaveClass('w-full', 'px-3', 'py-2', 'border', 'rounded');
-      expect(emailInput).toHaveClass('w-full', 'px-3', 'py-2', 'border', 'rounded');
-      expect(passwordInput).toHaveClass('w-full', 'px-3', 'py-2', 'border', 'rounded');
-      expect(confirmPasswordInput).toHaveClass('w-full', 'px-3', 'py-2', 'border', 'rounded');
+      renderSignUpPage();
+      assertInputStyling();
     });
   });
 });

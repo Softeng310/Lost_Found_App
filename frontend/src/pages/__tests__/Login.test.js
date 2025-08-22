@@ -63,83 +63,162 @@ describe('LoginPage', () => {
     });
   });
 
+  // Helper functions to eliminate duplication
+  const renderLoginPage = () => {
+    return renderWithRouter(<LoginPage />);
+  };
+
+  const getFormInputs = () => ({
+    email: screen.getByLabelText('Email'),
+    password: screen.getByLabelText('Password')
+  });
+
+  const assertFormInputsExist = () => {
+    const { email, password } = getFormInputs();
+    expect(email).toBeInTheDocument();
+    expect(password).toBeInTheDocument();
+  };
+
+  const assertInputAttributes = () => {
+    const { email, password } = getFormInputs();
+    
+    // Type attributes
+    expect(email).toHaveAttribute('type', 'email');
+    expect(password).toHaveAttribute('type', 'password');
+    
+    // Required attributes
+    expect(email).toHaveAttribute('required');
+    expect(password).toHaveAttribute('required');
+  };
+
+  const assertInputStyling = () => {
+    const { email, password } = getFormInputs();
+    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
+    
+    expect(email).toHaveClass(...inputClasses);
+    expect(password).toHaveClass(...inputClasses);
+  };
+
+  const assertLoginHeader = () => {
+    expect(screen.getAllByText('Login').length).toBeGreaterThan(0);
+  };
+
+  const assertLoginButton = () => {
+    expect(screen.getAllByRole('button', { name: 'Login' }).length).toBeGreaterThan(0);
+  };
+
+  const assertSignUpLink = () => {
+    expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
+    expect(screen.getByText('Create Account')).toBeInTheDocument();
+    expect(screen.getByText('Create Account')).toHaveAttribute('href', '/signup');
+  };
+
+  const submitFormWithData = async (formData = createMockFormData()) => {
+    fillLoginForm(screen, formData);
+    submitForm(screen, 'Login');
+  };
+
+  const assertSuccessfulLogin = async () => {
+    await waitFor(() => {
+      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+        mockAuth,
+        'test@example.com',
+        'password123'
+      );
+    });
+  };
+
+  const assertLoginError = async (errorMessage = 'Invalid email or password') => {
+    await waitFor(() => {
+      const errorElement = screen.getByText(errorMessage);
+      expect(errorElement).toBeInTheDocument();
+      expect(errorElement).toHaveClass('text-red-500');
+    });
+  };
+
+  const assertFormValues = (expectedValues = {}) => {
+    const { email, password } = getFormInputs();
+    const defaults = {
+      email: 'test@example.com',
+      password: 'password123'
+    };
+    const values = { ...defaults, ...expectedValues };
+    
+    expect(email.value).toBe(values.email);
+    expect(password.value).toBe(values.password);
+  };
+
+  const assertEmptyFormState = () => {
+    const { email, password } = getFormInputs();
+    expect(email.value).toBe('');
+    expect(password.value).toBe('');
+  };
+
+  const assertFormAccessibility = () => {
+    const { email, password } = getFormInputs();
+    expect(email).toHaveAttribute('id', 'login-email');
+    expect(password).toHaveAttribute('id', 'login-password');
+  };
+
   describe('Rendering', () => {
     test('renders login form with all required elements', () => {
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
-      expect(screen.getAllByText('Login').length).toBeGreaterThan(0);
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
-      expect(screen.getByLabelText('Password')).toBeInTheDocument();
-      expect(screen.getAllByRole('button', { name: 'Login' }).length).toBeGreaterThan(0);
+      assertLoginHeader();
+      assertFormInputsExist();
+      assertLoginButton();
     });
 
     test('renders sign up link for new users', () => {
-      renderWithRouter(<LoginPage />);
-      
-      expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
-      expect(screen.getByText('Create Account')).toBeInTheDocument();
-      expect(screen.getByText('Create Account')).toHaveAttribute('href', '/signup');
+      renderLoginPage();
+      assertSignUpLink();
     });
 
     test('form inputs have correct attributes', () => {
-      renderWithRouter(<LoginPage />);
-      
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      
-      expect(emailInput).toHaveAttribute('type', 'email');
-      expect(emailInput).toHaveAttribute('required');
-      expect(passwordInput).toHaveAttribute('type', 'password');
-      expect(passwordInput).toHaveAttribute('required');
+      renderLoginPage();
+      assertInputAttributes();
     });
 
     test('form has proper accessibility labels', () => {
-      renderWithRouter(<LoginPage />);
-      
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
-      expect(screen.getByLabelText('Password')).toBeInTheDocument();
+      renderLoginPage();
+      assertFormInputsExist();
     });
   });
 
   describe('Form State Management', () => {
     test('initializes with empty form state', () => {
-      renderWithRouter(<LoginPage />);
-      
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      
-      expect(emailInput.value).toBe('');
-      expect(passwordInput.value).toBe('');
+      renderLoginPage();
+      assertEmptyFormState();
     });
 
     test('updates email input value when user types', () => {
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
-      const emailInput = screen.getByLabelText('Email');
-      fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+      const { email } = getFormInputs();
+      fireEvent.change(email, { target: { value: 'test@example.com' } });
       
-      expect(emailInput.value).toBe('test@example.com');
+      expect(email.value).toBe('test@example.com');
     });
 
     test('updates password input value when user types', () => {
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
-      const passwordInput = screen.getByLabelText('Password');
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
+      const { password } = getFormInputs();
+      fireEvent.change(password, { target: { value: 'password123' } });
       
-      expect(passwordInput.value).toBe('password123');
+      expect(password.value).toBe('password123');
     });
   });
 
   describe('Authentication State Management', () => {
     test('sets up auth state listener on mount', () => {
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
       expect(onAuthStateChanged).toHaveBeenCalledWith(mockAuth, expect.any(Function));
     });
 
     test('cleans up auth state listener on unmount', () => {
-      const { unmount } = renderWithRouter(<LoginPage />);
+      const { unmount } = renderLoginPage();
       
       unmount();
       
@@ -149,9 +228,8 @@ describe('LoginPage', () => {
     test('redirects to home if user is already authenticated', () => {
       setupAuthStateMock(onAuthStateChanged, createMockUser(), mockUnsubscribe);
       
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
-      // Note: This test would need to be updated based on actual navigation logic
       expect(onAuthStateChanged).toHaveBeenCalled();
     });
   });
@@ -160,30 +238,18 @@ describe('LoginPage', () => {
     test('calls signInWithEmailAndPassword with form data on submit', async () => {
       setupSuccessMock(signInWithEmailAndPassword);
       
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
-      const formData = createMockFormData();
-      fillLoginForm(screen, formData);
-      submitForm(screen, 'Login');
-      
-      await waitFor(() => {
-        expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
-          mockAuth,
-          'test@example.com',
-          'password123'
-        );
-      });
+      await submitFormWithData();
+      await assertSuccessfulLogin();
     });
 
     test('redirects to home page on successful login', async () => {
       setupSuccessMock(signInWithEmailAndPassword);
       
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
-      const formData = createMockFormData();
-      fillLoginForm(screen, formData);
-      submitForm(screen, 'Login');
-      
+      await submitFormWithData();
       await waitFor(() => {
         expect(signInWithEmailAndPassword).toHaveBeenCalled();
       });
@@ -193,7 +259,7 @@ describe('LoginPage', () => {
       const mockPreventDefault = jest.fn();
       setupSuccessMock(signInWithEmailAndPassword);
       
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
       const form = screen.getAllByRole('button', { name: 'Login' })[0].closest('form');
       fireEvent.submit(form, { preventDefault: mockPreventDefault });
@@ -209,15 +275,11 @@ describe('LoginPage', () => {
       const errorMessage = 'Invalid email or password';
       setupErrorMock(signInWithEmailAndPassword, errorMessage);
       
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
       const formData = createMockFormData({ password: 'wrongpassword' });
-      fillLoginForm(screen, formData);
-      submitForm(screen, 'Login');
-      
-      await waitFor(() => {
-        expect(screen.getByText(errorMessage)).toBeInTheDocument();
-      });
+      await submitFormWithData(formData);
+      await assertLoginError(errorMessage);
     });
 
     test('clears previous error when form is submitted again', async () => {
@@ -226,20 +288,15 @@ describe('LoginPage', () => {
         .mockRejectedValueOnce(new Error(errorMessage))
         .mockResolvedValueOnce({ user: { uid: 'test-uid' } });
       
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
       const formData = createMockFormData({ password: 'wrongpassword' });
-      fillLoginForm(screen, formData);
-      submitForm(screen, 'Login');
-      
-      await waitFor(() => {
-        expect(screen.getByText(errorMessage)).toBeInTheDocument();
-      });
+      await submitFormWithData(formData);
+      await assertLoginError(errorMessage);
       
       // Second submission - succeeds
       const correctFormData = createMockFormData({ password: 'correctpassword' });
-      fillLoginForm(screen, correctFormData);
-      submitForm(screen, 'Login');
+      await submitFormWithData(correctFormData);
       
       await waitFor(() => {
         expect(screen.queryByText(errorMessage)).not.toBeInTheDocument();
@@ -249,82 +306,59 @@ describe('LoginPage', () => {
 
   describe('Validation', () => {
     test('requires email and password fields', () => {
-      renderWithRouter(<LoginPage />);
-      
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      
-      expect(emailInput).toHaveAttribute('required');
-      expect(passwordInput).toHaveAttribute('required');
+      renderLoginPage();
+      assertInputAttributes();
     });
 
     test('email input has email type validation', () => {
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
-      const emailInput = screen.getByLabelText('Email');
-      expect(emailInput).toHaveAttribute('type', 'email');
+      const { email } = getFormInputs();
+      expect(email).toHaveAttribute('type', 'email');
     });
   });
 
   describe('Accessibility', () => {
     test('has proper form labels and associations', () => {
-      renderWithRouter(<LoginPage />);
-      
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      
-      expect(emailInput).toHaveAttribute('id', 'login-email');
-      expect(passwordInput).toHaveAttribute('id', 'login-password');
+      renderLoginPage();
+      assertFormAccessibility();
     });
 
     test('submit button has proper role and text', () => {
-      renderWithRouter(<LoginPage />);
-      
-      const submitButtons = screen.getAllByRole('button', { name: 'Login' });
-      expect(submitButtons.length).toBeGreaterThan(0);
+      renderLoginPage();
+      assertLoginButton();
     });
 
     test('error messages are accessible', async () => {
       const errorMessage = 'Invalid email or password';
       setupErrorMock(signInWithEmailAndPassword, errorMessage);
       
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
       const formData = createMockFormData({ password: 'wrongpassword' });
-      fillLoginForm(screen, formData);
-      submitForm(screen, 'Login');
-      
-      await waitFor(() => {
-        const errorElement = screen.getByText(errorMessage);
-        expect(errorElement).toBeInTheDocument();
-        expect(errorElement).toHaveClass('text-red-500');
-      });
+      await submitFormWithData(formData);
+      await assertLoginError(errorMessage);
     });
   });
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for styling', () => {
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
       const mainContainer = screen.getAllByText('Login')[0].closest('div');
       expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
     });
 
     test('form container has proper styling classes', () => {
-      renderWithRouter(<LoginPage />);
+      renderLoginPage();
       
       const form = screen.getAllByRole('button', { name: 'Login' })[0].closest('form');
       expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
     });
 
     test('input fields have proper styling classes', () => {
-      renderWithRouter(<LoginPage />);
-      
-      const emailInput = screen.getByLabelText('Email');
-      const passwordInput = screen.getByLabelText('Password');
-      
-      expect(emailInput).toHaveClass('w-full', 'px-3', 'py-2', 'border', 'rounded');
-      expect(passwordInput).toHaveClass('w-full', 'px-3', 'py-2', 'border', 'rounded');
+      renderLoginPage();
+      assertInputStyling();
     });
   });
 });

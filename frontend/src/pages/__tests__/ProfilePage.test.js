@@ -62,8 +62,8 @@ describe('ProfilePage', () => {
     onAuthStateChanged.mockReturnValue(mockUnsubscribe);
   });
 
-  // Helper functions to reduce code duplication
-  const renderWithMockUser = (user = mockUser) => {
+  // Enhanced helper functions to eliminate all duplication patterns
+  const renderProfilePage = (user = mockUser) => {
     setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
     return renderWithRouter(<ProfilePage />);
   };
@@ -75,130 +75,107 @@ describe('ProfilePage', () => {
     });
   };
 
-  const assertTrustVerificationSection = async () => {
+  const assertProfileSections = async () => {
     await waitFor(() => {
+      // Trust & Verification section
       expect(screen.getByText('Trust & Verification')).toBeInTheDocument();
       expect(screen.getByText('Unverified')).toBeInTheDocument();
-    });
-  };
-
-  const assertMyPostsAndClaimsSections = async () => {
-    await waitFor(() => {
+      
+      // My Posts and Claims sections
       expect(screen.getByText('My Posts')).toBeInTheDocument();
       expect(screen.getByText('My Claims')).toBeInTheDocument();
     });
   };
 
-  const assertLogoutButtonPresence = async () => {
+  const getLogoutButton = () => {
+    return screen.getByText('Logout').closest('button');
+  };
+
+  const assertLogoutButton = async () => {
     await waitFor(() => {
-      expect(screen.getByText('Logout')).toBeInTheDocument();
-      const logoutButton = screen.getByText('Logout').closest('button');
+      const logoutButton = getLogoutButton();
       expect(logoutButton).toBeInTheDocument();
+      expect(logoutButton).toHaveClass('bg-red-600', 'text-white', 'rounded-md');
     });
   };
 
-  const assertLogoutButtonStyling = () => {
-    const logoutButton = screen.getByText('Logout');
-    expect(logoutButton).toBeInTheDocument();
-    expect(logoutButton.closest('button')).toHaveClass('bg-red-600');
-  };
-
-  const clickLogoutButton = async () => {
+  const clickLogoutAndAssert = async (expectSignOutCall = true) => {
     await waitFor(() => {
-      const logoutButton = screen.getByText('Logout').closest('button');
+      const logoutButton = getLogoutButton();
       fireEvent.click(logoutButton);
     });
+    
+    if (expectSignOutCall) {
+      expect(signOut).toHaveBeenCalledWith(mockAuth);
+    }
+  };
+
+  const assertPageTitleAndDescription = () => {
+    expect(screen.getByText('Profile & History')).toBeInTheDocument();
+    expect(screen.getByText(/Mock user context/)).toBeInTheDocument();
   };
 
   describe('Rendering', () => {
     test('renders profile page with user information when authenticated', async () => {
-      renderWithMockUser();
+      renderProfilePage();
       await assertProfilePageRenders();
     });
 
-    test('renders logout button with icon', async () => {
-      renderWithMockUser();
-      await assertLogoutButtonPresence();
-    });
-
-    test('renders trust verification section', async () => {
-      renderWithMockUser();
-      await assertTrustVerificationSection();
-    });
-
-    test('renders my posts and claims sections', async () => {
-      renderWithMockUser();
-      await assertMyPostsAndClaimsSections();
+    test('renders all profile sections', async () => {
+      renderProfilePage();
+      await assertProfileSections();
     });
   });
 
   describe('Authentication State Management', () => {
     test('displays profile content with mock data', () => {
-      renderWithRouter(<ProfilePage />);
-      
-      expect(screen.getByText('Profile & History')).toBeInTheDocument();
-      expect(screen.getByText('Mock user context. Integrate UPI-backed SSO for identity and trust badges (A2).')).toBeInTheDocument();
+      renderProfilePage();
+      assertPageTitleAndDescription();
     });
   });
 
   describe('User Information Display', () => {
     test('displays page title and description', () => {
-      renderWithRouter(<ProfilePage />);
-      
-      expect(screen.getByText('Profile & History')).toBeInTheDocument();
-      expect(screen.getByText(/Mock user context/)).toBeInTheDocument();
+      renderProfilePage();
+      assertPageTitleAndDescription();
     });
 
-    test('displays logout button with proper styling', () => {
-      renderWithRouter(<ProfilePage />);
-      assertLogoutButtonStyling();
+    test('displays logout button with proper styling', async () => {
+      renderProfilePage();
+      await assertLogoutButton();
     });
   });
 
   describe('Logout Functionality', () => {
     test('calls signOut when logout button is clicked', async () => {
       setupSuccessMock(signOut);
-      renderWithMockUser();
+      renderProfilePage();
       
-      await clickLogoutButton();
-      expect(signOut).toHaveBeenCalledWith(mockAuth);
+      await clickLogoutAndAssert();
     });
 
     test('redirects to home page after successful logout', async () => {
       setupSuccessMock(signOut);
-      renderWithMockUser();
+      renderProfilePage();
       
-      await clickLogoutButton();
-      expect(signOut).toHaveBeenCalledWith(mockAuth);
+      await clickLogoutAndAssert();
     });
 
     test('handles logout errors gracefully', async () => {
       setupErrorMock(signOut, 'Logout failed');
-      renderWithMockUser();
+      renderProfilePage();
       
-      await clickLogoutButton();
+      await clickLogoutAndAssert(false);
       await waitFor(() => {
         expect(screen.getByText('Profile & History')).toBeInTheDocument();
       });
     });
   });
 
-  describe('Profile Sections', () => {
-    test('displays trust verification section', async () => {
-      renderWithMockUser();
-      await assertTrustVerificationSection();
-    });
-
-    test('displays my posts and claims sections', async () => {
-      renderWithMockUser();
-      await assertMyPostsAndClaimsSections();
-    });
-  });
-
   describe('Navigation', () => {
     test('renders logout button for navigation', async () => {
-      renderWithMockUser();
-      await assertLogoutButtonPresence();
+      renderProfilePage();
+      await assertLogoutButton();
     });
   });
 
@@ -209,7 +186,7 @@ describe('ProfilePage', () => {
         return mockUnsubscribe;
       });
       
-      renderWithRouter(<ProfilePage />);
+      renderProfilePage();
       
       await waitFor(() => {
         expect(screen.getByText('Profile & History')).toBeInTheDocument();
@@ -217,31 +194,28 @@ describe('ProfilePage', () => {
     });
 
     test('handles missing user data gracefully', () => {
-      renderWithRouter(<ProfilePage />);
-      
-      expect(screen.getByText('Profile & History')).toBeInTheDocument();
+      renderProfilePage();
+      assertPageTitleAndDescription();
     });
   });
 
   describe('Accessibility', () => {
     test('has proper heading hierarchy', () => {
-      renderWithRouter(<ProfilePage />);
+      renderProfilePage();
       
       const h1 = screen.getByRole('heading', { level: 1 });
       expect(h1).toHaveTextContent('Profile & History');
     });
 
-    test('logout button has proper accessibility attributes', () => {
-      renderWithRouter(<ProfilePage />);
-      
-      const logoutButton = screen.getByText('Logout');
-      expect(logoutButton).toBeInTheDocument();
+    test('logout button has proper accessibility attributes', async () => {
+      renderProfilePage();
+      await assertLogoutButton();
     });
   });
 
   describe('Styling and Layout', () => {
     test('has proper CSS classes for responsive design', async () => {
-      renderWithRouter(<ProfilePage />);
+      renderProfilePage();
       
       await waitFor(() => {
         const container = screen.getByText('Profile & History').closest('.max-w-7xl');
@@ -250,16 +224,12 @@ describe('ProfilePage', () => {
     });
 
     test('logout button has proper styling classes', async () => {
-      renderWithRouter(<ProfilePage />);
-      
-      await waitFor(() => {
-        const logoutButton = screen.getByText('Logout').closest('button');
-        expect(logoutButton).toHaveClass('bg-red-600', 'text-white', 'rounded-md');
-      });
+      renderProfilePage();
+      await assertLogoutButton();
     });
 
     test('cards have proper styling', async () => {
-      renderWithRouter(<ProfilePage />);
+      renderProfilePage();
       
       await waitFor(() => {
         const cards = document.querySelectorAll('[class*="rounded-lg"]');
@@ -270,10 +240,8 @@ describe('ProfilePage', () => {
 
   describe('User Data Handling', () => {
     test('displays profile content with mock data', () => {
-      renderWithRouter(<ProfilePage />);
-      
-      expect(screen.getByText('Profile & History')).toBeInTheDocument();
-      expect(screen.getByText('Logout')).toBeInTheDocument();
+      renderProfilePage();
+      assertPageTitleAndDescription();
     });
   });
 });
