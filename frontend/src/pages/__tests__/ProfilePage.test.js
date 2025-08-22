@@ -62,7 +62,7 @@ describe('ProfilePage', () => {
     onAuthStateChanged.mockReturnValue(mockUnsubscribe);
   });
 
-  // Enhanced helper functions to eliminate all duplication patterns
+  // Consolidated helper functions to eliminate all duplication patterns
   const renderProfilePage = (user = mockUser) => {
     setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
     return renderWithRouter(<ProfilePage />);
@@ -113,6 +113,25 @@ describe('ProfilePage', () => {
   const assertPageTitleAndDescription = () => {
     expect(screen.getByText('Profile & History')).toBeInTheDocument();
     expect(screen.getByText(/Mock user context/)).toBeInTheDocument();
+  };
+
+  const assertContainerStyling = async () => {
+    await waitFor(() => {
+      const container = screen.getByText('Profile & History').closest('.max-w-7xl');
+      expect(container).toHaveClass('max-w-7xl', 'mx-auto', 'px-4', 'sm:px-6', 'lg:px-8', 'py-8');
+    });
+  };
+
+  const assertCardStyling = async () => {
+    await waitFor(() => {
+      const cards = document.querySelectorAll('[class*="rounded-lg"]');
+      expect(cards.length).toBeGreaterThan(0);
+    });
+  };
+
+  const assertHeadingHierarchy = () => {
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('Profile & History');
   };
 
   describe('Rendering', () => {
@@ -202,9 +221,7 @@ describe('ProfilePage', () => {
   describe('Accessibility', () => {
     test('has proper heading hierarchy', () => {
       renderProfilePage();
-      
-      const h1 = screen.getByRole('heading', { level: 1 });
-      expect(h1).toHaveTextContent('Profile & History');
+      assertHeadingHierarchy();
     });
 
     test('logout button has proper accessibility attributes', async () => {
@@ -216,11 +233,7 @@ describe('ProfilePage', () => {
   describe('Styling and Layout', () => {
     test('has proper CSS classes for responsive design', async () => {
       renderProfilePage();
-      
-      await waitFor(() => {
-        const container = screen.getByText('Profile & History').closest('.max-w-7xl');
-        expect(container).toHaveClass('max-w-7xl', 'mx-auto', 'px-4', 'sm:px-6', 'lg:px-8', 'py-8');
-      });
+      await assertContainerStyling();
     });
 
     test('logout button has proper styling classes', async () => {
@@ -230,11 +243,7 @@ describe('ProfilePage', () => {
 
     test('cards have proper styling', async () => {
       renderProfilePage();
-      
-      await waitFor(() => {
-        const cards = document.querySelectorAll('[class*="rounded-lg"]');
-        expect(cards.length).toBeGreaterThan(0);
-      });
+      await assertCardStyling();
     });
   });
 
