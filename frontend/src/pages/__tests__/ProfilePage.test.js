@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import ProfilePage from '../ProfilePage';
@@ -8,9 +7,8 @@ import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter, SharedT
 // Mock react-router-dom
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
+  // eslint-disable-next-line react/prop-types
   const Link = ({ children, to, ...props }) => {
-    // ESLint disable for test mock component
-    // eslint-disable-next-line react/prop-types
     return (
       <a href={to} {...props}>
         {children}

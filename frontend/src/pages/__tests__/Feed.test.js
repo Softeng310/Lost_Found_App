@@ -25,6 +25,7 @@ jest.mock('../../firebase/config', () => ({
 
 // Mock components
 jest.mock('../../components/SearchFilters', () => {
+  /* eslint-disable react/prop-types */
   const SearchFilters = ({ defaultValue, onChange, ...props }) => (
     <div data-testid="search-filters" {...props}>
       <input
@@ -63,6 +64,7 @@ jest.mock('../../components/SearchFilters', () => {
       </select>
     </div>
   );
+  /* eslint-enable react/prop-types */
   
   // PropTypes removed from mock to avoid Jest scope issues
   
@@ -73,6 +75,7 @@ jest.mock('../../components/SearchFilters', () => {
 });
 
 jest.mock('../../components/ui/Tabs', () => {
+  /* eslint-disable react/prop-types */
   const Tabs = ({ children, value, onValueChange, ...props }) => (
     <div data-testid="tabs" {...props}>
       {children}
@@ -100,6 +103,7 @@ jest.mock('../../components/ui/Tabs', () => {
       {children}
     </button>
   );
+  /* eslint-enable react/prop-types */
   
   // PropTypes removed from mock to avoid Jest scope issues
   
@@ -113,6 +117,7 @@ jest.mock('../../components/ui/Tabs', () => {
 });
 
 jest.mock('../../components/ItemCard', () => {
+  /* eslint-disable react/prop-types */
   const ItemCard = ({ item, onClick, ...props }) => (
     <button 
       data-testid={`item-card-${item?.id || 'default'}`} 
@@ -134,6 +139,7 @@ jest.mock('../../components/ItemCard', () => {
       <span data-testid="item-location">{item?.location || 'OGGB'}</span>
     </button>
   );
+  /* eslint-enable react/prop-types */
   
   // PropTypes removed from mock to avoid Jest scope issues
   
@@ -178,14 +184,16 @@ describe('FeedPage', () => {
     },
   ];
 
+  // Helper function to create mock document
+  const createMockDoc = (item) => ({
+    data: () => item,
+    id: item.id
+  });
+
   const setupOnSnapshotMock = (items = mockItems) => {
     onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-      successCallback({
-        docs: items.map(item => ({
-          data: () => item,
-          id: item.id
-        }))
-      });
+      const docs = items.map(createMockDoc);
+      successCallback({ docs });
       return mockUnsubscribe;
     });
   };
@@ -265,14 +273,11 @@ describe('FeedPage', () => {
     });
 
     test('displays error message when data fetching fails', async () => {
-      const setupErrorMock = () => {
-        onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-          errorCallback(new Error('Failed to load items'));
-          return mockUnsubscribe;
-        });
-      };
-
-      setupErrorMock();
+      // Setup error mock
+      onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
+        errorCallback(new Error('Failed to load items'));
+        return mockUnsubscribe;
+      });
 
       renderWithRouter(<FeedPage />);
       

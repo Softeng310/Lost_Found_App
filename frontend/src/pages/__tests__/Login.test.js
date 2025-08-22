@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { BrowserRouter } from 'react-router-dom';
@@ -19,9 +18,8 @@ jest.mock('../../firebase/config', () => ({
 // Mock react-router-dom
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => {
+  // eslint-disable-next-line react/prop-types
   const Link = ({ children, to, ...props }) => {
-    // ESLint disable for test mock component
-    // eslint-disable-next-line react/prop-types
     return (
       <a href={to} {...props}>
         {children}
