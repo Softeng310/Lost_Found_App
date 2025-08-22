@@ -1,11 +1,26 @@
 import React from 'react';
-// PropTypes import removed as it's not needed in mocks
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { collection, onSnapshot, orderBy, query, getDocs } from 'firebase/firestore';
 import FeedPage from '../Feed';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
+import {
+  setupConsoleErrorSuppression,
+  createMockItem,
+  createMockDoc,
+  setupFirestoreCollectionMocks,
+  assertElementExists,
+  assertTextContent
+} from '../../test-utils-shared';
 
-// Mock Firebase modules with comprehensive mocking
+// Mock Firebase config
+jest.mock('../../firebase/config', () => ({
+  app: {},
+  auth: {},
+  db: {},
+  analytics: {},
+}));
+
+// Mock Firebase modules
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   onSnapshot: jest.fn(),
@@ -21,19 +36,22 @@ jest.mock('firebase/firestore', () => ({
   limit: jest.fn(),
   startAfter: jest.fn(),
   endBefore: jest.fn(),
+  getFirestore: jest.fn(() => ({})),
 }));
 
+// Mock Firebase app
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(() => ({})),
+  getApp: jest.fn(() => ({})),
+}));
+
+// Mock Firebase auth
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => ({})),
   onAuthStateChanged: jest.fn(),
   signOut: jest.fn(),
   signInWithEmailAndPassword: jest.fn(),
   createUserWithEmailAndPassword: jest.fn(),
-}));
-
-jest.mock('../../firebase/config', () => ({
-  db: {},
-  auth: {},
 }));
 
 // Mock react-router-dom
@@ -43,33 +61,16 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/feed' }),
 }));
 
-// Mock fetch globally to prevent real network requests
+// Setup global mocks
+setupConsoleErrorSuppression();
+
+// Mock fetch globally
 global.fetch = jest.fn(() =>
   Promise.resolve({
     ok: true,
     json: () => Promise.resolve({ items: [] }),
   })
 );
-
-// Mock console.error to suppress expected error messages
-const originalConsoleError = console.error;
-beforeAll(() => {
-  console.error = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-       args[0].includes('Warning: An invalid form control') ||
-       args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
-    ) {
-      return;
-    }
-    originalConsoleError.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalConsoleError;
-});
 
 // Mock components
 jest.mock('../../components/SearchFilters', () => {
@@ -82,8 +83,8 @@ jest.mock('../../components/SearchFilters', () => {
         onChange={(e) => onChange && onChange({ ...defaultValue, q: e.target.value })}
         placeholder="Search items..."
       />
-      <select 
-        data-testid="status-filter" 
+      <select
+        data-testid="status-filter"
         value={defaultValue?.type || 'all'}
         onChange={(e) => onChange && onChange({ ...defaultValue, type: e.target.value })}
       >
@@ -91,8 +92,8 @@ jest.mock('../../components/SearchFilters', () => {
         <option value="lost">Lost</option>
         <option value="found">Found</option>
       </select>
-      <select 
-        data-testid="type-filter" 
+      <select
+        data-testid="type-filter"
         value={defaultValue?.type || 'all'}
         onChange={(e) => onChange && onChange({ ...defaultValue, type: e.target.value })}
       >
@@ -101,8 +102,8 @@ jest.mock('../../components/SearchFilters', () => {
         <option value="clothing">Clothing</option>
         <option value="personal">Personal</option>
       </select>
-      <select 
-        data-testid="location-filter" 
+      <select
+        data-testid="location-filter"
         value={defaultValue?.location || 'all'}
         onChange={(e) => onChange && onChange({ ...defaultValue, location: e.target.value })}
       >
@@ -113,9 +114,9 @@ jest.mock('../../components/SearchFilters', () => {
     </div>
   );
   /* eslint-enable react/prop-types */
-  
+
   // PropTypes removed from mock to avoid Jest scope issues
-  
+
   return {
     __esModule: true,
     SearchFilters,
@@ -129,19 +130,19 @@ jest.mock('../../components/ui/Tabs', () => {
       {children}
     </div>
   );
-  
+
   const TabsContent = ({ children, value, ...props }) => (
     <div data-testid={`tabs-content-${value}`} {...props}>
       {children}
     </div>
   );
-  
+
   const TabsList = ({ children, ...props }) => (
     <div data-testid="tabs-list" {...props}>
       {children}
     </div>
   );
-  
+
   const TabsTrigger = ({ children, value, onClick, ...props }) => (
     <button
       data-testid={`tabs-trigger-${value}`}
@@ -152,9 +153,9 @@ jest.mock('../../components/ui/Tabs', () => {
     </button>
   );
   /* eslint-enable react/prop-types */
-  
+
   // PropTypes removed from mock to avoid Jest scope issues
-  
+
   return {
     __esModule: true,
     Tabs,
@@ -167,8 +168,8 @@ jest.mock('../../components/ui/Tabs', () => {
 jest.mock('../../components/ItemCard', () => {
   /* eslint-disable react/prop-types */
   const ItemCard = ({ item, onClick, ...props }) => (
-    <button 
-      data-testid={`item-card-${item?.id || 'default'}`} 
+    <button
+      data-testid={`item-card-${item?.id || 'default'}`}
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -188,9 +189,9 @@ jest.mock('../../components/ItemCard', () => {
     </button>
   );
   /* eslint-enable react/prop-types */
-  
+
   // PropTypes removed from mock to avoid Jest scope issues
-  
+
   return {
     __esModule: true,
     default: ItemCard,
@@ -198,101 +199,87 @@ jest.mock('../../components/ItemCard', () => {
 });
 
 // Setup test environment
-setupTestEnvironment();
-
 describe('FeedPage', () => {
-  const mockUnsubscribe = jest.fn();
+  const { mockNavigate } = setupTestEnvironment();
+  let mockUnsubscribe;
+
   const mockItems = [
-    {
+    createMockItem({
       id: '1',
       title: 'Lost iPhone',
       description: 'Black iPhone 13 lost in library',
       kind: 'lost',
       category: 'electronics',
       location: 'library',
-      date: new Date('2024-01-01'),
-    },
-    {
+      contactName: 'John Doe',
+      contactEmail: 'john@example.com',
+      contactPhone: '+1234567890',
+      imageUrl: 'https://example.com/image.jpg',
+    }),
+    createMockItem({
       id: '2',
       title: 'Found Keys',
-      description: 'Found car keys in cafeteria',
+      description: 'Silver car keys found in cafeteria',
       kind: 'found',
       category: 'personal',
       location: 'cafeteria',
-      date: new Date('2024-01-02'),
-    },
-    {
+      contactName: 'Jane Smith',
+      contactEmail: 'jane@example.com',
+      contactPhone: '+1234567891',
+      imageUrl: 'https://example.com/image2.jpg',
+    }),
+    createMockItem({
       id: '3',
       title: 'Lost Wallet',
-      description: 'Brown leather wallet',
+      description: 'Brown leather wallet lost in gym',
       kind: 'lost',
       category: 'personal',
-      location: 'library',
-      date: new Date('2024-01-03'),
-    },
+      location: 'gym',
+      contactName: 'Bob Johnson',
+      contactEmail: 'bob@example.com',
+      contactPhone: '+1234567892',
+      imageUrl: 'https://example.com/image3.jpg',
+    })
   ];
 
-  // Helper function to create mock document
-  const createMockDoc = (item) => ({
-    data: () => item,
-    id: item.id
-  });
-
+  // Helper functions using shared utilities
   const setupOnSnapshotMock = (items = mockItems) => {
-    onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-      const docs = items.map(createMockDoc);
-      successCallback({ docs });
-      return mockUnsubscribe;
-    });
+    const result = setupFirestoreCollectionMocks(items);
+    mockUnsubscribe = result.mockUnsubscribe;
+    return mockUnsubscribe;
   };
 
   beforeEach(() => {
     cleanupTestEnvironment();
-    
-    // Setup default mocks
-    collection.mockReturnValue('items-collection');
-    orderBy.mockReturnValue('ordered-items');
-    query.mockReturnValue('items-query');
     setupOnSnapshotMock();
-    
-    // Mock all Firebase functions to prevent real calls
-    const { getAuth, onAuthStateChanged } = require('firebase/auth');
-    getAuth.mockReturnValue({});
-    onAuthStateChanged.mockImplementation((auth, callback) => {
-      callback(null); // No user logged in
-      return mockUnsubscribe;
-    });
-    
-    // Mock getDocs to prevent real database calls
-    getDocs.mockResolvedValue({
-      docs: mockItems.map(createMockDoc)
-    });
   });
 
   describe('Rendering', () => {
-    test('renders feed page with search filters and tabs', () => {
-      renderWithRouter(<FeedPage />);
-      
-      expect(screen.getByTestId('search-filters')).toBeInTheDocument();
-      expect(screen.getByTestId('tabs')).toBeInTheDocument();
-      expect(screen.getByTestId('tabs-list')).toBeInTheDocument();
+    const renderFeedPage = () => renderWithRouter(<FeedPage />);
+
+    test('renders feed page with search filters and tabs', async () => {
+      renderFeedPage();
+
+      await assertElementExists('search-filters');
+      await assertElementExists('tabs');
+      await assertElementExists('tabs-list');
     });
 
-    test('renders all tab triggers', () => {
-      renderWithRouter(<FeedPage />);
-      
-      expect(screen.getByTestId('tabs-trigger-all')).toBeInTheDocument();
-      expect(screen.getByTestId('tabs-trigger-lost')).toBeInTheDocument();
-      expect(screen.getByTestId('tabs-trigger-found')).toBeInTheDocument();
+    test('renders all tab triggers', async () => {
+      renderFeedPage();
+
+      await assertElementExists('tabs-trigger-all');
+      await assertElementExists('tabs-trigger-lost');
+      await assertElementExists('tabs-trigger-found');
     });
 
     test('renders search filters with correct initial values', () => {
-      renderWithRouter(<FeedPage />);
-      
+      renderFeedPage();
+
       const searchInput = screen.getByTestId('search-input');
       const typeFilter = screen.getByTestId('type-filter');
       const locationFilter = screen.getByTestId('location-filter');
-      
+
       expect(searchInput.value).toBe('');
       expect(typeFilter.value).toBe('all');
       expect(locationFilter.value).toBe('all');
@@ -305,27 +292,27 @@ describe('FeedPage', () => {
       
       expect(collection).toHaveBeenCalledWith({}, 'items');
       expect(orderBy).toHaveBeenCalledWith('date', 'desc');
-      expect(query).toHaveBeenCalledWith('items-collection', 'ordered-items');
+      expect(query).toHaveBeenCalledWith('mock-collection', 'ordered-items');
       expect(onSnapshot).toHaveBeenCalledWith('items-query', expect.any(Function), expect.any(Function));
     });
 
     test('cleans up Firestore listener on unmount', () => {
       const { unmount } = renderWithRouter(<FeedPage />);
-      
+
       unmount();
-      
+
       expect(mockUnsubscribe).toHaveBeenCalled();
     });
 
     test('displays loading state initially', () => {
       renderWithRouter(<FeedPage />);
-      
+
       expect(screen.getByText('Lost & Found Feed')).toBeInTheDocument();
     });
 
     test('displays items when data is loaded successfully', async () => {
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
         expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
@@ -341,9 +328,9 @@ describe('FeedPage', () => {
       });
 
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
-        expect(screen.getByText(/Failed to load items/)).toBeInTheDocument();
+        expect(screen.getByText(/Failed to load items\. Please try again\./)).toBeInTheDocument();
       });
     });
   });
@@ -351,7 +338,7 @@ describe('FeedPage', () => {
   describe('Filtering and Search', () => {
     test('search input is functional', async () => {
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
@@ -363,14 +350,14 @@ describe('FeedPage', () => {
 
     test('filter inputs are functional', async () => {
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
 
       const typeFilter = screen.getByTestId('type-filter');
       const locationFilter = screen.getByTestId('location-filter');
-      
+
       expect(typeFilter).toBeInTheDocument();
       expect(locationFilter).toBeInTheDocument();
       expect(typeFilter.value).toBe('all');
@@ -379,7 +366,7 @@ describe('FeedPage', () => {
 
     test('filters items by tab (lost/found)', async () => {
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
@@ -391,7 +378,7 @@ describe('FeedPage', () => {
 
     test('all filter components are rendered', async () => {
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
@@ -406,7 +393,7 @@ describe('FeedPage', () => {
   describe('Tab Functionality', () => {
     test('shows all items when "All" tab is selected', async () => {
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
         expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
@@ -416,7 +403,7 @@ describe('FeedPage', () => {
 
     test('tab triggers are rendered correctly', () => {
       renderWithRouter(<FeedPage />);
-      
+
       expect(screen.getByTestId('tabs-trigger-all')).toBeInTheDocument();
       expect(screen.getByTestId('tabs-trigger-lost')).toBeInTheDocument();
       expect(screen.getByTestId('tabs-trigger-found')).toBeInTheDocument();
@@ -430,7 +417,7 @@ describe('FeedPage', () => {
       });
 
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByText(/Failed to connect to database/)).toBeInTheDocument();
       });
@@ -443,9 +430,9 @@ describe('FeedPage', () => {
       });
 
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
-        expect(screen.getByText(/Failed to load items/)).toBeInTheDocument();
+        expect(screen.getByText(/Failed to load items\. Please try again\./)).toBeInTheDocument();
       });
     });
   });
@@ -453,7 +440,7 @@ describe('FeedPage', () => {
   describe('Performance and Optimization', () => {
     test('uses useMemo for filtered items to prevent unnecessary re-renders', () => {
       renderWithRouter(<FeedPage />);
-      
+
       // The component should use useMemo for filteredItems
       // This is tested by ensuring the filtering logic works correctly
       // and doesn't cause excessive re-renders
@@ -461,7 +448,7 @@ describe('FeedPage', () => {
 
     test('uses useCallback for filter change handlers', () => {
       renderWithRouter(<FeedPage />);
-      
+
       // The component should use useCallback for filter change handlers
       // This is tested by ensuring the handlers work correctly
     });
@@ -470,11 +457,11 @@ describe('FeedPage', () => {
   describe('Accessibility', () => {
     test('has proper search and filter inputs', () => {
       renderWithRouter(<FeedPage />);
-      
+
       const searchInput = screen.getByTestId('search-input');
       const typeFilter = screen.getByTestId('type-filter');
       const locationFilter = screen.getByTestId('location-filter');
-      
+
       expect(searchInput).toBeInTheDocument();
       expect(typeFilter).toBeInTheDocument();
       expect(locationFilter).toBeInTheDocument();
@@ -482,11 +469,11 @@ describe('FeedPage', () => {
 
     test('tab triggers have proper accessibility attributes', () => {
       renderWithRouter(<FeedPage />);
-      
+
       const allTab = screen.getByTestId('tabs-trigger-all');
       const lostTab = screen.getByTestId('tabs-trigger-lost');
       const foundTab = screen.getByTestId('tabs-trigger-found');
-      
+
       expect(allTab).toBeInTheDocument();
       expect(lostTab).toBeInTheDocument();
       expect(foundTab).toBeInTheDocument();
@@ -496,7 +483,7 @@ describe('FeedPage', () => {
   describe('Empty States', () => {
     test('displays appropriate message when no items match filters', async () => {
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
       });
@@ -515,7 +502,7 @@ describe('FeedPage', () => {
       setupOnSnapshotMock([]);
 
       renderWithRouter(<FeedPage />);
-      
+
       await waitFor(() => {
         expect(screen.queryByTestId('item-card-1')).not.toBeInTheDocument();
         expect(screen.queryByTestId('item-card-2')).not.toBeInTheDocument();

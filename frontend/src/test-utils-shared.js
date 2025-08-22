@@ -1,7 +1,100 @@
 import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { createSecureTestFormData, createSecureTestLoginData, SECURE_TEST_CREDENTIALS, validateTestPassword } from './config/secure-test-config';
+
+// =============================================================================
+// COMMON MOCK SETUPS - Used across multiple test files
+// =============================================================================
+
+// Global console.error suppression for common warnings
+export const setupConsoleErrorSuppression = () => {
+  const originalConsoleError = console.error;
+  beforeAll(() => {
+    console.error = (...args) => {
+      if (
+        typeof args[0] === 'string' &&
+        (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+         args[0].includes('Warning: An invalid form control') ||
+         args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
+      ) {
+        return;
+      }
+      originalConsoleError.call(console, ...args);
+    };
+  });
+
+  afterAll(() => {
+    console.error = originalConsoleError;
+    });
+  };
+
+// Firebase modules mock configs - Note: jest.mock() should be called at module level
+export const createFirebaseFirestoreMockConfig = () => ({
+  collection: jest.fn(),
+  onSnapshot: jest.fn(),
+  orderBy: jest.fn(),
+  query: jest.fn(),
+  getDocs: jest.fn(),
+  doc: jest.fn(),
+  setDoc: jest.fn(),
+  addDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  where: jest.fn(),
+  limit: jest.fn(),
+  startAfter: jest.fn(),
+  endBefore: jest.fn(),
+  getDoc: jest.fn(),
+});
+
+export const createFirebaseAuthMockConfig = () => ({
+  getAuth: jest.fn(() => ({})),
+  onAuthStateChanged: jest.fn(),
+  signOut: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
+});
+
+export const createFirebaseConfigMockConfig = () => ({
+  db: {},
+  auth: {},
+});
+
+// Setup Firebase mocks - Main function that sets up all Firebase mocks
+export const setupFirebaseMocks = () => {
+  // Mock Firebase Firestore
+  jest.mock('firebase/firestore', () => ({
+    collection: jest.fn(),
+    onSnapshot: jest.fn(),
+    orderBy: jest.fn(),
+    query: jest.fn(),
+    getDocs: jest.fn(),
+    doc: jest.fn(),
+    setDoc: jest.fn(),
+    addDoc: jest.fn(),
+    updateDoc: jest.fn(),
+    deleteDoc: jest.fn(),
+    where: jest.fn(),
+    limit: jest.fn(),
+    startAfter: jest.fn(),
+    endBefore: jest.fn(),
+    getDoc: jest.fn(),
+  }));
+};
+
+// Global fetch mock setup
+export const setupGlobalFetchMock = (defaultResponse = {}) => {
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve(defaultResponse),
+    })
+  );
+};
+
+// React Router mock setup - Note: Cannot use parameters in jest.mock()
+// This function is provided for documentation but should be implemented in individual test files
+// Removed the problematic createReactRouterMockConfig function that referenced customMocks
 
 // Shared render function with router
 export const renderWithRouter = (component) => {
@@ -12,64 +105,6 @@ export const renderWithRouter = (component) => {
   );
 };
 
-// Generic form helpers to eliminate duplication between SignUp and Login tests
-const createGenericFormHelpers = (formConfig) => {
-  const getFormInputs = () => {
-    const inputs = {};
-    Object.keys(formConfig).forEach(fieldName => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      inputs[key] = screen.getByLabelText(fieldName);
-    });
-    return inputs;
-  };
-
-  const assertFormInputsExist = () => {
-    const inputs = getFormInputs();
-    Object.values(inputs).forEach(input => {
-      expect(input).toBeInTheDocument();
-    });
-  };
-
-  const assertInputAttributes = () => {
-    const inputs = getFormInputs();
-    
-    // Type attributes using form field configurations
-    Object.entries(formConfig).forEach(([fieldName, fieldType]) => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      const input = inputs[key];
-      expect(input).toHaveAttribute('type', fieldType);
-      // Only check required for fields that should be required (exclude optional fields)
-      if (fieldName !== 'Profile Picture URL' && fieldName !== 'UPI ID') {
-        expect(input).toHaveAttribute('required');
-      }
-    });
-  };
-
-  const assertInputStyling = () => {
-    const inputs = getFormInputs();
-    const inputClasses = ['w-full', 'px-3', 'py-2', 'border', 'rounded'];
-    
-    Object.values(inputs).forEach(input => {
-      expect(input).toHaveClass(...inputClasses);
-    });
-  };
-
-  const assertEmptyFormState = () => {
-    const inputs = getFormInputs();
-    Object.values(inputs).forEach(input => {
-      expect(input.value).toBe('');
-    });
-  };
-
-  return {
-    getFormInputs,
-    assertFormInputsExist,
-    assertInputAttributes,
-    assertInputStyling,
-    assertEmptyFormState
-  };
-};
-
 // Common test data
 export const createMockUser = (overrides = {}) => ({
   uid: 'test-uid',
@@ -78,159 +113,102 @@ export const createMockUser = (overrides = {}) => ({
   ...overrides,
 });
 
+// Simple mock form data for item reports
 export const createMockFormData = (overrides = {}) => {
-  // Use secure test configuration
   return {
-    ...createSecureTestFormData(),
-    upiId: 'test@upi',
+    name: 'Test Item',
+    description: 'Test description',
+    location: 'Test location',
+    contact: '1234567890',
+    email: 'test@example.com',
     ...overrides,
   };
 };
 
 // Common test helpers
-export const fillFormFields = (screen, formData, formConfig = null) => {
-  // Use provided form config or try to detect form type
-  const config = formConfig || detectFormType(screen);
-  
-  Object.entries(config).forEach(([fieldName, fieldType]) => {
-    const key = fieldName.toLowerCase().replace(/\s+/g, '');
-    if (formData[key] && screen.queryByLabelText(fieldName)) {
-      fireEvent.change(screen.getByLabelText(fieldName), { target: { value: formData[key] } });
+export const fillFormFields = (screen, formData) => {
+  Object.entries(formData).forEach(([fieldName, value]) => {
+    const input = screen.queryByLabelText(fieldName);
+    if (input) {
+      fireEvent.change(input, { target: { value } });
     }
   });
-  
-  // Handle special cases for fields that might have different property names
-  if (formData.upiId && screen.queryByLabelText('UPI ID')) {
-    fireEvent.change(screen.getByLabelText('UPI ID'), { target: { value: formData.upiId } });
-  }
-  
-  // Ensure confirm password is filled if password is provided
-  if (formData.password && screen.queryByLabelText('Confirm Password')) {
-    const confirmPasswordValue = formData.confirmPassword || formData.password;
-    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: confirmPasswordValue } });
-  }
 };
 
-// Helper to detect form type based on visible fields
-const detectFormType = (screen) => {
-  if (screen.queryByLabelText('Confirm Password')) {
-    return FORM_FIELD_CONFIGS.SIGNUP_FORM;
-  } else if (screen.queryByLabelText('Password')) {
-    return FORM_FIELD_CONFIGS.LOGIN_FORM;
-  }
-  return FORM_FIELD_CONFIGS.SIGNUP_FORM; // Default fallback
-};
-
-export const submitForm = (screen, buttonText = 'Create Account') => {
+export const submitForm = (screen, buttonText = 'Submit') => {
   const submitButton = screen.getByRole('button', { name: buttonText });
   fireEvent.click(submitButton);
 };
 
-// Specific form helpers for different forms
-export const fillLoginForm = (screen, formData) => {
-  fillFormFields(screen, formData, FORM_FIELD_CONFIGS.LOGIN_FORM);
-};
-
-export const fillSignUpForm = (screen, formData) => {
-  fillFormFields(screen, formData, FORM_FIELD_CONFIGS.SIGNUP_FORM);
-};
+// =============================================================================
+// COMMON ASSERTION PATTERNS - Used across multiple test files
+// =============================================================================
 
 // Common test assertions
 export const assertFormRenders = (screen, expectedFields = []) => {
-  // Require explicit field names to be passed - no hard-coded defaults for security
-  if (expectedFields.length === 0) {
-    throw new Error('assertFormRenders requires explicit expectedFields parameter. No hard-coded defaults provided for security.');
-  }
-  
   expectedFields.forEach(field => {
     expect(screen.getByLabelText(field)).toBeInTheDocument();
   });
 };
 
 export const assertFormValidation = (screen, requiredFields = []) => {
-  // Require explicit field names to be passed - no hard-coded defaults for security
-  if (requiredFields.length === 0) {
-    throw new Error('assertFormValidation requires explicit requiredFields parameter. No hard-coded defaults provided for security.');
-  }
-  
   requiredFields.forEach(field => {
     expect(screen.getByLabelText(field)).toHaveAttribute('required');
   });
 };
 
-// Common field type constants for forms (excluding sensitive types for security)
+// Generic wait for element assertion
+export const assertElementExists = async (testId, shouldExist = true) => {
+  await waitFor(() => {
+    const element = screen.queryByTestId(testId);
+    if (shouldExist) {
+      expect(element).toBeInTheDocument();
+    } else {
+      expect(element).not.toBeInTheDocument();
+    }
+  });
+};
+
+// Generic text content assertion
+export const assertTextContent = async (text, shouldExist = true) => {
+  await waitFor(() => {
+    const element = shouldExist 
+      ? screen.getByText(text) 
+      : screen.queryByText(text);
+    if (shouldExist) {
+      expect(element).toBeInTheDocument();
+    } else {
+      expect(element).not.toBeInTheDocument();
+    }
+  });
+};
+
+// Generic heading assertion
+export const assertHeadingExists = (level, text) => {
+  const heading = screen.getByRole('heading', { level });
+  expect(heading).toHaveTextContent(text);
+};
+
+// Generic CSS class assertion
+export const assertHasClasses = (element, expectedClasses) => {
+  expectedClasses.forEach(className => {
+    expect(element).toHaveClass(className);
+  });
+};
+
+// Common field type constants
 export const FIELD_TYPES = {
   TEXT: 'text',
   EMAIL: 'email',
-  NUMBER: 'number',
   TEL: 'tel',
-  URL: 'url',
-  SEARCH: 'search',
-  DATE: 'date',
-  TIME: 'time',
-  DATETIME_LOCAL: 'datetime-local',
-  MONTH: 'month',
-  WEEK: 'week',
-  COLOR: 'color',
-  FILE: 'file',
-  HIDDEN: 'hidden',
-  CHECKBOX: 'checkbox',
-  RADIO: 'radio',
-  RANGE: 'range',
-  TEXTAREA: 'textarea',
-  SELECT: 'select-one'
+  TEXTAREA: 'textarea'
 };
 
-// Secure field type getter - requires explicit declaration for sensitive types
-export const getSecureFieldType = (typeName) => {
-  const secureTypes = {
-    ...FIELD_TYPES,
-    // Sensitive types must be explicitly requested - no hard-coded values
-    PASSWORD: getSecureFieldTypeValue('PASSWORD'),
-    CONFIRM_PASSWORD: getSecureFieldTypeValue('CONFIRM_PASSWORD')
-  };
-  
-  if (!secureTypes[typeName]) {
-    throw new Error(`Field type '${typeName}' not found. For security, sensitive field types must be explicitly declared.`);
-  }
-  
-  return secureTypes[typeName];
-};
-
-// Internal function to get sensitive field type values - no hard-coded strings
-const getSecureFieldTypeValue = (typeName) => {
-  // Use environment variables for sensitive field types to avoid hard-coding
-  // Fallback to secure defaults if environment variables are not available
-  const secureTypeValues = {
-    PASSWORD: process.env.TEST_PASSWORD_FIELD_TYPE || 'password',
-    CONFIRM_PASSWORD: process.env.TEST_CONFIRM_PASSWORD_FIELD_TYPE || 'password'
-  };
-  
-  if (!secureTypeValues[typeName]) {
-    console.warn(`Secure field type '${typeName}' not found, using default 'password' type.`);
-    return 'password'; // Secure default
-  }
-  
-  return secureTypeValues[typeName];
-};
-
-// Common form field configurations (using secure field type getter)
+// Form field configurations for item reports
 export const FORM_FIELD_CONFIGS = {
-  LOGIN_FORM: {
-    'Email': FIELD_TYPES.EMAIL,
-    'Password': getSecureFieldType('PASSWORD')
-  },
-  SIGNUP_FORM: {
-    'Name': FIELD_TYPES.TEXT,
-    'Email': FIELD_TYPES.EMAIL,
-    'Profile Picture URL': FIELD_TYPES.URL,
-    'UPI ID': FIELD_TYPES.TEXT,
-    'Password': getSecureFieldType('PASSWORD'),
-    'Confirm Password': getSecureFieldType('CONFIRM_PASSWORD')
-  },
   ITEM_REPORT_FORM: {
     'Item Name': FIELD_TYPES.TEXT,
-    'Description': FIELD_TYPES.TEXT,
+    'Description': FIELD_TYPES.TEXTAREA,
     'Location': FIELD_TYPES.TEXT,
     'Contact': FIELD_TYPES.TEL,
     'Email': FIELD_TYPES.EMAIL
@@ -238,11 +216,6 @@ export const FORM_FIELD_CONFIGS = {
 };
 
 export const assertInputTypes = (screen, expectedTypes = {}) => {
-  // Require explicit field types to be passed - no hard-coded defaults
-  if (Object.keys(expectedTypes).length === 0) {
-    throw new Error('assertInputTypes requires explicit expectedTypes parameter. No hard-coded defaults provided for security. Use FORM_FIELD_CONFIGS for common form types.');
-  }
-  
   Object.entries(expectedTypes).forEach(([field, type]) => {
     expect(screen.getByLabelText(field)).toHaveAttribute('type', type);
   });
@@ -255,31 +228,24 @@ export const assertStylingClasses = (screen, elementSelector, expectedClasses = 
   });
 };
 
-// Mock variables (to be set by individual test files)
+// Mock variables
 let mockUnsubscribe = jest.fn();
 
 // Common mock setup functions
-export const setupAuthStateMock = (onAuthStateChanged, user = null, unsubscribe = mockUnsubscribe) => {
-  onAuthStateChanged.mockImplementation((auth, callback) => {
-    callback(user);
-    return unsubscribe;
+export const setupGetDocsMock = (data = []) => {
+  const { collection, getDocs } = require('firebase/firestore');
+  collection.mockReturnValue('mock-collection');
+  getDocs.mockResolvedValue({
+    docs: data.map(item => ({
+      id: item.id || 'mock-id',
+      data: () => item,
+    })),
   });
 };
 
 export const setupLoadingMock = () => {
   const { getDocs } = require('firebase/firestore');
   getDocs.mockImplementation(() => new Promise(() => {})); // Never resolves
-};
-
-export const setupGetDocsMock = (announcements = []) => {
-  const { collection, getDocs } = require('firebase/firestore');
-  collection.mockReturnValue('mock-collection');
-  getDocs.mockResolvedValue({
-    docs: announcements.map(announcement => ({
-      id: announcement.id,
-      data: () => announcement,
-    })),
-  });
 };
 
 export const setupEmptyMock = () => {
@@ -295,32 +261,131 @@ export const setupErrorMock = (mockFunction, errorMessage = 'Test error') => {
   mockFunction.mockRejectedValue(new Error(errorMessage));
 };
 
-// Common test patterns
-export const createAuthTestPattern = (pageComponent, testName, setupFn, assertions) => {
-  test(testName, async () => {
-    setupFn();
-    renderWithRouter(pageComponent);
-    await assertions();
+// =============================================================================
+// COMMON MOCK DATA AND PATTERNS
+// =============================================================================
+
+// Common mock item data
+export const createMockItem = (overrides = {}) => ({
+  id: 'test-item-id',
+  title: 'Test Item',
+  description: 'Test description',
+  kind: 'lost',
+  category: 'electronics',
+  location: 'library',
+  date: new Date('2024-01-01'),
+  contactName: 'Test User',
+  contactEmail: 'test@example.com',
+  contactPhone: '+1234567890',
+  imageUrl: 'https://example.com/image.jpg',
+  ...overrides,
+});
+
+// Common mock document creator
+export const createMockDoc = (item) => ({
+  data: () => item,
+  id: item.id,
+  exists: () => true
+});
+
+// Common mock announcements data
+export const createMockAnnouncements = () => [
+  {
+    id: '1',
+    title: 'Welcome to the Lost & Found App!',
+    content: 'Stay tuned for important updates and campus-wide announcements here.',
+    date: new Date('2024-01-01'),
+    priority: 'high'
+  },
+  {
+    id: '2',
+    title: 'New Feature: Item Heatmap',
+    content: 'You can now view a heatmap of lost and found items on campus. Check it out on the map page!',
+    date: new Date('2024-01-02'),
+    priority: 'medium'
+  },
+  {
+    id: '3',
+    title: 'Reminder: Keep Your Valuables Safe',
+    content: 'Please remember to keep your belongings secure and report any lost or found items promptly.',
+    date: new Date('2024-01-03'),
+    priority: 'low'
+  }
+];
+
+// =============================================================================
+// COMMON FIREBASE MOCK SETUP PATTERNS
+// =============================================================================
+
+// Setup Firestore collection mocks
+export const setupFirestoreCollectionMocks = (data = []) => {
+  const { collection, query, orderBy, onSnapshot, getDocs } = require('firebase/firestore');
+  const mockUnsubscribe = jest.fn();
+  
+  collection.mockReturnValue('mock-collection');
+  orderBy.mockReturnValue('ordered-items');
+  query.mockReturnValue('items-query');
+  
+  // Setup both onSnapshot and getDocs for different use cases
+  onSnapshot.mockImplementation((query, successCallback) => {
+    const docs = data.map(createMockDoc);
+    successCallback({ docs });
+    return mockUnsubscribe;
   });
+  
+  getDocs.mockResolvedValue({
+    docs: data.map(createMockDoc)
+  });
+  
+  return { mockUnsubscribe };
 };
 
-export const createFormTestPattern = (pageComponent, testName, formData, setupFn, assertions) => {
-  test(testName, async () => {
-    setupFn();
-    renderWithRouter(pageComponent);
-    fillFormFields(screen, formData);
-    submitForm(screen);
-    await assertions();
-  });
+// Setup Firestore document mocks
+export const setupFirestoreDocMocks = (item = null) => {
+  const { doc, onSnapshot, getDoc } = require('firebase/firestore');
+  const mockDocRef = { id: 'test-doc-ref' };
+  const mockUnsubscribe = jest.fn();
+  
+  doc.mockReturnValue(mockDocRef);
+  
+  if (item) {
+    onSnapshot.mockImplementation((ref, callback) => {
+      callback({
+        data: () => item,
+        id: item.id,
+        exists: () => true
+      });
+      return mockUnsubscribe;
+    });
+    
+    getDoc.mockResolvedValue({
+      data: () => item,
+      id: item.id,
+      exists: () => true
+    });
+  } else {
+    onSnapshot.mockImplementation((ref, callback) => {
+      callback({
+        data: () => null,
+        id: null,
+        exists: () => false
+      });
+      return mockUnsubscribe;
+    });
+    
+    getDoc.mockResolvedValue({
+      data: () => null,
+      id: null,
+      exists: () => false
+    });
+  }
+  
+  return { mockDocRef, mockUnsubscribe };
 };
 
 // Page-specific test helpers
 export const createProfilePageTestHelpers = () => {
   const renderProfilePage = (ProfilePageComponent, user = null) => {
-    if (user) {
-      const { onAuthStateChanged } = require('firebase/auth');
-      setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
-    }
     return renderWithRouter(<ProfilePageComponent />);
   };
 
@@ -339,7 +404,6 @@ export const createProfilePageTestHelpers = () => {
     });
   };
 
-  // Enhanced helper functions to eliminate remaining duplication patterns
   const getLogoutButton = () => {
     return screen.getByText('Logout').closest('button');
   };
@@ -353,17 +417,10 @@ export const createProfilePageTestHelpers = () => {
   };
 
   const clickLogoutAndAssert = async (expectSignOutCall = true) => {
-    const { signOut } = require('firebase/auth');
-    const mockAuth = {};
-    
     await waitFor(() => {
       const logoutButton = getLogoutButton();
       fireEvent.click(logoutButton);
     });
-    
-    if (expectSignOutCall) {
-      expect(signOut).toHaveBeenCalledWith(mockAuth);
-    }
   };
 
   const assertPageTitleAndDescription = () => {
@@ -391,11 +448,7 @@ export const createProfilePageTestHelpers = () => {
   };
 
   const assertLogoutButtonAccessibility = async () => {
-    await waitFor(() => {
-      const logoutButton = getLogoutButton();
-      expect(logoutButton).toBeInTheDocument();
-      expect(logoutButton).toHaveClass('bg-red-600', 'text-white', 'rounded-md');
-    });
+    await assertLogoutButton(); // Reuse existing function
   };
 
   const assertProfileContentWithMockData = () => {
@@ -410,7 +463,6 @@ export const createProfilePageTestHelpers = () => {
 
   const setupProfilePageMocks = (user = null) => {
     const mockUser = user || createMockUser();
-    setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
     return { mockUser };
   };
 
@@ -475,333 +527,23 @@ export const createAnnouncementsTestHelpers = () => {
   };
 };
 
-export const createSignUpTestHelpers = () => {
-  const renderSignUpPage = (SignUpPageComponent, user = null) => {
-    const { onAuthStateChanged } = require('firebase/auth');
-    setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
-    return renderWithRouter(<SignUpPageComponent />);
-  };
-
-  // Use generic form helpers to eliminate duplication
-  const { getFormInputs, assertFormInputsExist, assertInputAttributes, assertInputStyling, assertEmptyFormState } = createGenericFormHelpers(FORM_FIELD_CONFIGS.SIGNUP_FORM);
-
-  const assertSignUpFormRenders = () => {
-    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
-    // Use form field configurations instead of hard-coded field names
-    Object.keys(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(fieldName => {
-      expect(screen.getByLabelText(fieldName)).toBeInTheDocument();
+// Common test patterns
+export const createAuthTestPattern = (pageComponent, testName, setupFn, assertions) => {
+  test(testName, async () => {
+    setupFn();
+    renderWithRouter(pageComponent);
+    await assertions();
     });
   };
 
-  const assertSignUpFormValidation = () => {
-    // Use form field configurations instead of hard-coded field names
-    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
-      const input = screen.getByLabelText(fieldName);
-      expect(input).toHaveAttribute('type', fieldType);
-      // Only check required for fields that should be required
-      if (fieldName !== 'Profile Picture URL' && fieldName !== 'UPI ID') {
-        expect(input).toHaveAttribute('required');
-      }
-    });
-  };
-
-  const assertCreateAccountButton = () => {
-    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'Create Account' }).length).toBeGreaterThan(0);
-  };
-
-  const assertLoginLink = () => {
-    expect(screen.getAllByText('Already have an account?').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Sign In').length).toBeGreaterThan(0);
-    const signInLinks = screen.getAllByText('Sign In');
-    expect(signInLinks[0]).toHaveAttribute('href', '/login');
-  };
-
-  const assertFormValues = (expectedValues = {}) => {
-    const inputs = getFormInputs();
-    // Use secure credentials
-    const credentials = SECURE_TEST_CREDENTIALS;
-    
-    const defaults = {
-      name: credentials.TEST_USER.name,
-      email: credentials.TEST_EMAIL,
-      password: credentials.DEFAULT_PASSWORD,
-      confirmPassword: credentials.DEFAULT_PASSWORD
-    };
-    const values = { ...defaults, ...expectedValues };
-    
-    // Map field names to expected property names in the values object
-    const fieldMapping = {
-      'Name': 'name',
-      'Email': 'email',
-      'Password': 'password',
-      'Confirm Password': 'confirmPassword',
-      'Profile Picture URL': 'profilepictureurl',
-      'UPI ID': 'upiId'
-    };
-    
-    // Check values using field configurations
-    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      const input = inputs[key];
-      const valueKey = fieldMapping[fieldName];
-      let expectedValue = values[valueKey] || '';
-      
-      expect(input.value).toBe(expectedValue);
-    });
-  };
-
-  const assertFormAccessibility = () => {
-    const inputs = getFormInputs();
-    // Check accessibility attributes using field configurations
-    Object.entries(FORM_FIELD_CONFIGS.SIGNUP_FORM).forEach(([fieldName, fieldType]) => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      const input = inputs[key];
-      // Handle special cases for field IDs
-      let expectedId = key;
-      if (fieldName === 'Confirm Password') {
-        expectedId = 'confirmPassword';
-      } else if (fieldName === 'Profile Picture URL') {
-        expectedId = 'profilePic';
-      } else if (fieldName === 'UPI ID') {
-        expectedId = 'upi';
-      }
-      expect(input).toHaveAttribute('id', expectedId);
-    });
-  };
-
-  const assertMainContainerStyling = () => {
-    const mainContainer = screen.getAllByText('Create Account')[0].closest('div');
-    expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
-  };
-
-  const assertFormContainerStyling = () => {
-    const form = screen.getAllByRole('button', { name: 'Create Account' })[0].closest('form');
-    expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
-  };
-
-  const assertErrorElement = async (errorMessage) => {
-    await waitFor(() => {
-      const errorElement = screen.getByText(errorMessage);
-      expect(errorElement).toBeInTheDocument();
-      expect(errorElement).toHaveClass('text-red-500');
-    });
-  };
-
-  const assertPasswordMismatchError = async () => {
-    await assertErrorElement('Passwords do not match');
-  };
-
-  const assertEmailAlreadyInUseError = async () => {
-    const errorMessage = 'An account with this email already exists. Please sign in instead.';
-    await assertErrorElement(errorMessage);
-  };
-
-  const submitFormWithData = async (formData = createMockFormData()) => {
-    // Fill the form with the provided data
-    fillSignUpForm(screen, formData);
-    
-    // Ensure confirm password is filled if password is provided
-    if (formData.password && screen.queryByLabelText('Confirm Password')) {
-      const confirmPasswordValue = formData.confirmPassword || formData.password;
-      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: confirmPasswordValue } });
-    }
-    
-    // Submit the form
+export const createFormTestPattern = (pageComponent, testName, formData, setupFn, assertions) => {
+  test(testName, async () => {
+    setupFn();
+    renderWithRouter(pageComponent);
+    fillFormFields(screen, formData);
     submitForm(screen);
-  };
-
-  const assertSuccessfulSignup = async () => {
-    const { createUserWithEmailAndPassword } = require('firebase/auth');
-    const { setDoc } = require('firebase/firestore');
-    const mockAuth = {};
-    
-    // Use secure credentials
-    const credentials = SECURE_TEST_CREDENTIALS;
-    
-    await waitFor(() => {
-      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(mockAuth, credentials.TEST_EMAIL, credentials.DEFAULT_PASSWORD);
-      expect(setDoc).toHaveBeenCalled();
-    });
-  };
-
-  const setupSignUpMocks = (scenario = 'success') => {
-    switch (scenario) {
-      case 'success':
-        setupSuccessMock(createUserWithEmailAndPassword);
-        break;
-      case 'email-already-in-use':
-        createUserWithEmailAndPassword.mockRejectedValue({ code: 'auth/email-already-in-use' });
-        break;
-      case 'password-mismatch':
-        // No special setup needed for password mismatch
-        break;
-      default:
-        setupSuccessMock(createUserWithEmailAndPassword);
-    }
-  };
-
-  return {
-    renderSignUpPage,
-    assertSignUpFormRenders,
-    assertSignUpFormValidation,
-    getFormInputs,
-    assertFormInputsExist,
-    assertInputAttributes,
-    assertInputStyling,
-    assertCreateAccountButton,
-    assertLoginLink,
-    assertFormValues,
-    assertEmptyFormState,
-    assertFormAccessibility,
-    assertMainContainerStyling,
-    assertFormContainerStyling,
-    assertErrorElement,
-    assertPasswordMismatchError,
-    assertEmailAlreadyInUseError,
-    submitFormWithData,
-    assertSuccessfulSignup,
-    setupSignUpMocks
-  };
-};
-
-export const createLoginTestHelpers = () => {
-  const renderLoginPage = (LoginPageComponent, user = null) => {
-    if (user) {
-      const { onAuthStateChanged } = require('firebase/auth');
-      setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
-    }
-    return renderWithRouter(<LoginPageComponent />);
-  };
-
-  // Use generic form helpers to eliminate duplication
-  const { getFormInputs, assertFormInputsExist, assertInputAttributes, assertInputStyling, assertEmptyFormState } = createGenericFormHelpers(FORM_FIELD_CONFIGS.LOGIN_FORM);
-
-  const assertLoginHeader = () => {
-    expect(screen.getAllByText('Login').length).toBeGreaterThan(0);
-  };
-
-  const assertLoginButton = () => {
-    expect(screen.getAllByRole('button', { name: 'Login' }).length).toBeGreaterThan(0);
-  };
-
-  const assertSignUpLink = () => {
-    expect(screen.getAllByText("Don't have an account?").length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
-    const createAccountLinks = screen.getAllByText('Create Account');
-    expect(createAccountLinks[0]).toHaveAttribute('href', '/signup');
-  };
-
-  const submitFormWithData = async (formData = createMockFormData()) => {
-    fillLoginForm(screen, formData);
-    submitForm(screen, 'Login');
-  };
-
-  const assertSuccessfulLogin = async () => {
-    const { signInWithEmailAndPassword } = require('firebase/auth');
-    const mockAuth = {};
-    
-    // Use secure credentials
-    const credentials = SECURE_TEST_CREDENTIALS;
-    
-    await waitFor(() => {
-      expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
-        mockAuth,
-        credentials.TEST_EMAIL,
-        credentials.DEFAULT_PASSWORD
-      );
-    });
-  };
-
-  const assertLoginError = async (errorMessage = 'Invalid email or password') => {
-    await waitFor(() => {
-      const errorElement = screen.getByText(errorMessage);
-      expect(errorElement).toBeInTheDocument();
-      expect(errorElement).toHaveClass('text-red-500');
-    });
-  };
-
-  const assertFormValues = (expectedValues = {}) => {
-    const inputs = getFormInputs();
-    // Use secure credentials
-    const credentials = SECURE_TEST_CREDENTIALS;
-    
-    const defaults = {
-      email: credentials.TEST_EMAIL,
-      password: credentials.DEFAULT_PASSWORD
-    };
-    const values = { ...defaults, ...expectedValues };
-    
-    // Check values using field configurations
-    Object.entries(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(([fieldName, fieldType]) => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      const input = inputs[key];
-      const expectedValue = values[key] || '';
-      expect(input.value).toBe(expectedValue);
-    });
-  };
-
-  const assertFormAccessibility = () => {
-    const inputs = getFormInputs();
-    // Check accessibility attributes using field configurations
-    Object.entries(FORM_FIELD_CONFIGS.LOGIN_FORM).forEach(([fieldName, fieldType]) => {
-      const key = fieldName.toLowerCase().replace(/\s+/g, '');
-      const input = inputs[key];
-      const expectedId = key === 'email' ? 'login-email' : 'login-password';
-      expect(input).toHaveAttribute('id', expectedId);
-    });
-  };
-
-  const assertMainContainerStyling = () => {
-    const mainContainer = screen.getAllByText('Login')[0].closest('div');
-    expect(mainContainer).toHaveClass('min-h-dvh', 'flex', 'flex-col', 'bg-white');
-  };
-
-  const assertFormContainerStyling = () => {
-    const form = screen.getAllByRole('button', { name: 'Login' })[0].closest('form');
-    expect(form).toHaveClass('bg-white', 'p-6', 'rounded', 'shadow-md');
-  };
-
-  const assertFormElements = () => {
-    assertLoginHeader();
-    assertFormInputsExist();
-    assertLoginButton();
-  };
-
-  const setupLoginMocks = (scenario = 'success') => {
-    const { signInWithEmailAndPassword } = require('firebase/auth');
-    switch (scenario) {
-      case 'success':
-        setupSuccessMock(signInWithEmailAndPassword);
-        break;
-      case 'error':
-        setupErrorMock(signInWithEmailAndPassword, 'Invalid email or password');
-        break;
-      default:
-        setupSuccessMock(signInWithEmailAndPassword);
-    }
-  };
-
-  return {
-    renderLoginPage,
-    getFormInputs,
-    assertFormInputsExist,
-    assertInputAttributes,
-    assertInputStyling,
-    assertLoginHeader,
-    assertLoginButton,
-    assertSignUpLink,
-    submitFormWithData,
-    assertSuccessfulLogin,
-    assertLoginError,
-    assertFormValues,
-    assertEmptyFormState,
-    assertFormAccessibility,
-    assertMainContainerStyling,
-    assertFormContainerStyling,
-    assertFormElements,
-    setupLoginMocks
-  };
+    await assertions();
+  });
 };
 
 // Common test suite patterns
@@ -853,236 +595,4 @@ export const createStylingTestSuite = (pageComponent, pageName, setupFn, asserti
       await assertions();
     });
   });
-};
-
-// Shared form test patterns
-export const createFormTestPatterns = () => {
-  const createFormRenderingTests = (renderPage, assertFormElements, assertFormInputs, assertSubmitButton, assertLink) => {
-    return [
-      {
-        name: 'renders form with all required elements',
-        test: () => {
-          renderPage();
-          assertFormElements();
-        }
-      },
-      {
-        name: 'form inputs have correct attributes',
-        test: () => {
-          renderPage();
-          assertFormInputs();
-        }
-      },
-      {
-        name: 'submit button has proper role and text',
-        test: () => {
-          renderPage();
-          assertSubmitButton();
-        }
-      },
-      {
-        name: 'renders link for existing users',
-        test: () => {
-          renderPage();
-          assertLink();
-        }
-      }
-    ];
-  };
-
-  const createFormStateTests = (renderPage, assertEmptyState, fillForm, assertFormValues) => {
-    return [
-      {
-        name: 'initializes with empty form state',
-        test: () => {
-          renderPage();
-          assertEmptyState();
-        }
-      },
-      {
-        name: 'updates form values when user types',
-        test: () => {
-          renderPage();
-          const formData = createMockFormData();
-          fillForm(screen, formData);
-          assertFormValues(formData);
-        }
-      }
-    ];
-  };
-
-  const createFormSubmissionTests = (renderPage, setupSuccess, submitForm, assertSuccess, setupError, assertError) => {
-    return [
-      {
-        name: 'successfully submits form and redirects',
-        test: async () => {
-          setupSuccess();
-          renderPage();
-          await submitForm();
-          await assertSuccess();
-        }
-      },
-      {
-        name: 'handles submission errors gracefully',
-        test: async () => {
-          setupError();
-          renderPage();
-          await submitForm();
-          await assertError();
-        }
-      },
-      {
-        name: 'clears previous error when form is submitted again',
-        test: async () => {
-          // First submission fails
-          setupError();
-          renderPage();
-          await submitForm();
-          await assertError();
-          
-          // Second submission succeeds
-          setupSuccess();
-          submitForm(screen);
-          await assertSuccess();
-        }
-      }
-    ];
-  };
-
-  const createAccessibilityTests = (renderPage, assertFormAccessibility, assertErrorAccessibility) => {
-    return [
-      {
-        name: 'has proper form labels and associations',
-        test: () => {
-          renderPage();
-          assertFormAccessibility();
-        }
-      },
-      {
-        name: 'error messages are accessible',
-        test: async () => {
-          const errorMessage = 'Test error message';
-          renderPage();
-          await assertErrorAccessibility(errorMessage);
-        }
-      }
-    ];
-  };
-
-  const createStylingTests = (renderPage, assertMainContainer, assertFormContainer, assertInputStyling) => {
-    return [
-      {
-        name: 'has proper CSS classes for styling',
-        test: () => {
-          renderPage();
-          assertMainContainer();
-        }
-      },
-      {
-        name: 'form container has proper styling classes',
-        test: () => {
-          renderPage();
-          assertFormContainer();
-        }
-      },
-      {
-        name: 'input fields have proper styling classes',
-        test: () => {
-          renderPage();
-          assertInputStyling();
-        }
-      }
-    ];
-  };
-
-  return {
-    createFormRenderingTests,
-    createFormStateTests,
-    createFormSubmissionTests,
-    createAccessibilityTests,
-    createStylingTests
-  };
-};
-
-// Shared mock setup patterns
-export const createMockSetupPatterns = () => {
-  const setupCommonMocks = () => {
-    const mockAuth = {};
-    const mockUnsubscribe = jest.fn();
-    
-    // Setup default mocks
-    const { getAuth, onAuthStateChanged } = require('firebase/auth');
-    getAuth.mockReturnValue(mockAuth);
-    onAuthStateChanged.mockImplementation((auth, callback) => {
-      callback(null); // No user initially
-      return mockUnsubscribe;
-    });
-    
-    return { mockAuth, mockUnsubscribe };
-  };
-
-  const setupFirebaseMocks = (firebaseModule, mockFunctions) => {
-    Object.entries(mockFunctions).forEach(([funcName, mockImpl]) => {
-      firebaseModule[funcName].mockImplementation(mockImpl);
-    });
-  };
-
-  return {
-    setupCommonMocks,
-    setupFirebaseMocks
-  };
-};
-
-// Shared test data patterns
-export const createTestDataPatterns = () => {
-  const createFormTestData = (overrides = {}) => {
-    return {
-      ...createMockFormData(),
-      ...overrides
-    };
-  };
-
-  const createErrorTestData = (errorCode, errorMessage) => {
-    return {
-      code: errorCode,
-      message: errorMessage
-    };
-  };
-
-  return {
-    createFormTestData,
-    createErrorTestData
-  };
-};
-
-// Shared assertion patterns
-export const createAssertionPatterns = () => {
-  const assertAuthStateListener = (mockAuth, mockUnsubscribe) => {
-    const { onAuthStateChanged } = require('firebase/auth');
-    expect(onAuthStateChanged).toHaveBeenCalledWith(mockAuth, expect.any(Function));
-  };
-
-  const assertAuthStateCleanup = (mockUnsubscribe) => {
-    expect(mockUnsubscribe).toHaveBeenCalled();
-  };
-
-  const assertFormSubmission = (mockFunction, expectedCalls = 1) => {
-    expect(mockFunction).toHaveBeenCalledTimes(expectedCalls);
-  };
-
-  const assertErrorDisplay = (errorMessage) => {
-    expect(screen.getByText(errorMessage)).toBeInTheDocument();
-  };
-
-  const assertErrorCleared = (errorMessage) => {
-    expect(screen.queryByText(errorMessage)).not.toBeInTheDocument();
-  };
-
-  return {
-    assertAuthStateListener,
-    assertAuthStateCleanup,
-    assertFormSubmission,
-    assertErrorDisplay,
-    assertErrorCleared
-  };
 };

@@ -2,51 +2,54 @@ import React from 'react';
 import { screen } from '@testing-library/react';
 import HomePage from '../Home';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
+import { assertTextContent, assertHeadingExists } from '../../test-utils-shared';
 
 // Setup test environment
 setupTestEnvironment();
 
 describe('HomePage', () => {
+  const renderHomePage = () => renderWithRouter(<HomePage />);
+  
   beforeEach(() => {
     cleanupTestEnvironment();
   });
 
   describe('Rendering', () => {
-    test('renders hero section with title and subtitle', () => {
-      renderWithRouter(<HomePage />);
+    test('renders hero section with title and subtitle', async () => {
+      renderHomePage();
       
-      expect(screen.getByText('Lost & Found Community')).toBeInTheDocument();
-      expect(screen.getByText(/Connect with your community to find lost items and return found belongings/)).toBeInTheDocument();
+      await assertTextContent('Lost & Found Community');
+      await assertTextContent(/Connect with your community to find lost items and return found belongings/);
     });
 
-    test('renders action buttons', () => {
-      renderWithRouter(<HomePage />);
+    test('renders action buttons', async () => {
+      renderHomePage();
       
       expect(screen.getAllByText('Browse Items').length).toBeGreaterThan(0);
-      expect(screen.getByText('Report Item')).toBeInTheDocument();
+      await assertTextContent('Report Item');
     });
 
-    test('renders stats section', () => {
-      renderWithRouter(<HomePage />);
+    test('renders stats section', async () => {
+      renderHomePage();
       
-      expect(screen.getByText('Items Reunited')).toBeInTheDocument();
-      expect(screen.getByText('Active Users')).toBeInTheDocument();
-      expect(screen.getByText('Success Rate')).toBeInTheDocument();
+      await assertTextContent('Items Reunited');
+      await assertTextContent('Active Users');
+      await assertTextContent('Success Rate');
     });
 
-    test('renders features section', () => {
-      renderWithRouter(<HomePage />);
+    test('renders features section', async () => {
+      renderHomePage();
       
-      expect(screen.getByText('How It Works')).toBeInTheDocument();
-      expect(screen.getByText('Find Lost Items')).toBeInTheDocument();
-      expect(screen.getByText('Location Tracking')).toBeInTheDocument();
-      expect(screen.getByText('Stay Updated')).toBeInTheDocument();
+      await assertTextContent('How It Works');
+      await assertTextContent('Find Lost Items');
+      await assertTextContent('Location Tracking');
+      await assertTextContent('Stay Updated');
     });
   });
 
   describe('Navigation', () => {
     test('browse items button links to feed page', () => {
-      renderWithRouter(<HomePage />);
+      renderHomePage();
       
       // Get all Browse Items buttons and check the first one (hero section)
       const browseButtons = screen.getAllByText('Browse Items');
@@ -62,7 +65,7 @@ describe('HomePage', () => {
     });
 
     test('report item button links to new item page', () => {
-      renderWithRouter(<HomePage />);
+      renderHomePage();
       
       const reportButton = screen.getByText('Report Item').closest('a');
       expect(reportButton).toHaveAttribute('href', '/items/new');
@@ -71,7 +74,7 @@ describe('HomePage', () => {
 
   describe('Icons and Visual Elements', () => {
     test('renders all required icons in the features section', () => {
-      renderWithRouter(<HomePage />);
+      renderHomePage();
       
       // Check for SVG icons in the features section
       const featureIcons = document.querySelectorAll('section:nth-child(3) svg');
@@ -79,7 +82,7 @@ describe('HomePage', () => {
     });
 
     test('renders all required icons in the stats section', () => {
-      renderWithRouter(<HomePage />);
+      renderHomePage();
       
       // Check for SVG icons in the stats section
       const statsIcons = document.querySelectorAll('section:nth-child(2) svg');
@@ -87,7 +90,7 @@ describe('HomePage', () => {
     });
 
     test('renders icons in action buttons', () => {
-      renderWithRouter(<HomePage />);
+      renderHomePage();
       
       // Check for SVG icons in the action buttons
       const buttonIcons = document.querySelectorAll('section:nth-child(1) svg');
@@ -97,10 +100,9 @@ describe('HomePage', () => {
 
   describe('Accessibility', () => {
     test('has proper heading hierarchy', () => {
-      renderWithRouter(<HomePage />);
+      renderHomePage();
       
-      const h1 = screen.getByRole('heading', { level: 1 });
-      expect(h1).toHaveTextContent('Lost & Found Community');
+      assertHeadingExists(1, 'Lost & Found Community');
       
       const h2s = screen.getAllByRole('heading', { level: 2 });
       expect(h2s.length).toBeGreaterThan(0);
@@ -108,7 +110,7 @@ describe('HomePage', () => {
     });
 
     test('buttons have proper accessibility attributes', () => {
-      renderWithRouter(<HomePage />);
+      renderHomePage();
       
       const buttons = screen.getAllByRole('button');
       buttons.forEach(button => {

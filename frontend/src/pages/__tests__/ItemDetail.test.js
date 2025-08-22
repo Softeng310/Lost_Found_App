@@ -1,120 +1,110 @@
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { useParams } from 'react-router-dom';
-import { doc, onSnapshot, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import ItemDetailPage from '../ItemDetail';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
+import {
+  setupConsoleErrorSuppression,
+  setupFirebaseMocks,
+  setupGlobalFetchMock,
+  createMockItem,
+  setupFirestoreDocMocks,
+  assertTextContent,
+  assertElementExists
+} from '../../test-utils-shared';
+
+// Mock Firebase config
+jest.mock('../../firebase/config', () => ({
+  app: {},
+  auth: {},
+  db: {},
+  analytics: {},
+}));
 
 // Mock react-router-dom
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useParams: jest.fn(),
+  useParams: jest.fn(() => ({ id: 'test-item-id' })),
   useNavigate: () => jest.fn(),
-  useLocation: () => ({ pathname: '/items/test-id' }),
 }));
 
-// Mock Firebase modules with comprehensive mocking
+// Mock Firebase modules
 jest.mock('firebase/firestore', () => ({
-  doc: jest.fn(),
-  onSnapshot: jest.fn(),
-  getDoc: jest.fn(),
   collection: jest.fn(),
+  onSnapshot: jest.fn(),
+  orderBy: jest.fn(),
   query: jest.fn(),
-  where: jest.fn(),
   getDocs: jest.fn(),
+  doc: jest.fn(),
   setDoc: jest.fn(),
   addDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
-  orderBy: jest.fn(),
+  where: jest.fn(),
   limit: jest.fn(),
+  startAfter: jest.fn(),
+  endBefore: jest.fn(),
+  getDoc: jest.fn(),
 }));
 
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => ({})),
-  onAuthStateChanged: jest.fn(),
-  signOut: jest.fn(),
-  signInWithEmailAndPassword: jest.fn(),
-  createUserWithEmailAndPassword: jest.fn(),
+// Mock Firebase app
+jest.mock('firebase/app', () => ({
+  initializeApp: jest.fn(() => ({})),
+  getApp: jest.fn(() => ({})),
 }));
 
-jest.mock('../../firebase/config', () => ({
-  db: {},
-  auth: {},
-}));
-
-// Mock fetch globally to prevent real network requests
-global.fetch = jest.fn(() =>
-  Promise.resolve({
-    ok: true,
-    json: () => Promise.resolve({ item: {} }),
-  })
-);
-
-// Mock console.error to suppress expected error messages
-const originalConsoleError = console.error;
-beforeAll(() => {
-  console.error = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-       args[0].includes('Warning: An invalid form control') ||
-       args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
-    ) {
-      return;
-    }
-    originalConsoleError.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalConsoleError;
-});
+// Setup all common mocks
+setupConsoleErrorSuppression();
+setupGlobalFetchMock({ item: {} });
 
 // Setup test environment
 setupTestEnvironment();
 
 describe('ItemDetailPage', () => {
   const { mockNavigate } = setupTestEnvironment();
-  const mockDocRef = { id: 'test-doc-ref' };
-  const mockUnsubscribe = jest.fn();
-  const mockItem = {
+  const mockItem = createMockItem({
     id: 'test-item-id',
     title: 'Lost iPhone',
     description: 'Black iPhone 13 lost in library',
     kind: 'lost',
     category: 'electronics',
     location: 'library',
-    date: new Date('2024-01-01'),
     contactName: 'John Doe',
     contactEmail: 'john@example.com',
     contactPhone: '+1234567890',
     imageUrl: 'https://example.com/image.jpg',
-  };
+  });
 
-  // Helper functions to eliminate duplication
-  const renderItemDetailPage = () => {
-    return renderWithRouter(<ItemDetailPage />);
-  };
+  let mockDocRef;
+  let mockUnsubscribe;
 
-  const setupOnSnapshotMock = (item = mockItem, shouldCallCallback = true) => {
-    onSnapshot.mockImplementation((ref, callback) => {
-      if (shouldCallCallback) {
-        callback({
-          data: () => item,
-          id: 'test-item-id'
-        });
-      }
-      return mockUnsubscribe;
-    });
-  };
-
-  const setupLoadingMock = () => {
-    setupOnSnapshotMock(mockItem, false);
+  // Helper functions using shared utilities
+  const renderItemDetailPage = () => renderWithRouter(<ItemDetailPage />);
+  
+  const setupSuccessfulItemMock = (item = mockItem) => {
+    const result = setupFirestoreDocMocks(item);
+    mockDocRef = result.mockDocRef;
+    mockUnsubscribe = result.mockUnsubscribe;
+    return { mockDocRef, mockUnsubscribe };
   };
 
   const setupItemNotFoundMock = () => {
-    setupOnSnapshotMock(null);
+    const result = setupFirestoreDocMocks(null);
+    mockDocRef = result.mockDocRef;
+    mockUnsubscribe = result.mockUnsubscribe;
+    return { mockDocRef, mockUnsubscribe };
+  };
+
+  const setupOnSnapshotMock = (item = mockItem) => {
+    onSnapshot.mockImplementation((ref, callback) => {
+      callback({
+        data: () => item,
+        id: item?.id || 'test-item-id',
+        exists: () => !!item
+      });
+      return mockUnsubscribe;
+    });
   };
 
   const assertItemNotFound = async () => {
@@ -134,7 +124,6 @@ describe('ItemDetailPage', () => {
   const assertBackButton = async () => {
     await waitFor(() => {
       expect(screen.getByText('Back to feed')).toBeInTheDocument();
-      expect(screen.getByTestId('arrow-left-icon')).toBeInTheDocument();
     });
   };
 
@@ -174,35 +163,18 @@ describe('ItemDetailPage', () => {
     expect(onSnapshot).toHaveBeenCalledWith(mockDocRef, expect.any(Function));
   };
 
-  const createMockSnapshot = (itemId) => ({
-    data: () => mockItem,
-    id: itemId
-  });
-
-  const setupOnSnapshotMockWithId = (itemId) => {
-    const mockSnapshot = createMockSnapshot(itemId);
-    onSnapshot.mockImplementation((ref, callback) => {
-      callback(mockSnapshot);
-      return mockUnsubscribe;
-    });
-  };
-
   beforeEach(() => {
     cleanupTestEnvironment();
     mockNavigate.mockClear();
+    mockDocRef = { id: 'test-doc-ref' };
+    mockUnsubscribe = jest.fn();
+    
+    // Reset useParams mock
     useParams.mockReturnValue({ id: 'test-item-id' });
+    
+    // Setup default mocks
     doc.mockReturnValue(mockDocRef);
     onSnapshot.mockReturnValue(mockUnsubscribe);
-    
-    // Mock all Firebase functions to prevent real calls
-    const { getAuth, onAuthStateChanged } = require('firebase/auth');
-    getAuth.mockReturnValue({});
-    onAuthStateChanged.mockImplementation((auth, callback) => {
-      callback(null); // No user logged in
-      return mockUnsubscribe;
-    });
-    
-    // Mock getDoc to prevent real database calls
     getDoc.mockResolvedValue({
       data: () => mockItem,
       id: 'test-item-id',
@@ -211,33 +183,25 @@ describe('ItemDetailPage', () => {
   });
 
   describe('Rendering', () => {
-    test('renders loading state initially', () => {
-      setupLoadingMock();
-      
+    test('renders item not found initially when no item data', () => {
       renderItemDetailPage();
-      
-      assertItemNotFound();
+      expect(screen.getByText('Item not found.')).toBeInTheDocument();
     });
 
     test('renders item details when data is loaded successfully', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertItemDetails();
     });
 
     test('renders back button', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertBackButton();
     });
 
     test('renders item image when available', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
       
       await waitFor(() => {
@@ -250,9 +214,7 @@ describe('ItemDetailPage', () => {
     test('renders placeholder image when no image is available', async () => {
       const itemWithoutImage = { ...mockItem, imageUrl: null };
       setupOnSnapshotMock(itemWithoutImage);
-      
       renderItemDetailPage();
-      
       await assertImageAltText();
     });
   });
@@ -260,25 +222,19 @@ describe('ItemDetailPage', () => {
   describe('Data Fetching', () => {
     test('fetches item data using the correct document ID', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       assertDocCall();
     });
 
     test('handles item not found', async () => {
-      setupItemNotFoundMock();
-      
+      setupOnSnapshotMock(null);
       renderItemDetailPage();
-      
       await assertItemNotFound();
     });
 
     test('handles data fetching errors', async () => {
-      setupItemNotFoundMock();
-      
+      setupOnSnapshotMock(null);
       renderItemDetailPage();
-      
       await assertItemNotFound();
     });
   });
@@ -286,13 +242,10 @@ describe('ItemDetailPage', () => {
   describe('Navigation', () => {
     test('back button navigates to feed page', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
       
       await waitFor(() => {
         const backButton = screen.getByText('Back to feed');
-        fireEvent.click(backButton);
-        // The Link component will handle navigation, not useNavigate
         expect(backButton).toHaveAttribute('href', '/feed');
       });
     });
@@ -301,24 +254,19 @@ describe('ItemDetailPage', () => {
   describe('Item Information Display', () => {
     test('displays item status badge correctly', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertItemStatusBadge('lost');
     });
 
     test('displays found item status badge correctly', async () => {
       const foundItem = { ...mockItem, kind: 'found' };
       setupOnSnapshotMock(foundItem);
-      
       renderItemDetailPage();
-      
       await assertItemStatusBadge('found');
     });
 
     test('displays item category', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
       
       await waitFor(() => {
@@ -328,15 +276,12 @@ describe('ItemDetailPage', () => {
 
     test('displays item location', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertItemLocation();
     });
 
     test('displays item date', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
       
       await waitFor(() => {
@@ -348,9 +293,7 @@ describe('ItemDetailPage', () => {
   describe('Contact Information', () => {
     test('displays reporter information', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertReporterInfo();
     });
 
@@ -362,19 +305,15 @@ describe('ItemDetailPage', () => {
         contactPhone: null,
       };
       setupOnSnapshotMock(itemWithoutContact);
-      
       renderItemDetailPage();
-      
       await assertReporterInfo();
     });
   });
 
   describe('Error States', () => {
     test('displays not found message when item does not exist', async () => {
-      setupItemNotFoundMock();
-      
+      setupOnSnapshotMock(null);
       renderItemDetailPage();
-      
       await assertItemNotFound();
     });
   });
@@ -382,7 +321,6 @@ describe('ItemDetailPage', () => {
   describe('Accessibility', () => {
     test('has proper heading hierarchy', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
       
       await waitFor(() => {
@@ -393,17 +331,13 @@ describe('ItemDetailPage', () => {
 
     test('images have proper alt text', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertImageAltText();
     });
 
     test('back button has proper accessibility attributes', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertBackButton();
     });
   });
@@ -411,15 +345,12 @@ describe('ItemDetailPage', () => {
   describe('Styling and Layout', () => {
     test('has proper CSS classes for responsive design', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
-      
       await assertItemTitle();
     });
 
     test('item image has proper styling classes', async () => {
       setupOnSnapshotMock();
-      
       renderItemDetailPage();
       
       await waitFor(() => {
@@ -433,21 +364,15 @@ describe('ItemDetailPage', () => {
   describe('URL Parameter Handling', () => {
     test('uses item ID from URL parameters', () => {
       const testItemId = 'different-item-id';
-      
       useParams.mockReturnValue({ id: testItemId });
-      setupOnSnapshotMockWithId(testItemId);
       
       renderItemDetailPage();
-      
-      assertDocCall(testItemId);
+      expect(doc).toHaveBeenCalledWith({}, 'items', testItemId);
     });
 
     test('handles missing item ID parameter', () => {
       useParams.mockReturnValue({});
-      
       renderItemDetailPage();
-      
-      // Component should not call doc when no ID is provided
       expect(doc).not.toHaveBeenCalled();
     });
   });

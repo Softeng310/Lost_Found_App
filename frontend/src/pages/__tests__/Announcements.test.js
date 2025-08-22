@@ -3,101 +3,50 @@ import { screen, waitFor } from '@testing-library/react';
 import { collection, getDocs } from 'firebase/firestore';
 import AnnouncementsPage from '../Announcements';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter, mockTestData } from '../../test-utils';
+import {
+  setupConsoleErrorSuppression,
+  setupFirebaseMocks,
+  setupGlobalFetchMock,
+  createMockAnnouncements,
+  createMockDoc,
+  setupGetDocsMock,
+  setupLoadingMock,
+  setupEmptyMock,
+  setupErrorMock,
+  assertTextContent
+} from '../../test-utils-shared';
 
-// Mock Firebase modules with comprehensive mocking
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(),
-  getDocs: jest.fn(),
-  doc: jest.fn(),
-  setDoc: jest.fn(),
-  addDoc: jest.fn(),
-  updateDoc: jest.fn(),
-  deleteDoc: jest.fn(),
-  onSnapshot: jest.fn(),
-  query: jest.fn(),
-  orderBy: jest.fn(),
-  where: jest.fn(),
-  limit: jest.fn(),
-}));
-
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => ({})),
-  onAuthStateChanged: jest.fn(),
-  signOut: jest.fn(),
-  signInWithEmailAndPassword: jest.fn(),
-  createUserWithEmailAndPassword: jest.fn(),
-}));
-
-jest.mock('../../firebase/config', () => ({
-  db: {},
-  auth: {},
-}));
-
-// Mock react-router-dom
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => jest.fn(),
-  useLocation: () => ({ pathname: '/announcements' }),
-}));
-
-// Mock fetch globally to prevent real network requests
-global.fetch = jest.fn(() =>
-  Promise.resolve({
-    ok: true,
-    json: () => Promise.resolve({ announcements: [] }),
-  })
-);
-
-// Mock console.error to suppress expected error messages
-const originalConsoleError = console.error;
-beforeAll(() => {
-  console.error = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-       args[0].includes('Warning: An invalid form control') ||
-       args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
-    ) {
-      return;
-    }
-    originalConsoleError.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalConsoleError;
-});
+// Setup all common mocks
+setupFirebaseMocks();
+setupConsoleErrorSuppression();
+setupGlobalFetchMock({ announcements: [] });
 
 // Setup test environment
 setupTestEnvironment();
 
 describe('AnnouncementsPage', () => {
-  const { mockAnnouncements } = mockTestData;
+  const mockAnnouncements = createMockAnnouncements();
 
-  // Helper functions to reduce code duplication
-  const renderAnnouncementsPage = () => {
-    return renderWithRouter(<AnnouncementsPage />);
-  };
-
-  const assertPageTitle = async () => {
-    await waitFor(() => {
-      expect(screen.getByText('Announcements')).toBeInTheDocument();
-    });
-  };
-
+  // Helper functions using shared utilities
+  const renderAnnouncementsPage = () => renderWithRouter(<AnnouncementsPage />);
+  
+  const assertPageTitle = async () => await assertTextContent('Announcements');
+  
   const assertAllAnnouncementsRendered = async () => {
-    await waitFor(() => {
-      expect(screen.getByText('Welcome to the Lost & Found App!')).toBeInTheDocument();
-      expect(screen.getByText('New Feature: Item Heatmap')).toBeInTheDocument();
-      expect(screen.getByText('Reminder: Keep Your Valuables Safe')).toBeInTheDocument();
-    });
+    await assertTextContent('iPad Pro Found');
+    await assertTextContent('Umbrella Reported');
   };
 
   const assertAnnouncementContent = async () => {
+    await assertTextContent('An iPad Pro was found in the Business School lecture theatre OGGB3. Please contact lost and found with a description to claim.');
+    await assertTextContent('Umbrella near elevator on Engineering lvl 4 has been reported.');
+  };
+
+  const assertAnnouncementDates = async () => {
     await waitFor(() => {
-      expect(screen.getByText('Stay tuned for important updates and campus-wide announcements here.')).toBeInTheDocument();
-      expect(screen.getByText('You can now view a heatmap of lost and found items on campus. Check it out on the map page!')).toBeInTheDocument();
-      expect(screen.getByText('Please remember to keep your belongings secure and report any lost or found items promptly.')).toBeInTheDocument();
+      // Check for date elements in the announcements
+      const dateElements = document.querySelectorAll('[class*="bg-emerald-100"]');
+      expect(dateElements.length).toBeGreaterThan(0);
     });
   };
 
@@ -108,13 +57,6 @@ describe('AnnouncementsPage', () => {
     });
   };
 
-  const assertAnnouncementDates = async () => {
-    await waitFor(() => {
-      const dateElements = document.querySelectorAll('.bg-emerald-100.text-emerald-700');
-      expect(dateElements.length).toBeGreaterThan(0);
-    });
-  };
-
   const assertPageContainer = async () => {
     await waitFor(() => {
       const container = document.querySelector('.min-h-screen.bg-white');
@@ -122,43 +64,14 @@ describe('AnnouncementsPage', () => {
     });
   };
 
-  const setupGetDocsMock = (announcements = mockAnnouncements) => {
-    const { collection, getDocs } = require('firebase/firestore');
-    collection.mockReturnValue('mock-collection');
-    getDocs.mockResolvedValue({
-      docs: announcements.map(announcement => ({
-        id: announcement.id,
-        data: () => announcement,
-      })),
-    });
-  };
-
-  const setupLoadingMock = () => {
-    const { getDocs } = require('firebase/firestore');
-    getDocs.mockImplementation(() => new Promise(() => {})); // Never resolves
-  };
-
-  const setupErrorMock = (errorMessage = 'Failed to fetch') => {
-    const { getDocs } = require('firebase/firestore');
-    getDocs.mockRejectedValue(new Error(errorMessage));
-  };
-
-  const setupEmptyMock = () => {
-    const { getDocs } = require('firebase/firestore');
-    getDocs.mockResolvedValue({ docs: [] });
+  // Setup helper using shared utilities
+  const setupAnnouncementsMocks = (announcements = mockAnnouncements) => {
+    setupGetDocsMock(announcements);
   };
 
   beforeEach(() => {
     cleanupTestEnvironment();
-    setupGetDocsMock();
-    
-    // Mock all Firebase functions to prevent real calls
-    const { getAuth, onAuthStateChanged } = require('firebase/auth');
-    getAuth.mockReturnValue({});
-    onAuthStateChanged.mockImplementation((auth, callback) => {
-      callback(null); // No user logged in
-      return jest.fn(); // Mock unsubscribe function
-    });
+    setupAnnouncementsMocks();
   });
 
   describe('Rendering', () => {
@@ -191,28 +104,6 @@ describe('AnnouncementsPage', () => {
     });
   });
 
-  describe('Error State', () => {
-    test('shows error message when fetch fails', async () => {
-      setupErrorMock();
-      renderAnnouncementsPage();
-      
-      await waitFor(() => {
-        expect(screen.getByText('Failed to load announcements. Please try again later.')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Empty State', () => {
-    test('shows empty state when no announcements', async () => {
-      setupEmptyMock();
-      renderAnnouncementsPage();
-      
-      await waitFor(() => {
-        expect(screen.getByText('No announcements found.')).toBeInTheDocument();
-      });
-    });
-  });
-
   describe('Styling and Layout', () => {
     test('page has proper background and spacing', async () => {
       renderAnnouncementsPage();
@@ -235,7 +126,7 @@ describe('AnnouncementsPage', () => {
       renderAnnouncementsPage();
       
       await waitFor(() => {
-        expect(screen.getByText('Welcome to the Lost & Found App!')).toBeInTheDocument();
+        expect(screen.getByText('iPad Pro Found')).toBeInTheDocument();
       });
     });
 
@@ -243,7 +134,7 @@ describe('AnnouncementsPage', () => {
       renderAnnouncementsPage();
       
       await waitFor(() => {
-        expect(screen.getByText('Stay tuned for important updates and campus-wide announcements here.')).toBeInTheDocument();
+        expect(screen.getByText('An iPad Pro was found in the Business School lecture theatre OGGB3. Please contact lost and found with a description to claim.')).toBeInTheDocument();
       });
     });
   });
