@@ -114,9 +114,6 @@ jest.mock('../../components/SearchFilters', () => {
     </div>
   );
   /* eslint-enable react/prop-types */
-
-  // PropTypes removed from mock to avoid Jest scope issues
-
   return {
     __esModule: true,
     SearchFilters,
@@ -130,19 +127,16 @@ jest.mock('../../components/ui/Tabs', () => {
       {children}
     </div>
   );
-
   const TabsContent = ({ children, value, ...props }) => (
     <div data-testid={`tabs-content-${value}`} {...props}>
       {children}
     </div>
   );
-
   const TabsList = ({ children, ...props }) => (
     <div data-testid="tabs-list" {...props}>
       {children}
     </div>
   );
-
   const TabsTrigger = ({ children, value, onClick, ...props }) => (
     <button
       data-testid={`tabs-trigger-${value}`}
@@ -153,9 +147,6 @@ jest.mock('../../components/ui/Tabs', () => {
     </button>
   );
   /* eslint-enable react/prop-types */
-
-  // PropTypes removed from mock to avoid Jest scope issues
-
   return {
     __esModule: true,
     Tabs,
@@ -189,9 +180,6 @@ jest.mock('../../components/ItemCard', () => {
     </button>
   );
   /* eslint-enable react/prop-types */
-
-  // PropTypes removed from mock to avoid Jest scope issues
-
   return {
     __esModule: true,
     default: ItemCard,
@@ -242,11 +230,38 @@ describe('FeedPage', () => {
     })
   ];
 
-  // Helper functions using shared utilities
+  // Helper functions to reduce duplication
+  const renderFeedPage = () => renderWithRouter(<FeedPage />);
+  
   const setupOnSnapshotMock = (items = mockItems) => {
     const result = setupFirestoreCollectionMocks(items);
     mockUnsubscribe = result.mockUnsubscribe;
     return mockUnsubscribe;
+  };
+
+  const waitForItemsToLoad = async () => {
+    await waitFor(() => {
+      expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
+    });
+  };
+
+  const assertAllItemsRendered = () => {
+    expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
+    expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
+    expect(screen.getByTestId('item-card-3')).toBeInTheDocument();
+  };
+
+  const assertNoItemsRendered = () => {
+    expect(screen.queryByTestId('item-card-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('item-card-2')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('item-card-3')).not.toBeInTheDocument();
+  };
+
+  const setupErrorMock = (errorMessage) => {
+    onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
+      errorCallback(new Error(errorMessage));
+      return mockUnsubscribe;
+    });
   };
 
   beforeEach(() => {
@@ -255,11 +270,8 @@ describe('FeedPage', () => {
   });
 
   describe('Rendering', () => {
-    const renderFeedPage = () => renderWithRouter(<FeedPage />);
-
     test('renders feed page with search filters and tabs', async () => {
       renderFeedPage();
-
       await assertElementExists('search-filters');
       await assertElementExists('tabs');
       await assertElementExists('tabs-list');
@@ -267,7 +279,6 @@ describe('FeedPage', () => {
 
     test('renders all tab triggers', async () => {
       renderFeedPage();
-
       await assertElementExists('tabs-trigger-all');
       await assertElementExists('tabs-trigger-lost');
       await assertElementExists('tabs-trigger-found');
@@ -275,7 +286,6 @@ describe('FeedPage', () => {
 
     test('renders search filters with correct initial values', () => {
       renderFeedPage();
-
       const searchInput = screen.getByTestId('search-input');
       const typeFilter = screen.getByTestId('type-filter');
       const locationFilter = screen.getByTestId('location-filter');
@@ -288,7 +298,7 @@ describe('FeedPage', () => {
 
   describe('Data Fetching', () => {
     test('sets up Firestore listener on mount', () => {
-      renderWithRouter(<FeedPage />);
+      renderFeedPage();
       
       expect(collection).toHaveBeenCalledWith({}, 'items');
       expect(orderBy).toHaveBeenCalledWith('date', 'desc');
@@ -297,37 +307,25 @@ describe('FeedPage', () => {
     });
 
     test('cleans up Firestore listener on unmount', () => {
-      const { unmount } = renderWithRouter(<FeedPage />);
-
+      const { unmount } = renderFeedPage();
       unmount();
-
       expect(mockUnsubscribe).toHaveBeenCalled();
     });
 
     test('displays loading state initially', () => {
-      renderWithRouter(<FeedPage />);
-
+      renderFeedPage();
       expect(screen.getByText('Lost & Found Feed')).toBeInTheDocument();
     });
 
     test('displays items when data is loaded successfully', async () => {
-      renderWithRouter(<FeedPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-        expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
-        expect(screen.getByTestId('item-card-3')).toBeInTheDocument();
-      });
+      renderFeedPage();
+      await waitForItemsToLoad();
+      assertAllItemsRendered();
     });
 
     test('displays error message when data fetching fails', async () => {
-      // Setup error mock
-      onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-        errorCallback(new Error('Failed to load items'));
-        return mockUnsubscribe;
-      });
-
-      renderWithRouter(<FeedPage />);
+      setupErrorMock('Failed to load items');
+      renderFeedPage();
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load items\. Please try again\./)).toBeInTheDocument();
@@ -337,11 +335,8 @@ describe('FeedPage', () => {
 
   describe('Filtering and Search', () => {
     test('search input is functional', async () => {
-      renderWithRouter(<FeedPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-      });
+      renderFeedPage();
+      await waitForItemsToLoad();
 
       const searchInput = screen.getByTestId('search-input');
       expect(searchInput).toBeInTheDocument();
@@ -349,11 +344,8 @@ describe('FeedPage', () => {
     });
 
     test('filter inputs are functional', async () => {
-      renderWithRouter(<FeedPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-      });
+      renderFeedPage();
+      await waitForItemsToLoad();
 
       const typeFilter = screen.getByTestId('type-filter');
       const locationFilter = screen.getByTestId('location-filter');
@@ -365,23 +357,14 @@ describe('FeedPage', () => {
     });
 
     test('filters items by tab (lost/found)', async () => {
-      renderWithRouter(<FeedPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-      });
-
-      expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-      expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
-      expect(screen.getByTestId('item-card-3')).toBeInTheDocument();
+      renderFeedPage();
+      await waitForItemsToLoad();
+      assertAllItemsRendered();
     });
 
     test('all filter components are rendered', async () => {
-      renderWithRouter(<FeedPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-      });
+      renderFeedPage();
+      await waitForItemsToLoad();
 
       expect(screen.getByTestId('search-input')).toBeInTheDocument();
       expect(screen.getByTestId('type-filter')).toBeInTheDocument();
@@ -392,18 +375,13 @@ describe('FeedPage', () => {
 
   describe('Tab Functionality', () => {
     test('shows all items when "All" tab is selected', async () => {
-      renderWithRouter(<FeedPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-        expect(screen.getByTestId('item-card-2')).toBeInTheDocument();
-        expect(screen.getByTestId('item-card-3')).toBeInTheDocument();
-      });
+      renderFeedPage();
+      await waitForItemsToLoad();
+      assertAllItemsRendered();
     });
 
     test('tab triggers are rendered correctly', () => {
-      renderWithRouter(<FeedPage />);
-
+      renderFeedPage();
       expect(screen.getByTestId('tabs-trigger-all')).toBeInTheDocument();
       expect(screen.getByTestId('tabs-trigger-lost')).toBeInTheDocument();
       expect(screen.getByTestId('tabs-trigger-found')).toBeInTheDocument();
@@ -416,7 +394,7 @@ describe('FeedPage', () => {
         throw new Error('Failed to connect to database');
       });
 
-      renderWithRouter(<FeedPage />);
+      renderFeedPage();
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to connect to database/)).toBeInTheDocument();
@@ -424,12 +402,8 @@ describe('FeedPage', () => {
     });
 
     test('handles snapshot listener errors gracefully', async () => {
-      onSnapshot.mockImplementation((query, successCallback, errorCallback) => {
-        errorCallback(new Error('Failed to load items. Please try again.'));
-        return mockUnsubscribe;
-      });
-
-      renderWithRouter(<FeedPage />);
+      setupErrorMock('Failed to load items. Please try again.');
+      renderFeedPage();
 
       await waitFor(() => {
         expect(screen.getByText(/Failed to load items\. Please try again\./)).toBeInTheDocument();
@@ -439,16 +413,14 @@ describe('FeedPage', () => {
 
   describe('Performance and Optimization', () => {
     test('uses useMemo for filtered items to prevent unnecessary re-renders', () => {
-      renderWithRouter(<FeedPage />);
-
+      renderFeedPage();
       // The component should use useMemo for filteredItems
       // This is tested by ensuring the filtering logic works correctly
       // and doesn't cause excessive re-renders
     });
 
     test('uses useCallback for filter change handlers', () => {
-      renderWithRouter(<FeedPage />);
-
+      renderFeedPage();
       // The component should use useCallback for filter change handlers
       // This is tested by ensuring the handlers work correctly
     });
@@ -456,8 +428,7 @@ describe('FeedPage', () => {
 
   describe('Accessibility', () => {
     test('has proper search and filter inputs', () => {
-      renderWithRouter(<FeedPage />);
-
+      renderFeedPage();
       const searchInput = screen.getByTestId('search-input');
       const typeFilter = screen.getByTestId('type-filter');
       const locationFilter = screen.getByTestId('location-filter');
@@ -468,8 +439,7 @@ describe('FeedPage', () => {
     });
 
     test('tab triggers have proper accessibility attributes', () => {
-      renderWithRouter(<FeedPage />);
-
+      renderFeedPage();
       const allTab = screen.getByTestId('tabs-trigger-all');
       const lostTab = screen.getByTestId('tabs-trigger-lost');
       const foundTab = screen.getByTestId('tabs-trigger-found');
@@ -482,31 +452,23 @@ describe('FeedPage', () => {
 
   describe('Empty States', () => {
     test('displays appropriate message when no items match filters', async () => {
-      renderWithRouter(<FeedPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('item-card-1')).toBeInTheDocument();
-      });
+      renderFeedPage();
+      await waitForItemsToLoad();
 
       const searchInput = screen.getByTestId('search-input');
       fireEvent.change(searchInput, { target: { value: 'nonexistent-item' } });
 
       await waitFor(() => {
-        expect(screen.queryByTestId('item-card-1')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('item-card-2')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('item-card-3')).not.toBeInTheDocument();
+        assertNoItemsRendered();
       });
     });
 
     test('displays appropriate message when no items are loaded', async () => {
       setupOnSnapshotMock([]);
-
-      renderWithRouter(<FeedPage />);
+      renderFeedPage();
 
       await waitFor(() => {
-        expect(screen.queryByTestId('item-card-1')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('item-card-2')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('item-card-3')).not.toBeInTheDocument();
+        assertNoItemsRendered();
       });
     });
   });

@@ -79,23 +79,9 @@ describe('ItemDetailPage', () => {
   let mockDocRef;
   let mockUnsubscribe;
 
-  // Helper functions using shared utilities
+  // Helper functions to reduce duplication
   const renderItemDetailPage = () => renderWithRouter(<ItemDetailPage />);
   
-  const setupSuccessfulItemMock = (item = mockItem) => {
-    const result = setupFirestoreDocMocks(item);
-    mockDocRef = result.mockDocRef;
-    mockUnsubscribe = result.mockUnsubscribe;
-    return { mockDocRef, mockUnsubscribe };
-  };
-
-  const setupItemNotFoundMock = () => {
-    const result = setupFirestoreDocMocks(null);
-    mockDocRef = result.mockDocRef;
-    mockUnsubscribe = result.mockUnsubscribe;
-    return { mockDocRef, mockUnsubscribe };
-  };
-
   const setupOnSnapshotMock = (item = mockItem) => {
     onSnapshot.mockImplementation((ref, callback) => {
       callback({
@@ -104,6 +90,12 @@ describe('ItemDetailPage', () => {
         exists: () => !!item
       });
       return mockUnsubscribe;
+    });
+  };
+
+  const waitForItemToLoad = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
     });
   };
 
@@ -131,18 +123,6 @@ describe('ItemDetailPage', () => {
     await waitFor(() => {
       const image = screen.getByAltText('Lost iPhone');
       expect(image).toBeInTheDocument();
-    });
-  };
-
-  const assertItemTitle = async () => {
-    await waitFor(() => {
-      expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
-    });
-  };
-
-  const assertItemLocation = async () => {
-    await waitFor(() => {
-      expect(screen.getByText('library')).toBeInTheDocument();
     });
   };
 
@@ -277,7 +257,9 @@ describe('ItemDetailPage', () => {
     test('displays item location', async () => {
       setupOnSnapshotMock();
       renderItemDetailPage();
-      await assertItemLocation();
+      await waitFor(() => {
+        expect(screen.getByText('library')).toBeInTheDocument();
+      });
     });
 
     test('displays item date', async () => {
@@ -346,7 +328,7 @@ describe('ItemDetailPage', () => {
     test('has proper CSS classes for responsive design', async () => {
       setupOnSnapshotMock();
       renderItemDetailPage();
-      await assertItemTitle();
+      await waitForItemToLoad();
     });
 
     test('item image has proper styling classes', async () => {
