@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 
 // Shared render function with router
@@ -120,12 +120,36 @@ export const assertStylingClasses = (screen, elementSelector, expectedClasses = 
   });
 };
 
+// Mock variables (to be set by individual test files)
+let mockUnsubscribe = jest.fn();
+
 // Common mock setup functions
-export const setupAuthStateMock = (onAuthStateChanged, user = null, mockUnsubscribe) => {
+export const setupAuthStateMock = (onAuthStateChanged, user = null, unsubscribe = mockUnsubscribe) => {
   onAuthStateChanged.mockImplementation((auth, callback) => {
     callback(user);
-    return mockUnsubscribe;
+    return unsubscribe;
   });
+};
+
+export const setupLoadingMock = () => {
+  const { getDocs } = require('firebase/firestore');
+  getDocs.mockImplementation(() => new Promise(() => {})); // Never resolves
+};
+
+export const setupGetDocsMock = (announcements = []) => {
+  const { collection, getDocs } = require('firebase/firestore');
+  collection.mockReturnValue('mock-collection');
+  getDocs.mockResolvedValue({
+    docs: announcements.map(announcement => ({
+      id: announcement.id,
+      data: () => announcement,
+    })),
+  });
+};
+
+export const setupEmptyMock = () => {
+  const { getDocs } = require('firebase/firestore');
+  getDocs.mockResolvedValue({ docs: [] });
 };
 
 export const setupSuccessMock = (mockFunction) => {
@@ -152,5 +176,193 @@ export const createFormTestPattern = (pageComponent, testName, formData, setupFn
     fillFormFields(screen, formData);
     submitForm(screen);
     await assertions();
+  });
+};
+
+// Page-specific test helpers
+export const createProfilePageTestHelpers = () => {
+  const renderProfilePage = (ProfilePageComponent, user = null) => {
+    if (user) {
+      const { onAuthStateChanged } = require('firebase/auth');
+      setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
+    }
+    return renderWithRouter(<ProfilePageComponent />);
+  };
+
+  const assertProfilePageRenders = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Profile & History')).toBeInTheDocument();
+      expect(screen.getByText('Logout')).toBeInTheDocument();
+    });
+  };
+
+  const assertProfileSections = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Trust & Verification')).toBeInTheDocument();
+      expect(screen.getByText('My Posts')).toBeInTheDocument();
+      expect(screen.getByText('My Claims')).toBeInTheDocument();
+    });
+  };
+
+  const setupProfilePageMocks = (user = null) => {
+    const mockUser = user || createMockUser();
+    setupAuthStateMock(onAuthStateChanged, mockUser, mockUnsubscribe);
+    return { mockUser };
+  };
+
+  return {
+    renderProfilePage,
+    assertProfilePageRenders,
+    assertProfileSections,
+    setupProfilePageMocks
+  };
+};
+
+export const createAnnouncementsTestHelpers = () => {
+  const renderAnnouncementsPage = (AnnouncementsPageComponent) => {
+    return renderWithRouter(<AnnouncementsPageComponent />);
+  };
+
+  const assertAnnouncementsPageRenders = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Announcements')).toBeInTheDocument();
+    });
+  };
+
+  const assertAnnouncementsContent = async () => {
+    await waitFor(() => {
+      expect(screen.getByText('Welcome to the Lost & Found App!')).toBeInTheDocument();
+      expect(screen.getByText('New Feature: Item Heatmap')).toBeInTheDocument();
+      expect(screen.getByText('Reminder: Keep Your Valuables Safe')).toBeInTheDocument();
+    });
+  };
+
+  const setupAnnouncementsMocks = (scenario = 'success') => {
+    switch (scenario) {
+      case 'loading':
+        setupLoadingMock();
+        break;
+      case 'error':
+        setupErrorMock();
+        break;
+      case 'empty':
+        setupEmptyMock();
+        break;
+      default:
+        setupGetDocsMock();
+    }
+  };
+
+  return {
+    renderAnnouncementsPage,
+    assertAnnouncementsPageRenders,
+    assertAnnouncementsContent,
+    setupAnnouncementsMocks
+  };
+};
+
+export const createSignUpTestHelpers = () => {
+  const renderSignUpPage = (SignUpPageComponent, user = null) => {
+    const { onAuthStateChanged } = require('firebase/auth');
+    setupAuthStateMock(onAuthStateChanged, user, mockUnsubscribe);
+    return renderWithRouter(<SignUpPageComponent />);
+  };
+
+  const assertSignUpFormRenders = () => {
+    expect(screen.getAllByText('Create Account').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
+  };
+
+  const assertSignUpFormValidation = () => {
+    const nameInput = screen.getByLabelText('Name');
+    const emailInput = screen.getByLabelText('Email');
+    const passwordInput = screen.getByLabelText('Password');
+    const confirmPasswordInput = screen.getByLabelText('Confirm Password');
+    
+    expect(nameInput).toHaveAttribute('type', 'text');
+    expect(nameInput).toHaveAttribute('required');
+    expect(emailInput).toHaveAttribute('type', 'email');
+    expect(emailInput).toHaveAttribute('required');
+    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(passwordInput).toHaveAttribute('required');
+    expect(confirmPasswordInput).toHaveAttribute('type', 'password');
+    expect(confirmPasswordInput).toHaveAttribute('required');
+  };
+
+  const setupSignUpMocks = (scenario = 'success') => {
+    switch (scenario) {
+      case 'success':
+        setupSuccessMock(createUserWithEmailAndPassword);
+        break;
+      case 'email-already-in-use':
+        createUserWithEmailAndPassword.mockRejectedValue({ code: 'auth/email-already-in-use' });
+        break;
+      case 'password-mismatch':
+        // No special setup needed for password mismatch
+        break;
+      default:
+        setupSuccessMock(createUserWithEmailAndPassword);
+    }
+  };
+
+  return {
+    renderSignUpPage,
+    assertSignUpFormRenders,
+    assertSignUpFormValidation,
+    setupSignUpMocks
+  };
+};
+
+// Common test suite patterns
+export const createRenderingTestSuite = (pageComponent, pageName, setupFn, assertions) => {
+  describe('Rendering', () => {
+    test(`renders ${pageName} with title`, async () => {
+      setupFn();
+      renderWithRouter(pageComponent);
+      await assertions();
+    });
+  });
+};
+
+export const createAuthStateTestSuite = (pageComponent, pageName, setupFn, assertions) => {
+  describe('Authentication State Management', () => {
+    test(`handles auth state for ${pageName}`, () => {
+      setupFn();
+      renderWithRouter(pageComponent);
+      assertions();
+    });
+  });
+};
+
+export const createErrorHandlingTestSuite = (pageComponent, pageName, setupFn, assertions) => {
+  describe('Error Handling', () => {
+    test(`handles errors gracefully in ${pageName}`, async () => {
+      setupFn();
+      renderWithRouter(pageComponent);
+      await assertions();
+    });
+  });
+};
+
+export const createAccessibilityTestSuite = (pageComponent, pageName, setupFn, assertions) => {
+  describe('Accessibility', () => {
+    test(`has proper accessibility in ${pageName}`, () => {
+      setupFn();
+      renderWithRouter(pageComponent);
+      assertions();
+    });
+  });
+};
+
+export const createStylingTestSuite = (pageComponent, pageName, setupFn, assertions) => {
+  describe('Styling and Layout', () => {
+    test(`has proper styling in ${pageName}`, async () => {
+      setupFn();
+      renderWithRouter(pageComponent);
+      await assertions();
+    });
   });
 };
