@@ -444,19 +444,30 @@ describe('ItemDetailPage', () => {
   });
 
   describe('URL Parameter Handling', () => {
-    test('uses item ID from URL parameters', () => {
-      useParams.mockReturnValue({ id: 'different-item-id' });
+    // Helper function to create mock snapshot data
+    const createMockSnapshot = (itemId) => ({
+      data: () => mockItem,
+      id: itemId
+    });
+
+    // Helper function to setup onSnapshot mock
+    const setupOnSnapshotMock = (itemId) => {
+      const mockSnapshot = createMockSnapshot(itemId);
       onSnapshot.mockImplementation((ref, callback) => {
-        callback({
-          data: () => mockItem,
-          id: 'different-item-id'
-        });
+        callback(mockSnapshot);
         return mockUnsubscribe;
       });
+    };
+
+    test('uses item ID from URL parameters', () => {
+      const testItemId = 'different-item-id';
+      
+      useParams.mockReturnValue({ id: testItemId });
+      setupOnSnapshotMock(testItemId);
       
       renderWithRouter(<ItemDetailPage />);
       
-      expect(doc).toHaveBeenCalledWith({}, 'items', 'different-item-id');
+      expect(doc).toHaveBeenCalledWith({}, 'items', testItemId);
     });
 
     test('handles missing item ID parameter', () => {

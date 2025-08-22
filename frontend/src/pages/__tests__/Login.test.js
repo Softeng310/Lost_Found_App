@@ -20,11 +20,15 @@ const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
-  Link: ({ children, to, ...props }) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
+  Link: ({ children, to, ...props }) => {
+    // ESLint disable for test mock component
+    // eslint-disable-next-line react/prop-types
+    return (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    );
+  },
 }));
 
 // Custom render function with router
