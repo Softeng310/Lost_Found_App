@@ -5,19 +5,24 @@ import { addDoc, collection } from 'firebase/firestore';
 import AddAnnouncementPage from '../AddAnnouncement';
 import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 import { setupConsoleErrorSuppression } from '../../test-utils-shared';
+import {
+  setupStaffAuthMock,
+  setupAnnouncementFirestoreMocks,
+  fillAnnouncementForm,
+  submitForm,
+  clickButton,
+  assertFormFields,
+  assertButtons,
+  assertCharacterCounters,
+  assertErrorMessage,
+  assertLoadingState,
+  assertNavigationCalled,
+} from '../../test-utils-announcements';
 
 // Mock Firebase modules
 jest.mock('firebase/firestore');
-jest.mock('../../firebase/config', () => ({
-  db: {},
-}));
-
-// Mock the custom hook
-jest.mock('../../hooks/useStaffAuth', () => ({
-  useStaffAuth: jest.fn(),
-}));
-
-// Mock react-router-dom
+jest.mock('../../firebase/config', () => ({ db: {} }));
+jest.mock('../../hooks/useStaffAuth', () => ({ useStaffAuth: jest.fn() }));
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: jest.fn(),
@@ -30,47 +35,23 @@ describe('AddAnnouncementPage', () => {
   const mockNavigate = jest.fn();
   const { useStaffAuth } = require('../../hooks/useStaffAuth');
 
-  const mockStaffUser = {
-    uid: 'staff-uid',
-    email: 'staff@example.com',
-  };
-
-  const setupStaffAuthMock = (loading = false, isStaff = true) => {
-    useStaffAuth.mockReturnValue({
-      currentUser: isStaff ? mockStaffUser : null,
-      userRole: isStaff ? 'staff' : 'student',
-      loading,
-      isStaff,
-    });
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
     cleanupTestEnvironment();
     useNavigate.mockReturnValue(mockNavigate);
-    collection.mockReturnValue('mock-collection');
-    addDoc.mockResolvedValue({ id: 'new-announcement-id' });
+    setupAnnouncementFirestoreMocks({ collection, addDoc });
   });
 
   describe('Access Control', () => {
     test('shows loading state while checking permissions', () => {
-      setupStaffAuthMock(true, false);
+      setupStaffAuthMock(useStaffAuth, true, false);
       renderWithRouter(<AddAnnouncementPage />);
-      
-      expect(screen.getByText('Checking permissions...')).toBeInTheDocument();
-    });
-
-    test('redirects non-staff users (handled by hook)', () => {
-      setupStaffAuthMock(false, false);
-      renderWithRouter(<AddAnnouncementPage />);
-      
-      expect(screen.getByText('Checking permissions...')).toBeInTheDocument();
+      assertLoadingState(screen, 'Checking permissions...');
     });
 
     test('renders form for staff users', async () => {
-      setupStaffAuthMock(false, true);
+      setupStaffAuthMock(useStaffAuth, false, true);
       renderWithRouter(<AddAnnouncementPage />);
-      
       await waitFor(() => {
         expect(screen.getByText('Add New Announcement')).toBeInTheDocument();
       });
@@ -78,81 +59,44 @@ describe('AddAnnouncementPage', () => {
   });
 
   describe('Form Rendering', () => {
-    beforeEach(() => {
-      setupStaffAuthMock(false, true);
-    });
+    beforeEach(() => setupStaffAuthMock(useStaffAuth, false, true));
 
     test('renders all form fields', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        expect(screen.getByLabelText('Title')).toBeInTheDocument();
-        expect(screen.getByLabelText('Announcement')).toBeInTheDocument();
-        expect(screen.getByText('Create Announcement')).toBeInTheDocument();
-        expect(screen.getByText('Cancel')).toBeInTheDocument();
-      });
+      await assertFormFields(screen, waitFor);
+      await assertButtons(screen, waitFor, ['Create Announcement', 'Cancel']);
     });
 
     test('has back button', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Back to Announcements')).toBeInTheDocument();
-      });
+      await assertButtons(screen, waitFor, ['Back to Announcements']);
     });
 
     test('shows character counters', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        expect(screen.getByText('0/100 characters')).toBeInTheDocument();
-        expect(screen.getByText('0/1000 characters')).toBeInTheDocument();
-      });
+      await assertCharacterCounters(screen, waitFor);
     });
   });
 
   describe('Form Validation', () => {
-    beforeEach(() => {
-      setupStaffAuthMock(false, true);
-    });
+    beforeEach(() => setupStaffAuthMock(useStaffAuth, false, true));
 
     test('shows error when title is empty', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        const submitButton = screen.getByText('Create Announcement');
-        fireEvent.click(submitButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('Please enter a title')).toBeInTheDocument();
-      });
+      await waitFor(() => submitForm(screen, fireEvent));
+      await assertErrorMessage(screen, waitFor, 'Please enter a title');
     });
 
     test('shows error when announcement is empty', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        const titleInput = screen.getByLabelText('Title');
-        fireEvent.change(titleInput, { target: { value: 'Test Title' } });
-        
-        const submitButton = screen.getByText('Create Announcement');
-        fireEvent.click(submitButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('Please enter an announcement')).toBeInTheDocument();
-      });
+      await waitFor(() => fillAnnouncementForm(screen, fireEvent, { title: 'Test' }));
+      submitForm(screen, fireEvent);
+      await assertErrorMessage(screen, waitFor, 'Please enter an announcement');
     });
 
     test('updates character counter when typing', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        const titleInput = screen.getByLabelText('Title');
-        fireEvent.change(titleInput, { target: { value: 'Test' } });
-      });
-
+      await waitFor(() => fillAnnouncementForm(screen, fireEvent, { title: 'Test' }));
       await waitFor(() => {
         expect(screen.getByText('4/100 characters')).toBeInTheDocument();
       });
@@ -160,96 +104,63 @@ describe('AddAnnouncementPage', () => {
   });
 
   describe('Form Submission', () => {
-    beforeEach(() => {
-      setupStaffAuthMock(false, true);
-    });
+    beforeEach(() => setupStaffAuthMock(useStaffAuth, false, true));
 
     test('successfully creates announcement', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
       await waitFor(() => {
-        const titleInput = screen.getByLabelText('Title');
-        const announcementInput = screen.getByLabelText('Announcement');
-        
-        fireEvent.change(titleInput, { target: { value: 'New Announcement' } });
-        fireEvent.change(announcementInput, { target: { value: 'This is a test announcement with enough characters.' } });
-        
-        const submitButton = screen.getByText('Create Announcement');
-        fireEvent.click(submitButton);
+        fillAnnouncementForm(screen, fireEvent, {
+          title: 'New Announcement',
+          announcement: 'This is a test announcement with enough characters.',
+        });
+        submitForm(screen, fireEvent);
       });
-
       await waitFor(() => {
         expect(addDoc).toHaveBeenCalled();
-        expect(mockNavigate).toHaveBeenCalledWith('/announcements');
+        assertNavigationCalled(mockNavigate, '/announcements');
       });
     });
 
     test('shows loading state during submission', async () => {
-      addDoc.mockImplementation(() => new Promise(() => {})); // Never resolves
+      addDoc.mockImplementation(() => new Promise(() => {}));
       renderWithRouter(<AddAnnouncementPage />);
-      
       await waitFor(() => {
-        const titleInput = screen.getByLabelText('Title');
-        const announcementInput = screen.getByLabelText('Announcement');
-        
-        fireEvent.change(titleInput, { target: { value: 'New Announcement' } });
-        fireEvent.change(announcementInput, { target: { value: 'This is a test announcement.' } });
-        
-        const submitButton = screen.getByText('Create Announcement');
-        fireEvent.click(submitButton);
+        fillAnnouncementForm(screen, fireEvent, {
+          title: 'New',
+          announcement: 'Test announcement.',
+        });
+        submitForm(screen, fireEvent);
       });
-
-      await waitFor(() => {
-        expect(screen.getByText('Creating...')).toBeInTheDocument();
-      });
+      await waitFor(() => assertLoadingState(screen, 'Creating...'));
     });
 
     test('handles submission error', async () => {
-      addDoc.mockRejectedValue(new Error('Failed to create'));
+      addDoc.mockRejectedValue(new Error('Failed'));
       renderWithRouter(<AddAnnouncementPage />);
-      
       await waitFor(() => {
-        const titleInput = screen.getByLabelText('Title');
-        const announcementInput = screen.getByLabelText('Announcement');
-        
-        fireEvent.change(titleInput, { target: { value: 'New Announcement' } });
-        fireEvent.change(announcementInput, { target: { value: 'This is a test announcement.' } });
-        
-        const submitButton = screen.getByText('Create Announcement');
-        fireEvent.click(submitButton);
+        fillAnnouncementForm(screen, fireEvent, {
+          title: 'New',
+          announcement: 'Test.',
+        });
+        submitForm(screen, fireEvent);
       });
-
-      await waitFor(() => {
-        expect(screen.getByText('Failed to create announcement. Please try again.')).toBeInTheDocument();
-      });
+      await assertErrorMessage(screen, waitFor, 'Failed to create announcement. Please try again.');
     });
   });
 
   describe('Navigation', () => {
-    beforeEach(() => {
-      setupStaffAuthMock(false, true);
-    });
+    beforeEach(() => setupStaffAuthMock(useStaffAuth, false, true));
 
     test('back button navigates to announcements page', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        const backButton = screen.getByText('Back to Announcements');
-        fireEvent.click(backButton);
-      });
-
-      expect(mockNavigate).toHaveBeenCalledWith('/announcements');
+      await waitFor(() => clickButton(screen, fireEvent, 'Back to Announcements'));
+      assertNavigationCalled(mockNavigate, '/announcements');
     });
 
     test('cancel button navigates to announcements page', async () => {
       renderWithRouter(<AddAnnouncementPage />);
-      
-      await waitFor(() => {
-        const cancelButton = screen.getByText('Cancel');
-        fireEvent.click(cancelButton);
-      });
-
-      expect(mockNavigate).toHaveBeenCalledWith('/announcements');
+      await waitFor(() => clickButton(screen, fireEvent, 'Cancel'));
+      assertNavigationCalled(mockNavigate, '/announcements');
     });
   });
 });

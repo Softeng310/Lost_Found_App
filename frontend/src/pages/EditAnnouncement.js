@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Bell, ArrowLeft, Trash2 } from "lucide-react";
+import { Bell } from "lucide-react";
 import { db } from "../firebase/config";
 import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import { Button } from "../components/ui/button";
-import Input from "../components/ui/Input";
-import Label from "../components/ui/Label";
 import { useStaffAuth } from "../hooks/useStaffAuth";
+import { 
+  AnnouncementForm, 
+  AnnouncementPageHeader, 
+  LoadingScreen 
+} from "../components/announcements/AnnouncementForm";
 
 const EditAnnouncementPage = () => {
   const { id } = useParams();
@@ -15,12 +17,10 @@ const EditAnnouncementPage = () => {
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const navigate = useNavigate();
   
-  const { currentUser, userRole, loading: authLoading, isStaff } = useStaffAuth();
+  const { currentUser, loading: authLoading, isStaff } = useStaffAuth();
 
-  // Fetch the announcement data
   useEffect(() => {
     const fetchAnnouncement = async () => {
       if (!id) {
@@ -56,7 +56,6 @@ const EditAnnouncementPage = () => {
     setError(null);
     setLoading(true);
 
-    // Validation
     if (!title.trim()) {
       setError("Please enter a title");
       setLoading(false);
@@ -70,7 +69,6 @@ const EditAnnouncementPage = () => {
     }
 
     try {
-      // Update announcement in Firestore
       await updateDoc(doc(db, "announcements", id), {
         title: title.trim(),
         announcement: announcement.trim(),
@@ -98,140 +96,34 @@ const EditAnnouncementPage = () => {
       console.error("❌ Error deleting announcement:", err);
       setError("Failed to delete announcement. Please try again.");
       setLoading(false);
-      setShowDeleteConfirm(false);
     }
   };
 
-  // Don't render form until we verify the user is staff and data is loaded
   if (authLoading || !isStaff || fetchLoading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-gray-500">
-          {fetchLoading ? "Loading..." : "Checking permissions..."}
-        </p>
-      </div>
-    );
+    return <LoadingScreen message={fetchLoading ? "Loading..." : "Checking permissions..."} />;
   }
 
   return (
     <div className="min-h-screen bg-white">
       <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/announcements")}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Announcements
-          </Button>
-          <div className="flex items-center gap-3">
-            <Bell className="h-8 w-8 text-emerald-600" />
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Edit Announcement
-            </h1>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="mb-4">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter announcement title"
-              maxLength={100}
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {title.length}/100 characters
-            </p>
-          </div>
-
-          <div className="mb-6">
-            <Label htmlFor="announcement">Announcement</Label>
-            <textarea
-              id="announcement"
-              value={announcement}
-              onChange={(e) => setAnnouncement(e.target.value)}
-              placeholder="Enter announcement details"
-              rows={8}
-              maxLength={1000}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {announcement.length}/1000 characters
-            </p>
-          </div>
-
-          <div className="flex gap-3 mb-4">
-            <Button
-              type="submit"
-              disabled={loading}
-              className="flex-1"
-            >
-              {loading ? "Saving..." : "Save Changes"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/announcements")}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-          </div>
-
-          {/* Delete Section */}
-          <div className="border-t pt-4 mt-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Danger Zone</h3>
-            {!showDeleteConfirm ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={loading}
-                className="text-red-600 border-red-300 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Announcement
-              </Button>
-            ) : (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <p className="text-sm text-red-800 mb-3">
-                  Are you sure? This action cannot be undone.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={loading}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    {loading ? "Deleting..." : "Yes, Delete"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    disabled={loading}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </form>
+        <AnnouncementPageHeader
+          title="Edit Announcement"
+          icon={Bell}
+          onBack={() => navigate("/announcements")}
+        />
+        <AnnouncementForm
+          title={title}
+          announcement={announcement}
+          onTitleChange={setTitle}
+          onAnnouncementChange={setAnnouncement}
+          onSubmit={handleSubmit}
+          onCancel={() => navigate("/announcements")}
+          submitText="Save Changes"
+          loading={loading}
+          error={error}
+          showDelete={true}
+          onDelete={handleDelete}
+        />
       </main>
     </div>
   );

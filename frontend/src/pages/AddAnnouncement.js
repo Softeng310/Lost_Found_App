@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ArrowLeft } from "lucide-react";
+import { Bell } from "lucide-react";
 import { db } from "../firebase/config";
 import { collection, addDoc } from "firebase/firestore";
-import { Button } from "../components/ui/button";
-import Input from "../components/ui/Input";
-import Label from "../components/ui/Label";
 import { useStaffAuth } from "../hooks/useStaffAuth";
+import { 
+  AnnouncementForm, 
+  AnnouncementPageHeader, 
+  LoadingScreen 
+} from "../components/announcements/AnnouncementForm";
 
 const AddAnnouncementPage = () => {
   const [title, setTitle] = useState("");
@@ -15,14 +17,13 @@ const AddAnnouncementPage = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   
-  const { currentUser, userRole, loading: authLoading, isStaff } = useStaffAuth();
+  const { currentUser, loading: authLoading, isStaff } = useStaffAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    // Validation
     if (!title.trim()) {
       setError("Please enter a title");
       setLoading(false);
@@ -36,7 +37,6 @@ const AddAnnouncementPage = () => {
     }
 
     try {
-      // Add announcement to Firestore
       await addDoc(collection(db, "announcements"), {
         title: title.trim(),
         announcement: announcement.trim(),
@@ -55,91 +55,29 @@ const AddAnnouncementPage = () => {
     }
   };
 
-  // Don't render form until we verify the user is staff
   if (authLoading || !isStaff) {
-    return <div className="min-h-screen bg-white flex items-center justify-center">
-      <p className="text-gray-500">Checking permissions...</p>
-    </div>;
+    return <LoadingScreen message="Checking permissions..." />;
   }
 
   return (
     <div className="min-h-screen bg-white">
       <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/announcements")}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Announcements
-          </Button>
-          <div className="flex items-center gap-3">
-            <Bell className="h-8 w-8 text-emerald-600" />
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Add New Announcement
-            </h1>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="mb-4">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter announcement title"
-              maxLength={100}
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {title.length}/100 characters
-            </p>
-          </div>
-
-          <div className="mb-6">
-            <Label htmlFor="announcement">Announcement</Label>
-            <textarea
-              id="announcement"
-              value={announcement}
-              onChange={(e) => setAnnouncement(e.target.value)}
-              placeholder="Enter announcement details"
-              rows={8}
-              maxLength={1000}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {announcement.length}/1000 characters
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              type="submit"
-              disabled={loading}
-              className="flex-1"
-            >
-              {loading ? "Creating..." : "Create Announcement"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/announcements")}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+        <AnnouncementPageHeader
+          title="Add New Announcement"
+          icon={Bell}
+          onBack={() => navigate("/announcements")}
+        />
+        <AnnouncementForm
+          title={title}
+          announcement={announcement}
+          onTitleChange={setTitle}
+          onAnnouncementChange={setAnnouncement}
+          onSubmit={handleSubmit}
+          onCancel={() => navigate("/announcements")}
+          submitText="Create Announcement"
+          loading={loading}
+          error={error}
+        />
       </main>
     </div>
   );
