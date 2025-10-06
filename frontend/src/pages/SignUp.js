@@ -66,6 +66,7 @@ export default function SignUpPage() {
         name: name,
         profilePic: profilePic,
         upi: upi,
+        role: "student", // Default role - can be manually changed to "staff" in Firebase console
         claimed_items: [], // Track items this user has claimed
         reported_items: [], // Track items this user has reported
         createdAt: new Date().toISOString()

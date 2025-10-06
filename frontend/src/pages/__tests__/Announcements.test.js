@@ -1,23 +1,27 @@
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import AnnouncementsPage from '../Announcements';
-import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter, mockTestData } from '../../test-utils';
+import { setupTestEnvironment, cleanupTestEnvironment, renderWithRouter } from '../../test-utils';
 import {
   setupConsoleErrorSuppression,
   setupFirebaseMocks,
   setupGlobalFetchMock,
-  createMockAnnouncements,
   createMockDoc,
   setupGetDocsMock,
   setupLoadingMock,
-  setupEmptyMock,
-  setupErrorMock,
   assertTextContent
 } from '../../test-utils-shared';
 
+// Mock Firebase modules
+jest.mock('firebase/firestore');
+jest.mock('firebase/auth');
+jest.mock('../../firebase/config', () => ({
+  db: {},
+}));
+
 // Setup all common mocks
-setupFirebaseMocks();
 setupConsoleErrorSuppression();
 setupGlobalFetchMock({ announcements: [] });
 
@@ -25,9 +29,34 @@ setupGlobalFetchMock({ announcements: [] });
 setupTestEnvironment();
 
 describe('AnnouncementsPage', () => {
-  const mockAnnouncements = createMockAnnouncements();
+  const mockAnnouncements = [
+    {
+      id: '1',
+      title: 'iPad Pro Found',
+      announcement: 'An iPad Pro was found in the Business School lecture theatre OGGB3. Please contact lost and found with a description to claim.',
+      datePosted: '2024-01-01T10:00:00.000Z',
+    },
+    {
+      id: '2',
+      title: 'Umbrella Reported',
+      announcement: 'Umbrella near elevator on Engineering lvl 4 has been reported.',
+      datePosted: '2024-01-02T10:00:00.000Z',
+    },
+  ];
 
-  // Helper functions using shared utilities
+  const mockStaffUser = {
+    uid: 'staff-uid',
+    email: 'staff@example.com',
+  };
+
+  const mockStudentUser = {
+    uid: 'student-uid',
+    email: 'student@example.com',
+  };
+
+  const mockUnsubscribe = jest.fn();
+
+  // Helper functions
   const renderAnnouncementsPage = () => renderWithRouter(<AnnouncementsPage />);
   
   const assertPageTitle = async () => await assertTextContent('Announcements');
@@ -44,7 +73,6 @@ describe('AnnouncementsPage', () => {
 
   const assertAnnouncementDates = async () => {
     await waitFor(() => {
-      // Check for date elements in the announcements
       const dateElements = document.querySelectorAll('[class*="bg-emerald-100"]');
       expect(dateElements.length).toBeGreaterThan(0);
     });
@@ -64,12 +92,41 @@ describe('AnnouncementsPage', () => {
     });
   };
 
-  // Setup helper using shared utilities
-  const setupAnnouncementsMocks = (announcements = mockAnnouncements) => {
-    setupGetDocsMock(announcements);
+  const setupAnnouncementsMocks = (announcements = mockAnnouncements, user = null, userRole = 'student') => {
+    // Mock getDocs for announcements
+    getDocs.mockResolvedValue({
+      docs: announcements.map(item => ({
+        id: item.id,
+        data: () => item,
+      })),
+    });
+
+    // Mock auth
+    getAuth.mockReturnValue({});
+    onAuthStateChanged.mockImplementation((auth, callback) => {
+      callback(user);
+      return mockUnsubscribe;
+    });
+
+    // Mock getDoc for user role
+    if (user) {
+      getDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ role: userRole }),
+      });
+    } else {
+      getDoc.mockResolvedValue({
+        exists: () => false,
+        data: () => null,
+      });
+    }
+
+    collection.mockReturnValue('mock-collection');
+    doc.mockReturnValue('mock-doc');
   };
 
   beforeEach(() => {
+    jest.clearAllMocks();
     cleanupTestEnvironment();
     setupAnnouncementsMocks();
   });
@@ -99,8 +156,73 @@ describe('AnnouncementsPage', () => {
   describe('Loading State', () => {
     test('shows loading state initially', () => {
       setupLoadingMock();
+      setupAnnouncementsMocks([], null);
       renderAnnouncementsPage();
       expect(screen.getByText('Loading...')).toBeInTheDocument();
+    });
+  });
+
+  describe('Empty State', () => {
+    test('shows empty message when no announcements', async () => {
+      setupAnnouncementsMocks([]);
+      renderAnnouncementsPage();
+      
+      await waitFor(() => {
+        expect(screen.getByText('No announcements found.')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Role-Based Access Control', () => {
+    test('does not show Add button when not logged in', async () => {
+      setupAnnouncementsMocks(mockAnnouncements, null);
+      renderAnnouncementsPage();
+      
+      await assertPageTitle();
+      await waitFor(() => {
+        expect(screen.queryByText('Add Announcement')).not.toBeInTheDocument();
+      });
+    });
+
+    test('does not show Edit buttons when not logged in', async () => {
+      setupAnnouncementsMocks(mockAnnouncements, null);
+      renderAnnouncementsPage();
+      
+      await assertAllAnnouncementsRendered();
+      await waitFor(() => {
+        expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+      });
+    });
+
+    test('does not show Add button for student users', async () => {
+      setupAnnouncementsMocks(mockAnnouncements, mockStudentUser, 'student');
+      renderAnnouncementsPage();
+      
+      await assertPageTitle();
+      await waitFor(() => {
+        expect(screen.queryByText('Add Announcement')).not.toBeInTheDocument();
+      });
+    });
+
+    test('shows Add button for staff users', async () => {
+      setupAnnouncementsMocks(mockAnnouncements, mockStaffUser, 'staff');
+      renderAnnouncementsPage();
+      
+      await assertPageTitle();
+      await waitFor(() => {
+        expect(screen.getByText('Add Announcement')).toBeInTheDocument();
+      });
+    });
+
+    test('shows Edit buttons for staff users', async () => {
+      setupAnnouncementsMocks(mockAnnouncements, mockStaffUser, 'staff');
+      renderAnnouncementsPage();
+      
+      await assertAllAnnouncementsRendered();
+      await waitFor(() => {
+        const editButtons = screen.getAllByText('Edit');
+        expect(editButtons.length).toBe(mockAnnouncements.length);
+      });
     });
   });
 
