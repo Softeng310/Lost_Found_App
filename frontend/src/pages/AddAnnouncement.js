@@ -1,51 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, ArrowLeft } from "lucide-react";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase/config";
-import { collection, addDoc, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc } from "firebase/firestore";
 import { Button } from "../components/ui/button";
 import Input from "../components/ui/Input";
 import Label from "../components/ui/Label";
+import { useStaffAuth } from "../hooks/useStaffAuth";
 
 const AddAnnouncementPage = () => {
   const [title, setTitle] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
   const navigate = useNavigate();
-  const auth = getAuth();
-
-  // Check if user is staff
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            const role = userDoc.data().role;
-            setUserRole(role);
-            // Redirect if not staff
-            if (role !== "staff") {
-              navigate("/announcements");
-            }
-          } else {
-            navigate("/announcements");
-          }
-        } catch (err) {
-          console.error("Error fetching user role:", err);
-          navigate("/announcements");
-        }
-      } else {
-        // Redirect if not logged in
-        navigate("/login");
-      }
-    });
-    return () => unsubscribe();
-  }, [auth, navigate]);
+  
+  const { currentUser, userRole, loading: authLoading, isStaff } = useStaffAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,7 +56,7 @@ const AddAnnouncementPage = () => {
   };
 
   // Don't render form until we verify the user is staff
-  if (!currentUser || userRole !== "staff") {
+  if (authLoading || !isStaff) {
     return <div className="min-h-screen bg-white flex items-center justify-center">
       <p className="text-gray-500">Checking permissions...</p>
     </div>;

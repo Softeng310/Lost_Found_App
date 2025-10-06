@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bell, ArrowLeft, Trash2 } from "lucide-react";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase/config";
 import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { Button } from "../components/ui/button";
 import Input from "../components/ui/Input";
 import Label from "../components/ui/Label";
+import { useStaffAuth } from "../hooks/useStaffAuth";
 
 const EditAnnouncementPage = () => {
   const { id } = useParams();
@@ -15,40 +15,10 @@ const EditAnnouncementPage = () => {
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const navigate = useNavigate();
-  const auth = getAuth();
-
-  // Check if user is staff
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            const role = userDoc.data().role;
-            setUserRole(role);
-            // Redirect if not staff
-            if (role !== "staff") {
-              navigate("/announcements");
-            }
-          } else {
-            navigate("/announcements");
-          }
-        } catch (err) {
-          console.error("Error fetching user role:", err);
-          navigate("/announcements");
-        }
-      } else {
-        // Redirect if not logged in
-        navigate("/login");
-      }
-    });
-    return () => unsubscribe();
-  }, [auth, navigate]);
+  
+  const { currentUser, userRole, loading: authLoading, isStaff } = useStaffAuth();
 
   // Fetch the announcement data
   useEffect(() => {
@@ -76,10 +46,10 @@ const EditAnnouncementPage = () => {
       }
     };
 
-    if (currentUser && userRole === "staff") {
+    if (currentUser && isStaff) {
       fetchAnnouncement();
     }
-  }, [id, currentUser, userRole, navigate]);
+  }, [id, currentUser, isStaff, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -133,7 +103,7 @@ const EditAnnouncementPage = () => {
   };
 
   // Don't render form until we verify the user is staff and data is loaded
-  if (!currentUser || userRole !== "staff" || fetchLoading) {
+  if (authLoading || !isStaff || fetchLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <p className="text-gray-500">
