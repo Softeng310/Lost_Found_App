@@ -131,7 +131,7 @@ describe('AddAnnouncementPage', () => {
         });
         submitForm(screen, fireEvent);
       });
-      await waitFor(() => assertLoadingState(screen, 'Creating...'));
+      await waitFor(() => assertLoadingState(screen, 'Saving...'));
     });
 
     test('handles submission error', async () => {

@@ -24,12 +24,18 @@ export const setupStaffAuthMock = (useStaffAuth, loading = false, isStaff = true
  * Setup Firebase Firestore mocks for announcements
  */
 export const setupAnnouncementFirestoreMocks = (
-  { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc },
+  mocks = {},
   announcements = [],
   announcement = null
 ) => {
-  collection.mockReturnValue('mock-collection');
-  doc.mockReturnValue('mock-doc-ref');
+  const { collection, doc, getDocs, getDoc, addDoc, updateDoc, deleteDoc } = mocks;
+  
+  if (collection) {
+    collection.mockReturnValue('mock-collection');
+  }
+  if (doc) {
+    doc.mockReturnValue('mock-doc-ref');
+  }
   
   if (getDocs) {
     getDocs.mockResolvedValue({
