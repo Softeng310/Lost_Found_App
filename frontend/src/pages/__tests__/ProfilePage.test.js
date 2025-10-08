@@ -19,14 +19,24 @@ jest.mock('react-router-dom', () => {
   }
 })
 
-// --- mock firebase/auth ---
-const mockSignOut = jest.fn().mockResolvedValue()
-const mockAuthObj = { currentUser: { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' } }
+/**
+ * --- mock firebase/auth ---
+ * Note: jest.mock is hoisted, so we create mocks inside the factory.
+ * We also expose the mock auth object via __mockAuthObj for runtime access in tests.
+ */
+jest.mock('firebase/auth', () => {
+  const authObj = {
+    currentUser: { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' },
+  }
+  const getAuth = jest.fn(() => authObj)
+  const signOut = jest.fn().mockResolvedValue()
 
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => mockAuthObj),
-  signOut: mockSignOut,
-}))
+  return {
+    getAuth,
+    signOut,
+    __mockAuthObj: authObj, // allows test to modify currentUser dynamically
+  }
+})
 
 // --- mock firestore used by ProfilePage ---
 const mockGetUserPosts = jest.fn(async () => ([
@@ -38,7 +48,7 @@ const mockGetUserClaims = jest.fn(async () => ([
 ]))
 const mockUpdateItemStatus = jest.fn(async () => {})
 const mockUpdateItem = jest.fn(async () => {})
-const mockFormatTimestamp = jest.fn((iso) => '2025-10-01 10:20')
+const mockFormatTimestamp = jest.fn(() => '2025-10-01 10:20')
 
 jest.mock('../../firebase/firestore', () => ({
   getUserPosts: (...args) => mockGetUserPosts(...args),
@@ -48,16 +58,31 @@ jest.mock('../../firebase/firestore', () => ({
   formatTimestamp: (...args) => mockFormatTimestamp(...args),
 }))
 
-// --- stub UI components so we don't depend on shadcn/tailwind rendering ---
-jest.mock('../../components/ui/card', () => ({
+/**
+ * --- stub UI components ---
+ * The component imports these modules as '../components/ui/...'
+ * but the test file is located in src/pages/__tests__.
+ * To avoid path mismatch, we mock both relative paths.
+ */
+const mockCardFactory = () => ({
   Card: ({ children }) => <div data-testid="card">{children}</div>,
   CardHeader: ({ children }) => <div>{children}</div>,
   CardTitle: ({ children }) => <h2>{children}</h2>,
   CardContent: ({ children }) => <div>{children}</div>,
-}))
-
-jest.mock('../../components/ui/ProfileBadge', () => ({
+})
+const mockBadgeFactory = () => ({
   ProfileBadge: ({ children }) => <span data-testid="profile-badge">{children}</span>,
+})
+
+// Mock both possible import paths
+jest.mock('../components/ui/card', mockCardFactory)
+jest.mock('../components/ui/ProfileBadge', mockBadgeFactory)
+jest.mock('../../components/ui/card', mockCardFactory)
+jest.mock('../../components/ui/ProfileBadge', mockBadgeFactory)
+
+// Optional: stub lucide-react icons to avoid render noise
+jest.mock('lucide-react', () => new Proxy({}, {
+  get: () => (props) => <svg role="img" aria-hidden="true" {...props} />
 }))
 
 // --- SUT ---
@@ -66,8 +91,9 @@ import ProfilePage from '../ProfilePage'
 describe('ProfilePage (aligned tests)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    // Ensure we always have a current user for these tests
-    mockAuthObj.currentUser = { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' }
+    // Reset the mock auth user before each test
+    const { __mockAuthObj } = require('firebase/auth')
+    __mockAuthObj.currentUser = { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' }
   })
 
   test('renders header and welcome text with current user', async () => {
@@ -83,29 +109,30 @@ describe('ProfilePage (aligned tests)', () => {
   test('loads and displays My Posts and My Claims with counts', async () => {
     render(<ProfilePage />)
 
-    // Wait for data
+    // Wait for mock data to be fetched
     await waitFor(() => {
       expect(mockGetUserPosts).toHaveBeenCalledTimes(1)
       expect(mockGetUserClaims).toHaveBeenCalledTimes(1)
     })
 
-    // Card titles with counts
+    // Verify section titles and item counts
     expect(screen.getByRole('heading', { name: /My Posts \(2\)/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /My Claims \(1\)/i })).toBeInTheDocument()
 
-    // Some item titles present
+    // Verify sample item titles
     expect(screen.getByText(/Lost iPad/i)).toBeInTheDocument()
     expect(screen.getByText(/Found Card/i)).toBeInTheDocument()
   })
 
   test('logout button calls signOut and navigates home', async () => {
+    const { signOut } = require('firebase/auth')
     render(<ProfilePage />)
 
     const btn = screen.getByRole('button', { name: /logout/i })
     fireEvent.click(btn)
 
     await waitFor(() => {
-      expect(mockSignOut).toHaveBeenCalledTimes(1)
+      expect(signOut).toHaveBeenCalledTimes(1)
     })
     expect(mockNavigate).toHaveBeenCalledWith('/')
   })
@@ -114,17 +141,16 @@ describe('ProfilePage (aligned tests)', () => {
     render(<ProfilePage />)
     await screen.findByText(/Lost iPad/i)
 
-    // Find the "Edit post" button (aria-label set in component)
+    // Click the first edit button
     const editButtons = screen.getAllByRole('button', { name: /Edit post/i })
     expect(editButtons.length).toBeGreaterThan(0)
-
     fireEvent.click(editButtons[0])
 
-    // Modal title appears
+    // Modal should open
     const modalTitle = await screen.findByRole('heading', { name: /Edit Post/i })
     expect(modalTitle).toBeInTheDocument()
 
-    // Close via "Cancel"
+    // Close the modal via Cancel button
     const cancelBtn = screen.getByRole('button', { name: /Cancel/i })
     fireEvent.click(cancelBtn)
 
@@ -139,11 +165,12 @@ describe('ProfilePage (aligned tests)', () => {
   })
 
   test('handles missing user gracefully (shows "User")', async () => {
-    // No currentUser
-    mockAuthObj.currentUser = null
+    const { __mockAuthObj } = require('firebase/auth')
+    __mockAuthObj.currentUser = null
+
     render(<ProfilePage />)
 
-    // Should render page and generic welcome
+    // Should display the generic user message
     expect(await screen.findByRole('heading', { name: /Profile & History/i })).toBeInTheDocument()
     expect(screen.getByText(/Welcome back, User!/i)).toBeInTheDocument()
   })
