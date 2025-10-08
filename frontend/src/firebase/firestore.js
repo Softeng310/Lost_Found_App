@@ -280,3 +280,27 @@ export function formatTimestamp(timestamp) {
     });
   }
 }
+
+/**
+ * Update an item in Firestore
+ * @param {string} itemId - The item's document ID
+ * @param {Object} updateData - The data to update
+ * @returns {Promise<void>}
+ */
+export async function updateItem(itemId, updateData) {
+  try {
+    const itemRef = doc(db, 'items', itemId);
+    
+    // Add updatedAt timestamp
+    const dataToUpdate = {
+      ...updateData,
+      updatedAt: new Date()
+    };
+    
+    await updateDoc(itemRef, dataToUpdate);
+    console.log('Item updated successfully:', itemId);
+  } catch (error) {
+    console.error('Error updating item:', error);
+    throw error;
+  }
+}
