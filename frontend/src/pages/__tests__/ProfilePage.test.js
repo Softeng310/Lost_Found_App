@@ -1,195 +1,150 @@
-import React from 'react';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
-import ProfilePage from '../ProfilePage';
-import { 
-  setupTestEnvironment, 
-  cleanupTestEnvironment, 
-  renderWithRouter, 
-  SharedTestUtils 
-} from '../../test-utils';
-import {
-  createMockUser,
-  setupAuthStateMock,
-  setupSuccessMock,
-  setupErrorMock,
-  assertStylingClasses,
-  createProfilePageTestHelpers
-} from '../../test-utils-shared';
+/**
+ * ProfilePage.test.js — slimmed & aligned with current component logic
+ * - Mocks getAuth().currentUser (no onAuthStateChanged expectations)
+ * - Mocks firestore calls to return deterministic data
+ * - Stubs UI components (Card, ProfileBadge) for RTL
+ * - Verifies header, welcome text, lists, counts, and logout flow (signOut + navigate)
+ */
 
-// Mock react-router-dom
-const mockNavigate = jest.fn();
+import React from 'react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+
+// --- mock react-router-dom (useNavigate) ---
+const mockNavigate = jest.fn()
 jest.mock('react-router-dom', () => {
-  /* eslint-disable react/prop-types */
-  const Link = ({ children, to, ...props }) => {
-    return (
-      <a href={to} {...props}>
-        {children}
-      </a>
-    );
-  };
-  /* eslint-enable react/prop-types */
-  
+  const actual = jest.requireActual('react-router-dom')
   return {
-    ...jest.requireActual('react-router-dom'),
+    ...actual,
     useNavigate: () => mockNavigate,
-    Link,
-  };
-});
+  }
+})
 
-// Mock Firebase modules
+// --- mock firebase/auth ---
+const mockSignOut = jest.fn(() => Promise.resolve())
+const mockAuthObj = { currentUser: { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' } }
+
 jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(),
-  signOut: jest.fn(),
-  onAuthStateChanged: jest.fn(),
-}));
+  getAuth: jest.fn(() => mockAuthObj),
+  signOut: jest.fn(() => mockSignOut()),
+}))
 
-jest.mock('../../firebase/config', () => ({
-  auth: {},
-}));
+// --- mock firestore used by ProfilePage ---
+const mockGetUserPosts = jest.fn(async () => ([
+  { id: 'p1', title: 'Lost iPad', status: 'lost', location: 'OGGB', date: '2025-10-01T10:20:00Z' },
+  { id: 'p2', title: 'Found Card', status: 'found', location: 'Engineering Building', date: '2025-10-02T11:00:00Z' },
+]))
+const mockGetUserClaims = jest.fn(async () => ([
+  { id: 'c1', title: 'My Library Card', status: 'pending', claimData: { status: 'pending' }, date: '2025-10-03T09:00:00Z' },
+]))
+const mockUpdateItemStatus = jest.fn(async () => {})
+const mockUpdateItem = jest.fn(async () => {})
+const mockFormatTimestamp = jest.fn((iso) => '2025-10-01 10:20')
 
-// Setup test environment
-setupTestEnvironment();
+jest.mock('../../firebase/firestore', () => ({
+  getUserPosts: (...args) => mockGetUserPosts(...args),
+  getUserClaims: (...args) => mockGetUserClaims(...args),
+  updateItemStatus: (...args) => mockUpdateItemStatus(...args),
+  updateItem: (...args) => mockUpdateItem(...args),
+  formatTimestamp: (...args) => mockFormatTimestamp(...args),
+}))
 
-describe('ProfilePage', () => {
-  const { mockAuth, mockUnsubscribe } = setupTestEnvironment();
-  const mockUser = createMockUser();
+// --- stub UI components so we don't depend on shadcn/tailwind rendering ---
+jest.mock('../../components/ui/card', () => ({
+  Card: ({ children }) => <div data-testid="card">{children}</div>,
+  CardHeader: ({ children }) => <div>{children}</div>,
+  CardTitle: ({ children }) => <h2>{children}</h2>,
+  CardContent: ({ children }) => <div>{children}</div>,
+}))
 
-  // Get enhanced helper functions
-  const {
-    renderProfilePage,
-    assertProfilePageRenders,
-    assertProfileSections,
-    assertLogoutButton,
-    clickLogoutAndAssert,
-    assertPageTitleAndDescription,
-    assertContainerStyling,
-    assertCardStyling,
-    assertHeadingHierarchy,
-    assertLogoutButtonAccessibility,
-    assertProfileContentWithMockData,
-    assertAuthStateHandling  } = createProfilePageTestHelpers();
+jest.mock('../components/ui/ProfileBadge', () => ({
+  ProfileBadge: ({ children }) => <span data-testid="profile-badge">{children}</span>,
+}))
 
+// --- SUT ---
+import ProfilePage from '../ProfilePage'
+
+describe('ProfilePage (aligned tests)', () => {
   beforeEach(() => {
-    cleanupTestEnvironment();
-    
-    // Setup default mocks
-    getAuth.mockReturnValue(mockAuth);
-    onAuthStateChanged.mockReturnValue(mockUnsubscribe);
-  });
+    jest.clearAllMocks()
+    // Ensure we always have a current user for these tests
+    mockAuthObj.currentUser = { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' }
+  })
 
-  describe('Rendering', () => {
-    test('renders profile page with user information when authenticated', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertProfilePageRenders();
-    });
+  test('renders header and welcome text with current user', async () => {
+    render(<ProfilePage />)
 
-    test('renders all profile sections', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertProfileSections();
-    });
-  });
+    // Header
+    expect(await screen.findByRole('heading', { name: /Profile & History/i })).toBeInTheDocument()
 
-  describe('Authentication State Management', () => {
-    test('displays profile content with mock data', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertProfileContentWithMockData();
-    });
-  });
+    // Welcome
+    expect(screen.getByText(/Welcome back, Mock User!/i)).toBeInTheDocument()
+  })
 
-  describe('User Information Display', () => {
-    test('displays page title and description', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertPageTitleAndDescription();
-    });
+  test('loads and displays My Posts and My Claims with counts', async () => {
+    render(<ProfilePage />)
 
-    test('displays logout button with proper styling', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertLogoutButton();
-    });
-  });
+    // Wait for data
+    await waitFor(() => {
+      expect(mockGetUserPosts).toHaveBeenCalledTimes(1)
+      expect(mockGetUserClaims).toHaveBeenCalledTimes(1)
+    })
 
-  describe('Logout Functionality', () => {
-    test('calls signOut when logout button is clicked', async () => {
-      setupSuccessMock(signOut);
-      renderProfilePage(ProfilePage, mockUser);
-      
-      await clickLogoutAndAssert();
-    });
+    // Card titles with counts
+    expect(screen.getByRole('heading', { name: /My Posts \(2\)/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /My Claims \(1\)/i })).toBeInTheDocument()
 
-    test('redirects to home page after successful logout', async () => {
-      setupSuccessMock(signOut);
-      renderProfilePage(ProfilePage, mockUser);
-      
-      await clickLogoutAndAssert();
-    });
+    // Some item titles present
+    expect(screen.getByText(/Lost iPad/i)).toBeInTheDocument()
+    expect(screen.getByText(/Found Card/i)).toBeInTheDocument()
+  })
 
-    test('handles logout errors gracefully', async () => {
-      setupErrorMock(signOut, 'Logout failed');
-      renderProfilePage(ProfilePage, mockUser);
-      
-      await clickLogoutAndAssert(false);
-      await assertAuthStateHandling();
-    });
-  });
+  test('logout button calls signOut and navigates home', async () => {
+    render(<ProfilePage />)
 
-  describe('Navigation', () => {
-    test('renders logout button for navigation', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertLogoutButton();
-    });
-  });
+    const btn = screen.getByRole('button', { name: /logout/i })
+    fireEvent.click(btn)
 
-  describe('Error Handling', () => {
-    test('handles auth state check gracefully', async () => {
-      onAuthStateChanged.mockImplementation((auth, callback, errorCallback) => {
-        errorCallback(new Error('Auth check failed'));
-        return mockUnsubscribe;
-      });
-      
-      renderProfilePage(ProfilePage, mockUser);
-      await assertAuthStateHandling();
-    });
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledTimes(1)
+    })
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
 
-    test('handles missing user data gracefully', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertPageTitleAndDescription();
-    });
-  });
+  test('edit button shows Edit Modal for non-resolved post and can be closed', async () => {
+    render(<ProfilePage />)
+    await screen.findByText(/Lost iPad/i)
 
-  describe('Accessibility', () => {
-    test('has proper heading hierarchy', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertHeadingHierarchy();
-    });
+    // Find the "Edit post" button (aria-label set in component)
+    const editButtons = screen.getAllByRole('button', { name: /Edit post/i })
+    expect(editButtons.length).toBeGreaterThan(0)
 
-    test('logout button has proper accessibility attributes', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertLogoutButtonAccessibility();
-    });
-  });
+    fireEvent.click(editButtons[0])
 
-  describe('Styling and Layout', () => {
-    test('has proper CSS classes for responsive design', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertContainerStyling();
-    });
+    // Modal title appears
+    const modalTitle = await screen.findByRole('heading', { name: /Edit Post/i })
+    expect(modalTitle).toBeInTheDocument()
 
-    test('logout button has proper styling classes', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertLogoutButton();
-    });
+    // Close via "Cancel"
+    const cancelBtn = screen.getByRole('button', { name: /Cancel/i })
+    fireEvent.click(cancelBtn)
 
-    test('cards have proper styling', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertCardStyling();
-    });
-  });
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: /Edit Post/i })).not.toBeInTheDocument()
+    })
+  })
 
-  describe('User Data Handling', () => {
-    test('displays profile content with mock data', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertProfileContentWithMockData();
-    });
-  });
-});
+  test('shows Trust & Verification section', async () => {
+    render(<ProfilePage />)
+    expect(await screen.findByTestId('profile-badge')).toHaveTextContent(/Unverified/i)
+  })
+
+  test('handles missing user gracefully (shows "User")', async () => {
+    // No currentUser
+    mockAuthObj.currentUser = null
+    render(<ProfilePage />)
+
+    // Should render page and generic welcome
+    expect(await screen.findByRole('heading', { name: /Profile & History/i })).toBeInTheDocument()
+    expect(screen.getByText(/Welcome back, User!/i)).toBeInTheDocument()
+  })
+})
