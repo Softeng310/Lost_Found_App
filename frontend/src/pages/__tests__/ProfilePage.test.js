@@ -60,7 +60,6 @@ describe('ProfilePage', () => {
     renderProfilePage,
     assertProfilePageRenders,
     assertProfileSections,
-    getLogoutButton,
     assertLogoutButton,
     clickLogoutAndAssert,
     assertPageTitleAndDescription,
@@ -69,9 +68,7 @@ describe('ProfilePage', () => {
     assertHeadingHierarchy,
     assertLogoutButtonAccessibility,
     assertProfileContentWithMockData,
-    assertAuthStateHandling,
-    setupProfilePageMocks
-  } = createProfilePageTestHelpers();
+    assertAuthStateHandling  } = createProfilePageTestHelpers();
 
   beforeEach(() => {
     cleanupTestEnvironment();

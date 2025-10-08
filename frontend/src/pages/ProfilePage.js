@@ -1,10 +1,146 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { getAuth, signOut } from "firebase/auth"
 import { LogOut, Trash2, Edit3, X } from "lucide-react"
 import { getUserPosts, getUserClaims, formatTimestamp, updateItemStatus, updateItem } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
+
+/** ---------- Small utilities (deduplicated helpers) ---------- **/
+const coalesceDate = (item) =>
+  item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated
+
+const isResolvedStatus = (s) => (s || '').toLowerCase() === 'resolved'
+
+const StatusPill = memo(({ color, text }) => (
+  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${color}`}>
+    {text}
+  </span>
+))
+
+/** Keep original business logic: compute status badge by context (posts vs claims) */
+const getStatusBadge = (item, isMyPost = false) => {
+  if (isMyPost) {
+    const status = item.status || 'open'
+    switch (status.toLowerCase()) {
+      case 'found':
+      case 'resolved':
+        return { variant: 'default', text: 'Resolved', color: 'bg-green-100 text-green-800' }
+      case 'claimed':
+        return { variant: 'secondary', text: 'Claimed', color: 'bg-purple-100 text-purple-800' }
+      case 'pending':
+        return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+      case 'lost':
+      case 'open':
+      case 'active':
+      default:
+        return { variant: 'secondary', text: 'Active', color: 'bg-blue-100 text-blue-800' }
+    }
+  } else {
+    const claimStatus = item.claimData?.status || item.status || 'pending'
+    switch (claimStatus.toLowerCase()) {
+      case 'pending':
+        return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+      case 'approved':
+        return { variant: 'default', text: 'Approved', color: 'bg-green-100 text-green-800' }
+      case 'rejected':
+        return { variant: 'outline', text: 'Rejected', color: 'bg-red-100 text-red-800' }
+      default:
+        return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+    }
+  }
+}
+
+/** Shared row component used by both Posts and Claims lists */
+const ItemRow = memo(function ItemRow({
+  item,
+  isMyPost,
+  onNavigate,
+  onEdit,
+  onClose,
+}) {
+  const badge = getStatusBadge(item, isMyPost)
+  const resolved = isResolvedStatus(item.status)
+  const kindLabel = item.status === 'lost' ? 'Lost Item' : 'Found Item'
+  const kindClass = item.status === 'lost' ? 'text-red-700' : 'text-blue-700'
+  const when = formatTimestamp(coalesceDate(item))
+
+  const go = () => onNavigate(item.id)
+  const keyGo = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onNavigate(item.id)
+    }
+  }
+
+  return (
+    <div
+      className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
+      role="button"
+      tabIndex={0}
+      onClick={go}
+      onKeyDown={keyGo}
+      aria-label={`View details for ${item.title || 'Untitled Item'}`}
+    >
+      <div className="flex-1 cursor-pointer">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-medium text-gray-900">{item.title || 'Untitled Item'}</span>
+          <StatusPill color={badge.color} text={badge.text} />
+        </div>
+        <div className="flex items-center gap-4 text-xs text-gray-500">
+          <span className={kindClass}>{kindLabel}</span>
+          <span>📅 {when}</span>
+          {item.location && <span>📍 {item.location}</span>}
+        </div>
+      </div>
+
+      {/* Edit/Close buttons only for user's posts and only when not resolved */}
+      {isMyPost && !resolved && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(item) }}
+            className="ml-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="Edit this post"
+            aria-label="Edit post"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(item.id, item.title) }}
+            className="ml-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            title="Close this post"
+            aria-label="Close post"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </>
+      )}
+    </div>
+  )
+})
+
+/** Shared card (title + empty text + list renderer) */
+const ItemsCard = memo(function ItemsCard({
+  title,
+  emptyText,
+  items,
+  renderItem
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title} ({items.length})</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.length === 0 ? (
+          <p className="text-sm text-gray-500">{emptyText}</p>
+        ) : (
+          items.map(renderItem)
+        )}
+      </CardContent>
+    </Card>
+  )
+})
 
 export default function ProfilePage() {
   const [myPosts, setMyPosts] = useState([])
@@ -17,46 +153,28 @@ export default function ProfilePage() {
     description: '',
     category: '',
     location: '',
-    kind: '', // lost or found
+    kind: '', // 'lost' or 'found'
     imageUrl: '',
     date: '',
     time: ''
   })
   const [error, setError] = useState(null)
+
   const auth = getAuth()
   const currentUser = auth.currentUser
-  
-  // Fetch user's posts and claims from Firestore
+  const navigate = useNavigate()
+
+  /** Load user's posts and claims */
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!currentUser) {
-        setLoading(false)
-        return
-      }
-      
+      if (!currentUser) { setLoading(false); return }
+
       try {
         setLoading(true)
-        console.log('Fetching data for user:', currentUser.uid)
-        
         const [posts, claims] = await Promise.all([
           getUserPosts(currentUser.uid),
           getUserClaims(currentUser.uid)
         ])
-        
-        console.log('Fetched posts:', posts)
-        console.log('Fetched claims:', claims)
-        
-        // Debug timestamp fields
-        if (posts.length > 0) {
-          console.log('First post timestamp fields:', {
-            createdAt: posts[0].createdAt,
-            created_at: posts[0].created_at,
-            timestamp: posts[0].timestamp,
-            dateCreated: posts[0].dateCreated,
-            updatedAt: posts[0].updatedAt
-          });
-        }
-        
         setMyPosts(posts)
         setMyClaims(claims)
       } catch (err) {
@@ -66,112 +184,62 @@ export default function ProfilePage() {
         setLoading(false)
       }
     }
-    
     fetchUserData()
   }, [currentUser])
 
-  // Helper function to get status badge variant and text
-  const getStatusBadge = (item, isMyPost = false) => {
-    if (isMyPost) {
-      // For posts by the user
-      const status = item.status || 'open'
-      switch (status.toLowerCase()) {
-        case 'found':
-        case 'resolved':
-          return { variant: 'default', text: 'Resolved', color: 'bg-green-100 text-green-800' }
-        case 'claimed':
-          return { variant: 'secondary', text: 'Claimed', color: 'bg-purple-100 text-purple-800' }
-        case 'pending':
-          return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
-        case 'lost':
-        case 'open':
-        case 'active':
-        default:
-          return { variant: 'secondary', text: 'Active', color: 'bg-blue-100 text-blue-800' }
-      }
-    } else {
-      // For claims by the user - show the claim status (pending/approved/rejected)
-      const claimStatus = item.claimData?.status || item.status || 'pending'
-      switch (claimStatus.toLowerCase()) {
-        case 'pending':
-          return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
-        case 'approved':
-          return { variant: 'default', text: 'Approved', color: 'bg-green-100 text-green-800' }
-        case 'rejected':
-          return { variant: 'outline', text: 'Rejected', color: 'bg-red-100 text-red-800' }
-        default:
-          return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
-      }
-    }
-  }
-  
-  const navigate = useNavigate()
-
-  // Handle closing/resolving a post
+  /** Close/resolve a post */
   const handleClosePost = async (itemId, itemTitle) => {
-    if (window.confirm(`Are you sure you want to close "${itemTitle}"? This will mark it as resolved.`)) {
+    if (!window.confirm(`Are you sure you want to close "${itemTitle}"? This will mark it as resolved.`)) return
+    try {
+      // Optimistic UI: remove from list immediately
+      setMyPosts(prev => prev.filter(p => p.id !== itemId))
+      await updateItemStatus(itemId, 'resolved')
+    } catch (error) {
+      console.error('Error closing post:', error)
+      alert('Failed to close post. Please try again.')
+      // Rollback by reloading fresh data
       try {
-        // Immediately remove from UI for better UX
-        setMyPosts(prevPosts => prevPosts.filter(post => post.id !== itemId))
-        
-        // Update in Firebase
-        await updateItemStatus(itemId, 'resolved')
-        
-        // Show success message (optional)
-        console.log('Post closed successfully')
-      } catch (error) {
-        console.error('Error closing post:', error)
-        alert('Failed to close post. Please try again.')
-        
-        // If Firebase update failed, refresh the data to restore the item
-        try {
+        if (currentUser) {
           const [posts, claims] = await Promise.all([
             getUserPosts(currentUser.uid),
             getUserClaims(currentUser.uid)
           ])
           setMyPosts(posts)
           setMyClaims(claims)
-        } catch (refreshError) {
-          console.error('Error refreshing data:', refreshError)
         }
+      } catch (refreshError) {
+        console.error('Error refreshing data:', refreshError)
       }
     }
   }
 
-  // Handle editing a post
+  /** Open edit modal with prefilled values */
   const handleEditPost = (item) => {
-    // Parse existing date/time if available
     let dateValue = ''
     let timeValue = ''
-    
-    // Firebase uses 'date' field for the actual lost/found date/time
-    if (item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated) {
-      try {
-        const existingDate = new Date(item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated)
-        if (!isNaN(existingDate.getTime())) {
-          dateValue = existingDate.toISOString().split('T')[0] // YYYY-MM-DD format
-          timeValue = existingDate.toTimeString().split(' ')[0].slice(0, 5) // HH:MM format
-        }
-      } catch (error) {
-        console.log('Error parsing existing date:', error)
+    const raw = coalesceDate(item)
+    if (raw) {
+      const d = new Date(raw)
+      if (!isNaN(d.getTime())) {
+        dateValue = d.toISOString().split('T')[0]
+        timeValue = d.toTimeString().split(' ')[0].slice(0, 5)
       }
     }
-    
     setEditingItem(item)
     setEditFormData({
       title: item.title || '',
       description: item.description || '',
-      category: item.type || item.category || '', // Firebase uses 'type' field
+      category: item.type || item.category || '',
       location: item.location || '',
-      kind: item.status?.toLowerCase() || item.kind || 'lost', // Firebase uses 'status' for lost/found
-      imageUrl: item.imageURL || item.imageUrl || item.image || '', // Firebase uses 'imageURL'
+      kind: item.status?.toLowerCase() || item.kind || 'lost',
+      imageUrl: item.imageURL || item.imageUrl || item.image || '',
       date: dateValue,
       time: timeValue
     })
     setEditModalOpen(true)
   }
 
-  // Handle closing edit modal
+  /** Close edit modal and reset form */
   const handleCloseEditModal = () => {
     setEditModalOpen(false)
     setEditingItem(null)
@@ -187,51 +255,39 @@ export default function ProfilePage() {
     })
   }
 
-  // Handle form input changes
+  /** Edit form change handler */
   const handleFormChange = (field, value) => {
-    setEditFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
+    setEditFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  // Handle saving edited post
+  /** Save edited post */
   const handleSaveEdit = async () => {
     if (!editingItem || !editFormData.title.trim()) {
       alert('Please fill in at least the title field.')
       return
     }
-
     try {
-      // Combine date and time into a single timestamp
       let combinedDateTime = null
       if (editFormData.date) {
-        const dateTimeString = editFormData.time 
-          ? `${editFormData.date}T${editFormData.time}:00`
-          : `${editFormData.date}T00:00:00`
-        combinedDateTime = new Date(dateTimeString)
+        const s = editFormData.time ? `${editFormData.date}T${editFormData.time}:00` : `${editFormData.date}T00:00:00`
+        combinedDateTime = new Date(s)
       }
 
-      // Prepare update data (using Firebase field names)
       const updateData = {
         title: editFormData.title.trim(),
         description: editFormData.description.trim(),
-        type: editFormData.category, // Firebase uses 'type' for category
+        type: editFormData.category, // Firestore uses 'type' for category
         location: editFormData.location,
-        status: editFormData.kind, // Firebase uses 'status' for lost/found
-        imageURL: editFormData.imageUrl.trim() // Firebase uses 'imageURL'
+        status: editFormData.kind,   // Firestore uses 'status' for lost/found
+        imageURL: editFormData.imageUrl.trim() // Firestore uses 'imageURL'
       }
-
-      // Add date if provided (only update the date field, not createdAt)
       if (combinedDateTime && !isNaN(combinedDateTime.getTime())) {
         updateData.date = combinedDateTime.toISOString()
-        // Note: Do NOT update createdAt - it should remain the original creation time
       }
 
-      // Update the item in Firebase
       await updateItem(editingItem.id, updateData)
-      
-      // Refresh data from Firebase to ensure consistency
+
+      // Reload to ensure consistency
       if (currentUser) {
         const [posts, claims] = await Promise.all([
           getUserPosts(currentUser.uid),
@@ -240,7 +296,6 @@ export default function ProfilePage() {
         setMyPosts(posts)
         setMyClaims(claims)
       }
-      
       handleCloseEditModal()
       alert('Post updated successfully!')
     } catch (error) {
@@ -249,7 +304,7 @@ export default function ProfilePage() {
     }
   }
 
-  // Handle user logout
+  /** Sign out and redirect */
   const handleLogout = async () => {
     try {
       await signOut(auth)
@@ -259,13 +314,15 @@ export default function ProfilePage() {
     }
   }
 
+  /** Shared navigation to detail page */
+  const goItemDetail = (id) => navigate(`/items/${id}`)
+
   return (
     <div className="min-h-screen bg-gray-50">
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Page header with logout button */}
+          {/* Header */}
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Profile & History</h1>
@@ -273,7 +330,6 @@ export default function ProfilePage() {
                 Welcome back, {currentUser?.displayName || currentUser?.email || 'User'}!
               </p>
             </div>
-            {/* Logout button - red to indicate destructive action */}
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
@@ -283,7 +339,7 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* Trust verification status */}
+          {/* Trust & Verification */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -296,13 +352,13 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Loading and Error States */}
+          {/* States */}
           {loading && (
             <div className="text-center py-8">
               <p className="text-gray-500">Loading your data...</p>
             </div>
           )}
-          
+
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-red-700">{error}</p>
@@ -310,158 +366,40 @@ export default function ProfilePage() {
           )}
 
           {!loading && !error && (
-            <>
-              {/* User activity grid - posts and claims */}
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Items this user has posted */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      My Posts ({myPosts.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {myPosts.length === 0 ? (
-                      <p className="text-sm text-gray-500">No posts yet. Start by reporting a lost or found item!</p>
-                    ) : (
-                      myPosts.map((item) => {
-                        const badge = getStatusBadge(item, true)
-                        const isResolved = item.status?.toLowerCase() === 'resolved'
-                        
-                        return (
-                          <div 
-                            key={item.id} 
-                            className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
-                          >
-                            <div 
-                              className="flex-1 cursor-pointer"
-                              onClick={() => navigate(`/items/${item.id}`)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  navigate(`/items/${item.id}`)
-                                }
-                              }}
-                              tabIndex={0}
-                              role="button"
-                              aria-label={`View details for ${item.title || 'Untitled Item'}`}
-                            >
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-gray-900">{item.title || 'Untitled Item'}</span>
-                                <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badge.color}`}>
-                                  {badge.text}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-gray-500">
-                                <span className={
-                                  item.status === 'lost' ? 'text-red-700' : 'text-blue-700'
-                                }>
-                                  {item.status === 'lost' ? 'Lost Item' : 'Found Item'}
-                                </span>
-                                <span>📅 {formatTimestamp(item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated)}</span>
-                                {item.location && (
-                                  <span>📍 {item.location}</span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* Edit button - only show for non-resolved items */}
-                            {!isResolved && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation() // Prevent navigation when clicking edit button
-                                  handleEditPost(item)
-                                }}
-                                className="ml-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                title="Edit this post"
-                                aria-label="Edit post"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                            )}
-                            
-                            {/* Close button - only show for non-resolved items */}
-                            {!isResolved && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation() // Prevent navigation when clicking close button
-                                  handleClosePost(item.id, item.title)
-                                }}
-                                className="ml-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                title="Close this post"
-                                aria-label="Close post"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Items this user has claimed */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      My Claims ({myClaims.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {myClaims.length === 0 ? (
-                      <p className="text-sm text-gray-500">No claims yet. Browse the feed to claim items you've lost!</p>
-                    ) : (
-                      myClaims.map((item) => {
-                        // For claims, show the claim status (pending/approved/rejected)
-                        const badge = getStatusBadge(item, false)
-                        
-                        return (
-                          <div 
-                            key={item.id} 
-                            className="flex justify-between items-start p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 hover:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onClick={() => navigate(`/items/${item.id}`)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                navigate(`/items/${item.id}`)
-                              }
-                            }}
-                            tabIndex={0}
-                            role="button"
-                            aria-label={`View details for ${item.title || 'Untitled Item'}`}
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-gray-900">{item.title || 'Untitled Item'}</span>
-                                <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badge.color}`}>
-                                  {badge.text}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-gray-500">
-                                <span className={
-                                  item.status === 'lost' ? 'text-red-700' : 'text-blue-700'
-                                }>
-                                  {item.status === 'lost' ? 'Lost Item' : 'Found Item'}
-                                </span>
-                                <span>📅 {formatTimestamp(item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated)}</span>
-                                {item.location && (
-                                  <span>📍 {item.location}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </>
+            <div className="grid md:grid-cols-2 gap-6">
+              <ItemsCard
+                title="My Posts"
+                emptyText="No posts yet. Start by reporting a lost or found item!"
+                items={myPosts}
+                renderItem={(item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    isMyPost
+                    onNavigate={goItemDetail}
+                    onEdit={handleEditPost}
+                    onClose={handleClosePost}
+                  />
+                )}
+              />
+              <ItemsCard
+                title="My Claims"
+                emptyText="No claims yet. Browse the feed to claim items you've lost!"
+                items={myClaims}
+                renderItem={(item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    isMyPost={false}
+                    onNavigate={goItemDetail}
+                  />
+                )}
+              />
+            </div>
           )}
         </div>
       </div>
-      
+
       {/* Edit Modal */}
       {editModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -476,13 +414,10 @@ export default function ProfilePage() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              
+
               <div className="space-y-4">
-                {/* Title */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
                   <input
                     type="text"
                     value={editFormData.title}
@@ -491,26 +426,20 @@ export default function ProfilePage() {
                     placeholder="Enter title..."
                   />
                 </div>
-                
-                {/* Description */}
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <textarea
                     value={editFormData.description}
                     onChange={(e) => handleFormChange('description', e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter description..."
                   />
                 </div>
-                
-                {/* Category */}
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                   <select
                     value={editFormData.category}
                     onChange={(e) => handleFormChange('category', e.target.value)}
@@ -527,12 +456,9 @@ export default function ProfilePage() {
                     <option value="other">Other</option>
                   </select>
                 </div>
-                
-                {/* Location */}
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Location
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                   <select
                     value={editFormData.location}
                     onChange={(e) => handleFormChange('location', e.target.value)}
@@ -553,12 +479,9 @@ export default function ProfilePage() {
                     <option value="Bioengineering Building">Bioengineering Building</option>
                   </select>
                 </div>
-                
-                {/* Lost/Found Type */}
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Type *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
                   <select
                     value={editFormData.kind}
                     onChange={(e) => handleFormChange('kind', e.target.value)}
@@ -569,12 +492,9 @@ export default function ProfilePage() {
                     <option value="found">Found Item</option>
                   </select>
                 </div>
-                
-                {/* Image URL */}
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image URL
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
                   <input
                     type="url"
                     value={editFormData.imageUrl}
@@ -583,13 +503,10 @@ export default function ProfilePage() {
                     placeholder="Enter image URL..."
                   />
                 </div>
-                
-                {/* Date & Time */}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                     <input
                       type="date"
                       value={editFormData.date}
@@ -598,9 +515,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Time
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
                     <input
                       type="time"
                       value={editFormData.time}
@@ -610,8 +525,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
-              
-              {/* Action Buttons */}
+
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={handleCloseEditModal}
@@ -626,6 +540,7 @@ export default function ProfilePage() {
                   Save Changes
                 </button>
               </div>
+
             </div>
           </div>
         </div>
