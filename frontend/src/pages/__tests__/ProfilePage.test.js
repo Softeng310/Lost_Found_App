@@ -34,7 +34,7 @@ jest.mock('firebase/auth', () => {
   return {
     getAuth,
     signOut,
-    __mockAuthObj: authObj, // allows tests to modify currentUser dynamically
+    __mockAuthObj: authObj,
   }
 })
 
@@ -60,18 +60,9 @@ jest.mock('../../firebase/firestore', () => ({
 
 /**
  * --- stub UI components (inline factories required by jest-hoist) ---
- * The component imports '../components/ui/...'; this test lives in src/pages/__tests__.
- * Mock both import paths to avoid path resolution mismatches.
+ * The component imports '../../components/ui/...'; this test lives in src/pages/__tests__.
+ * Use correct relative paths from test file location.
  */
-jest.mock('../components/ui/card', () => ({
-  Card: ({ children }) => <div data-testid="card">{children}</div>,
-  CardHeader: ({ children }) => <div>{children}</div>,
-  CardTitle: ({ children }) => <h2>{children}</h2>,
-  CardContent: ({ children }) => <div>{children}</div>,
-}))
-jest.mock('../components/ui/ProfileBadge', () => ({
-  ProfileBadge: ({ children }) => <span data-testid="profile-badge">{children}</span>,
-}))
 jest.mock('../../components/ui/card', () => ({
   Card: ({ children }) => <div data-testid="card">{children}</div>,
   CardHeader: ({ children }) => <div>{children}</div>,
