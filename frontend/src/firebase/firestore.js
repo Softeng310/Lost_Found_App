@@ -32,6 +32,169 @@ export async function getUserPosts(userId) {
 }
 
 /**
+ * Fetch items from claims collection
+ * @param {string} userId - The user's UID
+ * @returns {Promise<Array>} Array of claimed items from claims collection
+ */
+async function fetchFromClaimsCollection(userId) {
+  const claimsRef = collection(db, 'claims');
+  const claimsQuery = query(claimsRef, where('user_id', '==', doc(db, 'users', userId)));
+  const claimsSnapshot = await getDocs(claimsQuery);
+  
+  console.log('Found claims in claims collection:', claimsSnapshot.size);
+  
+  if (claimsSnapshot.size === 0) {
+    return [];
+  }
+  
+  const claimedItems = [];
+  
+  for (const claimDoc of claimsSnapshot.docs) {
+    const claimData = claimDoc.data();
+    const itemData = await fetchItemFromClaim(claimDoc, claimData);
+    
+    if (itemData) {
+      claimedItems.push(itemData);
+    }
+  }
+  
+  return claimedItems;
+}
+
+/**
+ * Fetch individual item from claim document
+ * @param {Object} claimDoc - Claim document
+ * @param {Object} claimData - Claim data
+ * @returns {Promise<Object|null>} Item data or null
+ */
+async function fetchItemFromClaim(claimDoc, claimData) {
+  try {
+    const itemRef = claimData.item_id;
+    if (!itemRef) {
+      return null;
+    }
+    
+    const itemDoc = await getDoc(itemRef);
+    if (!itemDoc.exists()) {
+      return null;
+    }
+    
+    return {
+      id: itemDoc.id,
+      ...itemDoc.data(),
+      claimId: claimDoc.id,
+      claimData: claimData
+    };
+  } catch (itemError) {
+    console.warn('Error fetching item for claim:', claimDoc.id, itemError);
+    return null;
+  }
+}
+
+/**
+ * Fetch items with claimedBy field
+ * @param {string} userId - The user's UID
+ * @returns {Promise<Array>} Array of items with claimedBy field
+ */
+async function fetchItemsWithClaimedBy(userId) {
+  const itemsRef = collection(db, 'items');
+  const itemsQuery = query(itemsRef, where('claimedBy', '==', doc(db, 'users', userId)));
+  const itemsSnapshot = await getDocs(itemsQuery);
+  
+  console.log('Found items with claimedBy:', itemsSnapshot.size);
+  
+  const fallbackClaims = [];
+  itemsSnapshot.forEach((doc) => {
+    fallbackClaims.push({
+      id: doc.id,
+      ...doc.data()
+    });
+  });
+  
+  return fallbackClaims;
+}
+
+/**
+ * Check if user has claim in claims array
+ * @param {Object} itemData - Item data
+ * @param {string} userId - The user's UID
+ * @returns {Object|null} User claim or null
+ */
+function findUserClaimInArray(itemData, userId) {
+  if (!itemData.claims || !Array.isArray(itemData.claims)) {
+    return null;
+  }
+  
+  return itemData.claims.find(claim => 
+    claim.user_id && claim.user_id.path === `users/${userId}`
+  );
+}
+
+/**
+ * Fetch claims from subcollection
+ * @param {Object} itemDoc - Item document reference
+ * @param {string} userId - The user's UID
+ * @returns {Promise<Array>} Array of user claims from subcollection
+ */
+async function fetchClaimsFromSubcollection(itemDoc, userId) {
+  try {
+    const claimsSubRef = collection(itemDoc.ref, 'claims');
+    const userClaimQuery = query(claimsSubRef, where('user_id', '==', doc(db, 'users', userId)));
+    const userClaimSnapshot = await getDocs(userClaimQuery);
+    
+    if (userClaimSnapshot.size === 0) {
+      return [];
+    }
+    
+    return userClaimSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (subError) {
+    console.warn('Subcollection access failed:', subError.message);
+    return [];
+  }
+}
+
+/**
+ * Search all items for claims array or subcollection
+ * @param {string} userId - The user's UID
+ * @returns {Promise<Array>} Array of claimed items
+ */
+async function searchAllItemsForClaims(userId) {
+  console.log('Checking all items for claims array...');
+  const itemsRef = collection(db, 'items');
+  const allItemsSnapshot = await getDocs(itemsRef);
+  
+  const claimedItems = [];
+  
+  for (const itemDoc of allItemsSnapshot.docs) {
+    const itemData = itemDoc.data();
+    
+    // Check claims array
+    const userClaim = findUserClaimInArray(itemData, userId);
+    if (userClaim) {
+      claimedItems.push({
+        id: itemDoc.id,
+        ...itemData,
+        userClaim: userClaim
+      });
+      continue; // Skip subcollection check if found in array
+    }
+    
+    // Check claims subcollection
+    const userClaims = await fetchClaimsFromSubcollection(itemDoc, userId);
+    if (userClaims.length > 0) {
+      claimedItems.push({
+        id: itemDoc.id,
+        ...itemData,
+        userClaims: userClaims
+      });
+    }
+  }
+  
+  console.log('Found items with claims:', claimedItems.length);
+  return claimedItems;
+}
+
+/**
  * Fetch items claimed by the user
  * @param {string} userId - The user's UID
  * @returns {Promise<Array>} Array of items claimed by the user
@@ -42,39 +205,8 @@ export async function getUserClaims(userId) {
     
     // Method 1: Try to fetch from claims collection
     try {
-      const claimsRef = collection(db, 'claims');
-      const claimsQuery = query(claimsRef, where('user_id', '==', doc(db, 'users', userId)));
-      const claimsSnapshot = await getDocs(claimsQuery);
-      
-      console.log('Found claims in claims collection:', claimsSnapshot.size);
-      
-      if (claimsSnapshot.size > 0) {
-        const claimedItems = [];
-        
-        // For each claim, fetch the corresponding item
-        for (const claimDoc of claimsSnapshot.docs) {
-          const claimData = claimDoc.data();
-          console.log('Processing claim:', claimDoc.id, claimData);
-          
-          try {
-            // Get the item reference from the claim
-            const itemRef = claimData.item_id;
-            if (itemRef) {
-              const itemDoc = await getDoc(itemRef);
-              if (itemDoc.exists()) {
-                claimedItems.push({
-                  id: itemDoc.id,
-                  ...itemDoc.data(),
-                  claimId: claimDoc.id,
-                  claimData: claimData
-                });
-              }
-            }
-          } catch (itemError) {
-            console.warn('Error fetching item for claim:', claimDoc.id, itemError);
-          }
-        }
-        
+      const claimedItems = await fetchFromClaimsCollection(userId);
+      if (claimedItems.length > 0) {
         return claimedItems;
       }
     } catch (claimsError) {
@@ -84,20 +216,7 @@ export async function getUserClaims(userId) {
     // Method 2: Try to find items with claimedBy field
     try {
       console.log('Trying items with claimedBy field...');
-      const itemsRef = collection(db, 'items');
-      const itemsQuery = query(itemsRef, where('claimedBy', '==', doc(db, 'users', userId)));
-      const itemsSnapshot = await getDocs(itemsQuery);
-      
-      console.log('Found items with claimedBy:', itemsSnapshot.size);
-      
-      const fallbackClaims = [];
-      itemsSnapshot.forEach((doc) => {
-        fallbackClaims.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-      
+      const fallbackClaims = await fetchItemsWithClaimedBy(userId);
       if (fallbackClaims.length > 0) {
         return fallbackClaims;
       }
@@ -107,51 +226,8 @@ export async function getUserClaims(userId) {
     
     // Method 3: Check all items and look for claims array/subcollection
     try {
-      console.log('Checking all items for claims array...');
-      const itemsRef = collection(db, 'items');
-      const allItemsSnapshot = await getDocs(itemsRef);
-      
-      const claimedItems = [];
-      
-      for (const itemDoc of allItemsSnapshot.docs) {
-        const itemData = itemDoc.data();
-        
-        // Check if item has claims array
-        if (itemData.claims && Array.isArray(itemData.claims)) {
-          const userClaim = itemData.claims.find(claim => 
-            claim.user_id && claim.user_id.path === `users/${userId}`
-          );
-          
-          if (userClaim) {
-            claimedItems.push({
-              id: itemDoc.id,
-              ...itemData,
-              userClaim: userClaim
-            });
-          }
-        }
-        
-        // Also check for claims subcollection
-        try {
-          const claimsSubRef = collection(itemDoc.ref, 'claims');
-          const userClaimQuery = query(claimsSubRef, where('user_id', '==', doc(db, 'users', userId)));
-          const userClaimSnapshot = await getDocs(userClaimQuery);
-          
-          if (userClaimSnapshot.size > 0) {
-            claimedItems.push({
-              id: itemDoc.id,
-              ...itemData,
-              userClaims: userClaimSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-            });
-          }
-        } catch (subError) {
-          // Subcollection doesn't exist or access denied, skip
-        }
-      }
-      
-      console.log('Found items with claims:', claimedItems.length);
+      const claimedItems = await searchAllItemsForClaims(userId);
       return claimedItems;
-      
     } catch (allItemsError) {
       console.error('All items approach failed:', allItemsError);
     }
@@ -211,6 +287,55 @@ export async function updateItemStatus(itemId, newStatus) {
 }
 
 /**
+ * Get default date format options
+ * @returns {Object} Date format options
+ */
+function getDefaultDateFormat() {
+  return {
+    year: 'numeric',
+    month: 'short', 
+    day: 'numeric'
+  };
+}
+
+/**
+ * Get fallback formatted date
+ * @returns {string} Current date formatted
+ */
+function getFallbackFormattedDate() {
+  return new Date().toLocaleDateString('en-US', getDefaultDateFormat());
+}
+
+/**
+ * Convert timestamp to Date object
+ * @param {*} timestamp - Various timestamp formats
+ * @returns {Date} Date object
+ */
+function parseTimestampToDate(timestamp) {
+  // Handle Firestore Timestamp objects
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    console.log('Using Firestore toDate()');
+    return timestamp.toDate();
+  }
+  
+  // Handle Firebase Timestamp with seconds property
+  if (timestamp.seconds) {
+    console.log('Using Firebase seconds:', timestamp.seconds);
+    return new Date(timestamp.seconds * 1000);
+  }
+  
+  // Handle milliseconds timestamp
+  if (typeof timestamp === 'number') {
+    console.log('Using number timestamp:', timestamp);
+    return new Date(timestamp);
+  }
+  
+  // Handle regular Date objects or date strings
+  console.log('Using regular Date constructor');
+  return new Date(timestamp);
+}
+
+/**
  * Format Firestore timestamp for display
  * @param {Object} timestamp - Firestore timestamp
  * @returns {string} Formatted date string
@@ -218,66 +343,28 @@ export async function updateItemStatus(itemId, newStatus) {
 export function formatTimestamp(timestamp) {
   console.log('formatTimestamp called with:', timestamp, typeof timestamp);
   
-  // If no timestamp provided, return fallback
+  // Early return for missing timestamp
   if (!timestamp) {
     console.log('No timestamp provided, using fallback');
-    return new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short', 
-      day: 'numeric'
-    });
+    return getFallbackFormattedDate();
   }
   
   try {
-    let date;
+    const date = parseTimestampToDate(timestamp);
     
-    // Handle Firestore Timestamp objects
-    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-      console.log('Using Firestore toDate()');
-      date = timestamp.toDate();
-    }
-    // Handle Firebase Timestamp with seconds property
-    else if (timestamp.seconds) {
-      console.log('Using Firebase seconds:', timestamp.seconds);
-      date = new Date(timestamp.seconds * 1000);
-    }
-    // Handle milliseconds timestamp
-    else if (typeof timestamp === 'number') {
-      console.log('Using number timestamp:', timestamp);
-      date = new Date(timestamp);
-    }
-    // Handle regular Date objects or date strings
-    else {
-      console.log('Using regular Date constructor');
-      date = new Date(timestamp);
-    }
-    
-    // Check if the date is valid
+    // Early return for invalid date
     if (isNaN(date.getTime())) {
       console.warn('Invalid timestamp, using current date:', timestamp);
-      return new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short', 
-        day: 'numeric'
-      });
+      return getFallbackFormattedDate();
     }
     
-    const formatted = date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short', 
-      day: 'numeric'
-    });
-    
+    const formatted = date.toLocaleDateString('en-US', getDefaultDateFormat());
     console.log('Formatted timestamp:', formatted);
     return formatted;
     
   } catch (error) {
     console.error('Error formatting timestamp, using current date:', error, timestamp);
-    return new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short', 
-      day: 'numeric'
-    });
+    return getFallbackFormattedDate();
   }
 }
 
