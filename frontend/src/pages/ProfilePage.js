@@ -163,8 +163,20 @@ export default function ProfilePage() {
                         const badge = getStatusBadge(item, true)
                         
                         return (
-                          <div key={item.id} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
-                               onClick={() => navigate(`/item/${item.id}`)}>
+                          <div 
+                            key={item.id} 
+                            className="flex justify-between items-start p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 hover:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onClick={() => navigate(`/items/${item.id}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                navigate(`/items/${item.id}`)
+                              }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`View details for ${item.title || 'Untitled Item'}`}
+                          >
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-medium text-gray-900">{item.title || 'Untitled Item'}</span>
@@ -207,8 +219,20 @@ export default function ProfilePage() {
                         const badge = getStatusBadge(item, false)
                         
                         return (
-                          <div key={item.id} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
-                               onClick={() => navigate(`/item/${item.id}`)}>
+                          <div 
+                            key={item.id} 
+                            className="flex justify-between items-start p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 hover:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onClick={() => navigate(`/items/${item.id}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                navigate(`/items/${item.id}`)
+                              }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`View details for ${item.title || 'Untitled Item'}`}
+                          >
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-medium text-gray-900">{item.title || 'Untitled Item'}</span>
