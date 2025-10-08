@@ -24,10 +24,15 @@ export default function ProfilePage() {
       
       try {
         setLoading(true)
+        console.log('Fetching data for user:', currentUser.uid)
+        
         const [posts, claims] = await Promise.all([
           getUserPosts(currentUser.uid),
           getUserClaims(currentUser.uid)
         ])
+        
+        console.log('Fetched posts:', posts)
+        console.log('Fetched claims:', claims)
         
         setMyPosts(posts)
         setMyClaims(claims)
@@ -53,6 +58,8 @@ export default function ProfilePage() {
           return { variant: 'default', text: 'Resolved', color: 'bg-green-100 text-green-800' }
         case 'claimed':
           return { variant: 'secondary', text: 'Claimed', color: 'bg-purple-100 text-purple-800' }
+        case 'pending':
+          return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
         case 'lost':
         case 'open':
         case 'active':
@@ -60,8 +67,18 @@ export default function ProfilePage() {
           return { variant: 'secondary', text: 'Active', color: 'bg-blue-100 text-blue-800' }
       }
     } else {
-      // For claims by the user - assume pending for now since we don't have claim status in current schema
-      return { variant: 'secondary', text: 'Claimed', color: 'bg-orange-100 text-orange-800' }
+      // For claims by the user - show the claim status (pending/approved/rejected)
+      const claimStatus = item.claimData?.status || item.status || 'pending'
+      switch (claimStatus.toLowerCase()) {
+        case 'pending':
+          return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+        case 'approved':
+          return { variant: 'default', text: 'Approved', color: 'bg-green-100 text-green-800' }
+        case 'rejected':
+          return { variant: 'outline', text: 'Rejected', color: 'bg-red-100 text-red-800' }
+        default:
+          return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+      }
     }
   }
   
@@ -186,6 +203,7 @@ export default function ProfilePage() {
                       <p className="text-sm text-gray-500">No claims yet. Browse the feed to claim items you've lost!</p>
                     ) : (
                       myClaims.map((item) => {
+                        // For claims, show the claim status (pending/approved/rejected)
                         const badge = getStatusBadge(item, false)
                         
                         return (
