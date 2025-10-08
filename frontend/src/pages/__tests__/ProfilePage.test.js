@@ -21,8 +21,8 @@ jest.mock('react-router-dom', () => {
 
 /**
  * --- mock firebase/auth ---
- * Note: jest.mock is hoisted, so we create mocks inside the factory.
- * We also expose the mock auth object via __mockAuthObj for runtime access in tests.
+ * Note: jest.mock is hoisted, so create mocks inside the factory and
+ * expose the mock auth object via __mockAuthObj for runtime access.
  */
 jest.mock('firebase/auth', () => {
   const authObj = {
@@ -34,7 +34,7 @@ jest.mock('firebase/auth', () => {
   return {
     getAuth,
     signOut,
-    __mockAuthObj: authObj, // allows test to modify currentUser dynamically
+    __mockAuthObj: authObj, // allows tests to modify currentUser dynamically
   }
 })
 
@@ -59,28 +59,30 @@ jest.mock('../../firebase/firestore', () => ({
 }))
 
 /**
- * --- stub UI components ---
- * The component imports these modules as '../components/ui/...'
- * but the test file is located in src/pages/__tests__.
- * To avoid path mismatch, we mock both relative paths.
+ * --- stub UI components (inline factories required by jest-hoist) ---
+ * The component imports '../components/ui/...'; this test lives in src/pages/__tests__.
+ * Mock both import paths to avoid path resolution mismatches.
  */
-const mockCardFactory = () => ({
+jest.mock('../components/ui/card', () => ({
   Card: ({ children }) => <div data-testid="card">{children}</div>,
   CardHeader: ({ children }) => <div>{children}</div>,
   CardTitle: ({ children }) => <h2>{children}</h2>,
   CardContent: ({ children }) => <div>{children}</div>,
-})
-const mockBadgeFactory = () => ({
+}))
+jest.mock('../components/ui/ProfileBadge', () => ({
   ProfileBadge: ({ children }) => <span data-testid="profile-badge">{children}</span>,
-})
+}))
+jest.mock('../../components/ui/card', () => ({
+  Card: ({ children }) => <div data-testid="card">{children}</div>,
+  CardHeader: ({ children }) => <div>{children}</div>,
+  CardTitle: ({ children }) => <h2>{children}</h2>,
+  CardContent: ({ children }) => <div>{children}</div>,
+}))
+jest.mock('../../components/ui/ProfileBadge', () => ({
+  ProfileBadge: ({ children }) => <span data-testid="profile-badge">{children}</span>,
+}))
 
-// Mock both possible import paths
-jest.mock('../components/ui/card', mockCardFactory)
-jest.mock('../components/ui/ProfileBadge', mockBadgeFactory)
-jest.mock('../../components/ui/card', mockCardFactory)
-jest.mock('../../components/ui/ProfileBadge', mockBadgeFactory)
-
-// Optional: stub lucide-react icons to avoid render noise
+// Optional: stub lucide-react icons with an inline factory as well
 jest.mock('lucide-react', () => new Proxy({}, {
   get: () => (props) => <svg role="img" aria-hidden="true" {...props} />
 }))
