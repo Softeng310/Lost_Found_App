@@ -1,5 +1,5 @@
 import { db } from './config';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 
 /**
  * Fetch user's posted items from Firestore
@@ -14,10 +14,14 @@ export async function getUserPosts(userId) {
     
     const posts = [];
     querySnapshot.forEach((doc) => {
-      posts.push({
-        id: doc.id,
-        ...doc.data()
-      });
+      const itemData = doc.data();
+      // Only include items that are not resolved (exclude closed posts)
+      if (itemData.status?.toLowerCase() !== 'resolved') {
+        posts.push({
+          id: doc.id,
+          ...itemData
+        });
+      }
     });
     
     return posts;
@@ -182,6 +186,26 @@ export async function getUserProfile(userId) {
     }
   } catch (error) {
     console.error('Error fetching user profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update item status (close/resolve item)
+ * @param {string} itemId - The item ID to update
+ * @param {string} newStatus - The new status ('resolved', 'closed', etc.)
+ * @returns {Promise<void>}
+ */
+export async function updateItemStatus(itemId, newStatus) {
+  try {
+    const itemRef = doc(db, 'items', itemId);
+    await updateDoc(itemRef, {
+      status: newStatus,
+      updatedAt: new Date()
+    });
+    console.log('Item status updated successfully:', itemId, newStatus);
+  } catch (error) {
+    console.error('Error updating item status:', error);
     throw error;
   }
 }

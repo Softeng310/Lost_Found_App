@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { getAuth, signOut } from "firebase/auth"
-import { LogOut } from "lucide-react"
-import { getUserPosts, getUserClaims, formatTimestamp } from "../firebase/firestore"
+import { LogOut, Trash2 } from "lucide-react"
+import { getUserPosts, getUserClaims, formatTimestamp, updateItemStatus } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
 
@@ -84,6 +84,37 @@ export default function ProfilePage() {
   
   const navigate = useNavigate()
 
+  // Handle closing/resolving a post
+  const handleClosePost = async (itemId, itemTitle) => {
+    if (window.confirm(`Are you sure you want to close "${itemTitle}"? This will mark it as resolved.`)) {
+      try {
+        // Immediately remove from UI for better UX
+        setMyPosts(prevPosts => prevPosts.filter(post => post.id !== itemId))
+        
+        // Update in Firebase
+        await updateItemStatus(itemId, 'resolved')
+        
+        // Show success message (optional)
+        console.log('Post closed successfully')
+      } catch (error) {
+        console.error('Error closing post:', error)
+        alert('Failed to close post. Please try again.')
+        
+        // If Firebase update failed, refresh the data to restore the item
+        try {
+          const [posts, claims] = await Promise.all([
+            getUserPosts(currentUser.uid),
+            getUserClaims(currentUser.uid)
+          ])
+          setMyPosts(posts)
+          setMyClaims(claims)
+        } catch (refreshError) {
+          console.error('Error refreshing data:', refreshError)
+        }
+      }
+    }
+  }
+
   // Handle user logout
   const handleLogout = async () => {
     try {
@@ -161,23 +192,26 @@ export default function ProfilePage() {
                     ) : (
                       myPosts.map((item) => {
                         const badge = getStatusBadge(item, true)
+                        const isResolved = item.status?.toLowerCase() === 'resolved'
                         
                         return (
                           <div 
                             key={item.id} 
-                            className="flex justify-between items-start p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 hover:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onClick={() => navigate(`/items/${item.id}`)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                navigate(`/items/${item.id}`)
-                              }
-                            }}
-                            tabIndex={0}
-                            role="button"
-                            aria-label={`View details for ${item.title || 'Untitled Item'}`}
+                            className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
                           >
-                            <div className="flex-1">
+                            <div 
+                              className="flex-1 cursor-pointer"
+                              onClick={() => navigate(`/items/${item.id}`)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  navigate(`/items/${item.id}`)
+                                }
+                              }}
+                              tabIndex={0}
+                              role="button"
+                              aria-label={`View details for ${item.title || 'Untitled Item'}`}
+                            >
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-medium text-gray-900">{item.title || 'Untitled Item'}</span>
                                 <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${badge.color}`}>
@@ -196,6 +230,21 @@ export default function ProfilePage() {
                                 )}
                               </div>
                             </div>
+                            
+                            {/* Close button - only show for non-resolved items */}
+                            {!isResolved && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation() // Prevent navigation when clicking close button
+                                  handleClosePost(item.id, item.title)
+                                }}
+                                className="ml-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Close this post"
+                                aria-label="Close post"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         )
                       })
