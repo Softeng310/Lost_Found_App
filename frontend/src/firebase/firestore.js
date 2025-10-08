@@ -216,17 +216,67 @@ export async function updateItemStatus(itemId, newStatus) {
  * @returns {string} Formatted date string
  */
 export function formatTimestamp(timestamp) {
-  if (!timestamp) return 'Unknown date';
+  console.log('formatTimestamp called with:', timestamp, typeof timestamp);
   
-  try {
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
+  // If no timestamp provided, return fallback
+  if (!timestamp) {
+    console.log('No timestamp provided, using fallback');
+    return new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short', 
       day: 'numeric'
     });
+  }
+  
+  try {
+    let date;
+    
+    // Handle Firestore Timestamp objects
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      console.log('Using Firestore toDate()');
+      date = timestamp.toDate();
+    }
+    // Handle Firebase Timestamp with seconds property
+    else if (timestamp.seconds) {
+      console.log('Using Firebase seconds:', timestamp.seconds);
+      date = new Date(timestamp.seconds * 1000);
+    }
+    // Handle milliseconds timestamp
+    else if (typeof timestamp === 'number') {
+      console.log('Using number timestamp:', timestamp);
+      date = new Date(timestamp);
+    }
+    // Handle regular Date objects or date strings
+    else {
+      console.log('Using regular Date constructor');
+      date = new Date(timestamp);
+    }
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid timestamp, using current date:', timestamp);
+      return new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short', 
+        day: 'numeric'
+      });
+    }
+    
+    const formatted = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short', 
+      day: 'numeric'
+    });
+    
+    console.log('Formatted timestamp:', formatted);
+    return formatted;
+    
   } catch (error) {
-    console.error('Error formatting timestamp:', error);
-    return 'Unknown date';
+    console.error('Error formatting timestamp, using current date:', error, timestamp);
+    return new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short', 
+      day: 'numeric'
+    });
   }
 }

@@ -34,6 +34,17 @@ export default function ProfilePage() {
         console.log('Fetched posts:', posts)
         console.log('Fetched claims:', claims)
         
+        // Debug timestamp fields
+        if (posts.length > 0) {
+          console.log('First post timestamp fields:', {
+            createdAt: posts[0].createdAt,
+            created_at: posts[0].created_at,
+            timestamp: posts[0].timestamp,
+            dateCreated: posts[0].dateCreated,
+            updatedAt: posts[0].updatedAt
+          });
+        }
+        
         setMyPosts(posts)
         setMyClaims(claims)
       } catch (err) {
@@ -224,7 +235,7 @@ export default function ProfilePage() {
                                 }>
                                   {item.status === 'lost' ? 'Lost Item' : 'Found Item'}
                                 </span>
-                                <span>{formatTimestamp(item.createdAt)}</span>
+                                <span>📅 {formatTimestamp(item.createdAt || item.created_at || item.timestamp || item.dateCreated)}</span>
                                 {item.location && (
                                   <span>📍 {item.location}</span>
                                 )}
@@ -295,7 +306,7 @@ export default function ProfilePage() {
                                 }>
                                   {item.status === 'lost' ? 'Lost Item' : 'Found Item'}
                                 </span>
-                                <span>{formatTimestamp(item.createdAt)}</span>
+                                <span>📅 {formatTimestamp(item.createdAt || item.created_at || item.timestamp || item.dateCreated)}</span>
                                 {item.location && (
                                   <span>📍 {item.location}</span>
                                 )}
