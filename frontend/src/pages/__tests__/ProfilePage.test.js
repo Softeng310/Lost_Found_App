@@ -20,12 +20,12 @@ jest.mock('react-router-dom', () => {
 })
 
 // --- mock firebase/auth ---
-const mockSignOut = jest.fn(() => Promise.resolve())
+const mockSignOut = jest.fn().mockResolvedValue()
 const mockAuthObj = { currentUser: { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' } }
 
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => mockAuthObj),
-  signOut: jest.fn(() => mockSignOut()),
+  signOut: mockSignOut,
 }))
 
 // --- mock firestore used by ProfilePage ---
@@ -56,7 +56,7 @@ jest.mock('../../components/ui/card', () => ({
   CardContent: ({ children }) => <div>{children}</div>,
 }))
 
-jest.mock('../components/ui/ProfileBadge', () => ({
+jest.mock('../../components/ui/ProfileBadge', () => ({
   ProfileBadge: ({ children }) => <span data-testid="profile-badge">{children}</span>,
 }))
 
