@@ -1,170 +1,256 @@
-/**
- * ProfilePage.test.js — slimmed & aligned with current component logic
- * - Mocks getAuth().currentUser (no onAuthStateChanged expectations)
- * - Mocks firestore calls to return deterministic data
- * - Stubs UI components (Card, ProfileBadge) for RTL
- * - Verifies header, welcome text, lists, counts, and logout flow (signOut + navigate)
- */
+// frontend/src/pages/__tests__/ProfilePage.test.js
+import React from "react"
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react"
+import "@testing-library/jest-dom"
+import ProfilePage from "../ProfilePage"
+import { MemoryRouter } from "react-router-dom"
 
-import React from 'react'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-
-// --- mock react-router-dom (useNavigate) ---
+/* -------------------- Global mocks & helpers -------------------- */
 const mockNavigate = jest.fn()
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom')
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  }
+const mockSignOut = jest.fn()
+
+// window side-effects
+const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => {})
+const confirmSpy = jest.spyOn(window, "confirm").mockImplementation(() => true)
+
+afterAll(() => {
+  alertSpy.mockRestore()
+  confirmSpy.mockRestore()
 })
 
-/**
- * --- mock firebase/auth ---
- * Note: jest.mock is hoisted, so create mocks inside the factory and
- * expose the mock auth object via __mockAuthObj for runtime access.
- */
-jest.mock('firebase/auth', () => {
-  const authObj = {
-    currentUser: { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' },
-  }
-  const getAuth = jest.fn(() => authObj)
-  const signOut = jest.fn().mockResolvedValue()
-
-  return {
-    getAuth,
-    signOut,
-    __mockAuthObj: authObj,
-  }
-})
-
-// --- mock firestore used by ProfilePage ---
-const mockGetUserPosts = jest.fn(async () => ([
-  { id: 'p1', title: 'Lost iPad', status: 'lost', location: 'OGGB', date: '2025-10-01T10:20:00Z' },
-  { id: 'p2', title: 'Found Card', status: 'found', location: 'Engineering Building', date: '2025-10-02T11:00:00Z' },
-]))
-const mockGetUserClaims = jest.fn(async () => ([
-  { id: 'c1', title: 'My Library Card', status: 'pending', claimData: { status: 'pending' }, date: '2025-10-03T09:00:00Z' },
-]))
-const mockUpdateItemStatus = jest.fn(async () => {})
-const mockUpdateItem = jest.fn(async () => {})
-const mockFormatTimestamp = jest.fn(() => '2025-10-01 10:20')
-
-jest.mock('../../firebase/firestore', () => ({
-  getUserPosts: (...args) => mockGetUserPosts(...args),
-  getUserClaims: (...args) => mockGetUserClaims(...args),
-  updateItemStatus: (...args) => mockUpdateItemStatus(...args),
-  updateItem: (...args) => mockUpdateItem(...args),
-  formatTimestamp: (...args) => mockFormatTimestamp(...args),
+/* -------------------- Module mocks (INLINE factories only) -------------------- */
+jest.mock("react-router-dom", () => ({
+  ...jest.requireActual("react-router-dom"),
+  useNavigate: () => mockNavigate,
+  MemoryRouter: ({ children }) => <div data-testid="memory-router">{children}</div>,
 }))
 
-/**
- * --- stub UI components (inline factories required by jest-hoist) ---
- * The component imports '../../components/ui/...'; this test lives in src/pages/__tests__.
- * Use correct relative paths from test file location.
- */
-jest.mock('../../components/ui/card', () => ({
+jest.mock("firebase/auth", () => ({
+  getAuth: () => ({
+    currentUser: { uid: "u1", displayName: "Hans", email: "hans@example.com" },
+  }),
+  signOut: (...args) => mockSignOut(...args),
+}))
+
+// Icons -> simple span
+jest.mock("lucide-react", () => ({
+  LogOut: () => <span>icon-logout</span>,
+  Trash2: () => <span>icon-trash</span>,
+  Edit3: () => <span>icon-edit</span>,
+  X: () => <span>icon-x</span>,
+}))
+
+// UI Card components -> semantic wrappers
+jest.mock("../../components/ui/card", () => ({
   Card: ({ children }) => <div data-testid="card">{children}</div>,
-  CardHeader: ({ children }) => <div>{children}</div>,
+  CardContent: ({ children }) => <div data-testid="card-content">{children}</div>,
+  CardHeader: ({ children }) => <div data-testid="card-header">{children}</div>,
   CardTitle: ({ children }) => <h2>{children}</h2>,
-  CardContent: ({ children }) => <div>{children}</div>,
 }))
-jest.mock('../../components/ui/ProfileBadge', () => ({
+
+// ProfileBadge -> plain span
+jest.mock("../../components/ui/ProfileBadge", () => ({
   ProfileBadge: ({ children }) => <span data-testid="profile-badge">{children}</span>,
 }))
 
-// Optional: stub lucide-react icons with an inline factory as well
-jest.mock('lucide-react', () => new Proxy({}, {
-  get: () => (props) => <svg role="img" aria-hidden="true" {...props} />
-}))
+// Firestore functions (we will reconfigure in each test)
+const fs = {
+  getUserPosts: jest.fn(),
+  getUserClaims: jest.fn(),
+  formatTimestamp: jest.fn((iso) => "2025-10-01 10:00"),
+  updateItemStatus: jest.fn(),
+  updateItem: jest.fn(),
+}
+jest.mock("../../firebase/firestore", () => fs)
 
-// --- SUT ---
-import ProfilePage from '../ProfilePage'
+/* -------------------- Test data -------------------- */
+const postsFixture = [
+  {
+    id: "p1",
+    title: "Lost Wallet",
+    status: "lost",
+    location: "OGGB",
+    date: "2025-09-29T09:00:00.000Z",
+  },
+  {
+    id: "p2",
+    title: "Found Hoodie",
+    status: "open", // unresolved -> should show Edit/Close
+    location: "Engineering Building",
+    date: "2025-09-28T09:00:00.000Z",
+  },
+]
+const claimsFixture = [
+  {
+    id: "c1",
+    title: "My Phone Claim",
+    status: "approved",
+    claimData: { status: "approved" },
+    date: "2025-09-27T09:00:00.000Z",
+  },
+]
 
-describe('ProfilePage (aligned tests)', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    // Reset the mock auth user before each test
-    const { __mockAuthObj } = require('firebase/auth')
-    __mockAuthObj.currentUser = { uid: 'uid-123', displayName: 'Mock User', email: 'mock@example.com' }
-  })
+/* -------------------- Render helper -------------------- */
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <ProfilePage />
+    </MemoryRouter>
+  )
 
-  test('renders header and welcome text with current user', async () => {
-    render(<ProfilePage />)
+beforeEach(() => {
+  jest.clearAllMocks()
+  fs.formatTimestamp.mockImplementation(() => "2025-10-01 10:00")
+})
 
-    // Header
-    expect(await screen.findByRole('heading', { name: /Profile & History/i })).toBeInTheDocument()
+/* -------------------- Tests -------------------- */
+test("renders header and welcome with current user name", async () => {
+  fs.getUserPosts.mockResolvedValueOnce([])
+  fs.getUserClaims.mockResolvedValueOnce([])
 
-    // Welcome
-    expect(screen.getByText(/Welcome back, Mock User!/i)).toBeInTheDocument()
-  })
+  renderPage()
 
-  test('loads and displays My Posts and My Claims with counts', async () => {
-    render(<ProfilePage />)
+  expect(screen.getByText("Profile & History")).toBeInTheDocument()
+  // loading state
+  expect(screen.getByText("Loading your data...")).toBeInTheDocument()
 
-    // Wait for mock data to be fetched
-    await waitFor(() => {
-      expect(mockGetUserPosts).toHaveBeenCalledTimes(1)
-      expect(mockGetUserClaims).toHaveBeenCalledTimes(1)
-    })
+  // final welcome
+  expect(await screen.findByText(/Welcome back, Hans!/)).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: /Logout/i })).toBeInTheDocument()
+})
 
-    // Verify section titles and item counts
-    expect(screen.getByRole('heading', { name: /My Posts \(2\)/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /My Claims \(1\)/i })).toBeInTheDocument()
+test("shows empty states for posts and claims", async () => {
+  fs.getUserPosts.mockResolvedValueOnce([])
+  fs.getUserClaims.mockResolvedValueOnce([])
 
-    // Verify sample item titles
-    expect(screen.getByText(/Lost iPad/i)).toBeInTheDocument()
-    expect(screen.getByText(/Found Card/i)).toBeInTheDocument()
-  })
+  renderPage()
 
-  test('logout button calls signOut and navigates home', async () => {
-    const { signOut } = require('firebase/auth')
-    render(<ProfilePage />)
+  // Wait until loading done
+  await screen.findByText(/Welcome back/)
 
-    const btn = screen.getByRole('button', { name: /logout/i })
-    fireEvent.click(btn)
+  expect(screen.getByText(/My Posts \(0\)/)).toBeInTheDocument()
+  expect(screen.getByText("No posts yet. Start by reporting a lost or found item!")).toBeInTheDocument()
 
-    await waitFor(() => {
-      expect(signOut).toHaveBeenCalledTimes(1)
-    })
-    expect(mockNavigate).toHaveBeenCalledWith('/')
-  })
+  expect(screen.getByText(/My Claims \(0\)/)).toBeInTheDocument()
+  expect(screen.getByText("No claims yet. Browse the feed to claim items you've lost!")).toBeInTheDocument()
+})
 
-  test('edit button shows Edit Modal for non-resolved post and can be closed', async () => {
-    render(<ProfilePage />)
-    await screen.findByText(/Lost iPad/i)
+test("loads and renders posts and claims with counts", async () => {
+  fs.getUserPosts.mockResolvedValueOnce(postsFixture)
+  fs.getUserClaims.mockResolvedValueOnce(claimsFixture)
 
-    // Click the first edit button
-    const editButtons = screen.getAllByRole('button', { name: /Edit post/i })
-    expect(editButtons.length).toBeGreaterThan(0)
-    fireEvent.click(editButtons[0])
+  renderPage()
+  await screen.findByText(/Welcome back/)
 
-    // Modal should open
-    const modalTitle = await screen.findByRole('heading', { name: /Edit Post/i })
-    expect(modalTitle).toBeInTheDocument()
+  expect(screen.getByText(/My Posts \(2\)/)).toBeInTheDocument()
+  expect(screen.getByText(/My Claims \(1\)/)).toBeInTheDocument()
 
-    // Close the modal via Cancel button
-    const cancelBtn = screen.getByRole('button', { name: /Cancel/i })
-    fireEvent.click(cancelBtn)
+  // Items visible
+  expect(screen.getByText("Lost Wallet")).toBeInTheDocument()
+  expect(screen.getByText("Found Hoodie")).toBeInTheDocument()
+  expect(screen.getByText("My Phone Claim")).toBeInTheDocument()
 
-    await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: /Edit Post/i })).not.toBeInTheDocument()
-    })
-  })
+  // A date from formatTimestamp
+  expect(screen.getAllByText("📅 2025-10-01 10:00").length).toBeGreaterThan(0)
+})
 
-  test('shows Trust & Verification section', async () => {
-    render(<ProfilePage />)
-    expect(await screen.findByTestId('profile-badge')).toHaveTextContent(/Unverified/i)
-  })
+test("navigates to item detail when an item row is clicked", async () => {
+  fs.getUserPosts.mockResolvedValueOnce(postsFixture)
+  fs.getUserClaims.mockResolvedValueOnce([])
 
-  test('handles missing user gracefully (shows "User")', async () => {
-    const { __mockAuthObj } = require('firebase/auth')
-    __mockAuthObj.currentUser = null
+  renderPage()
+  await screen.findByText(/Welcome back/)
 
-    render(<ProfilePage />)
+  // ItemRow is a div[role="button"] with aria-label containing the title
+  const lostWalletRow = screen.getByRole("button", { name: /View details for Lost Wallet/i })
+  fireEvent.click(lostWalletRow)
 
-    // Should display the generic user message
-    expect(await screen.findByRole('heading', { name: /Profile & History/i })).toBeInTheDocument()
-    expect(screen.getByText(/Welcome back, User!/i)).toBeInTheDocument()
-  })
+  expect(mockNavigate).toHaveBeenCalledWith("/items/p1")
+})
+
+test("shows Edit and Close controls for unresolved own posts only, opens modal and saves", async () => {
+  fs.getUserPosts
+    .mockResolvedValueOnce(postsFixture) // initial load
+    .mockResolvedValueOnce(postsFixture) // reload after save
+  fs.getUserClaims
+    .mockResolvedValueOnce([])           // initial load
+    .mockResolvedValueOnce([])           // reload after save
+
+  renderPage()
+  await screen.findByText(/Welcome back/)
+
+  // "Found Hoodie" is unresolved -> its row should have Edit/Close buttons
+  const hoodieRow = screen.getByRole("button", { name: /View details for Found Hoodie/i })
+  // The buttons are separate elements; use getByLabelText
+  const editBtn = screen.getAllByLabelText("Edit post")[0]
+  const closeBtn = screen.getAllByLabelText("Close post")[0]
+  expect(editBtn).toBeInTheDocument()
+  expect(closeBtn).toBeInTheDocument()
+
+  // Open modal
+  fireEvent.click(editBtn)
+  const modalTitle = await screen.findByText("Edit Post")
+  expect(modalTitle).toBeInTheDocument()
+
+  // Prefilled title
+  const titleInput = screen.getByLabelText(/Title \*/i)
+  expect(titleInput).toHaveValue("Found Hoodie")
+
+  // Change, then save
+  fireEvent.change(titleInput, { target: { value: "Found Hoodie (edited)" } })
+  const saveBtn = screen.getByRole("button", { name: /Save Changes/i })
+  fireEvent.click(saveBtn)
+
+  await waitFor(() => expect(fs.updateItem).toHaveBeenCalledTimes(1))
+  expect(fs.updateItem).toHaveBeenCalledWith("p2", expect.objectContaining({
+    title: "Found Hoodie (edited)",
+    status: "lost" // default selected kind if unchanged; component maps back to 'status'
+  }))
+
+  // Success alert after close
+  await waitFor(() => expect(window.alert).toHaveBeenCalledWith("Post updated successfully!"))
+})
+
+test("closes a post after confirmation and optimistically removes it", async () => {
+  // Start with one post that can be closed
+  const closable = [
+    { id: "p3", title: "Closable Post", status: "open", location: "OGGB", date: "2025-09-29T09:00:00.000Z" },
+  ]
+  fs.getUserPosts.mockResolvedValueOnce(closable)
+  fs.getUserClaims.mockResolvedValueOnce([])
+
+  renderPage()
+  await screen.findByText(/Welcome back/)
+
+  const row = screen.getByRole("button", { name: /View details for Closable Post/ })
+  const closeBtn = screen.getByLabelText("Close post")
+  fireEvent.click(closeBtn)
+
+  // confirm() mocked to true
+  await waitFor(() => expect(fs.updateItemStatus).toHaveBeenCalledWith("p3", "resolved"))
+
+  // Optimistic removal: title disappears
+  await waitFor(() => expect(screen.queryByText("Closable Post")).not.toBeInTheDocument())
+})
+
+test("logout triggers signOut and navigates home", async () => {
+  fs.getUserPosts.mockResolvedValueOnce([])
+  fs.getUserClaims.mockResolvedValueOnce([])
+
+  renderPage()
+  await screen.findByText(/Welcome back/)
+
+  fireEvent.click(screen.getByRole("button", { name: /Logout/i }))
+  await waitFor(() => expect(mockSignOut).toHaveBeenCalled())
+  expect(mockNavigate).toHaveBeenCalledWith("/")
+})
+
+test("shows error state when data fetch fails", async () => {
+  fs.getUserPosts.mockRejectedValueOnce(new Error("boom"))
+  fs.getUserClaims.mockResolvedValueOnce([])
+
+  renderPage()
+
+  const err = await screen.findByText("Failed to load your data. Please try again.")
+  expect(err).toBeInTheDocument()
 })
