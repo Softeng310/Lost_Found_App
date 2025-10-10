@@ -1,0 +1,28 @@
+name: Other
+description: Other issues that are not bugs or feature requests (e.g minor tweaks, code refactoring, documentation updates)
+title: "[Input issue type here]: "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for issues that don't fit into the Bug Report or Feature Request categories, such as minor tweaks, code refactoring, or documentation updates.
+        Please provide as much detail as possible to help us understand your request.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Issue Summary
+      description: What is the issue you'd like to raise?
+      placeholder: e.g. Code refactoring for better readability
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the issue in detail.
+      placeholder: A detailed explanation of the issue being raised.
+    validations:
+      required: true
