@@ -33,7 +33,7 @@ const MessagesPage = () => {
   const messagesEndRef = useRef(null);
 
   // Helper: fetch item document by id (returns null if not found)
-  const fetchItemData = async (itemId) => {
+  const fetchItemData = useCallback(async (itemId) => {
     if (!itemId) return null;
     try {
       const itemDoc = await getDoc(doc(db, 'items', itemId));
@@ -42,10 +42,10 @@ const MessagesPage = () => {
       console.error('Error fetching item:', error);
       return null;
     }
-  };
+  }, []);
 
   // Helper: fetch user display name by uid (returns fallback if not found)
-  const fetchUserNameById = async (uid) => {
+  const fetchUserNameById = useCallback(async (uid) => {
     if (!uid) return 'Unknown User';
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
@@ -56,10 +56,10 @@ const MessagesPage = () => {
       console.error('Error fetching user:', error);
       return 'Unknown User';
     }
-  };
+  }, []);
 
   // Helper: enrich a list of conversation docs with item data and participant name
-  const enrichConversations = async (docs, userUid) => {
+  const enrichConversations = useCallback(async (docs, userUid) => {
     const promises = docs.map(async (docSnapshot) => {
       const conversationData = docSnapshot.data();
       const [itemData, otherParticipantName] = await Promise.all([
@@ -76,7 +76,7 @@ const MessagesPage = () => {
     });
 
     return Promise.all(promises);
-  };
+  }, [fetchItemData, fetchUserNameById]);
 
   // Check authentication status
   useEffect(() => {
@@ -123,7 +123,7 @@ const MessagesPage = () => {
     });
 
     return () => unsubscribe();
-  }, [user, searchParams]);
+  }, [user, searchParams, enrichConversations]);
 
   // Load messages for selected conversation
   useEffect(() => {
