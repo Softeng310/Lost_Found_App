@@ -4,8 +4,7 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { 
   collection, 
   query, 
-  where, 
-  orderBy, 
+  where,
   onSnapshot, 
   addDoc, 
   updateDoc, 
@@ -16,7 +15,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { ArrowLeft, Send, X, Check } from '../components/ui/icons';
+import { ArrowLeft, Send, Check } from '../components/ui/icons';
 import { Button } from '../components/ui/button';
 import { cardStyles } from '../lib/utils';
 
@@ -32,6 +31,52 @@ const MessagesPage = () => {
   const navigate = useNavigate();
   const auth = getAuth();
   const messagesEndRef = useRef(null);
+
+  // Helper: fetch item document by id (returns null if not found)
+  const fetchItemData = async (itemId) => {
+    if (!itemId) return null;
+    try {
+      const itemDoc = await getDoc(doc(db, 'items', itemId));
+      return itemDoc.exists() ? { id: itemDoc.id, ...itemDoc.data() } : null;
+    } catch (error) {
+      console.error('Error fetching item:', error);
+      return null;
+    }
+  };
+
+  // Helper: fetch user display name by uid (returns fallback if not found)
+  const fetchUserNameById = async (uid) => {
+    if (!uid) return 'Unknown User';
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (!userDoc.exists()) return 'Unknown User';
+      const userData = userDoc.data();
+      return userData.displayName || userData.name || userData.email || 'Unknown User';
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      return 'Unknown User';
+    }
+  };
+
+  // Helper: enrich a list of conversation docs with item data and participant name
+  const enrichConversations = async (docs, userUid) => {
+    const promises = docs.map(async (docSnapshot) => {
+      const conversationData = docSnapshot.data();
+      const [itemData, otherParticipantName] = await Promise.all([
+        fetchItemData(conversationData.itemId),
+        fetchUserNameById(conversationData.participants.find(id => id !== userUid))
+      ]);
+
+      return {
+        id: docSnapshot.id,
+        ...conversationData,
+        item: itemData,
+        otherParticipantName
+      };
+    });
+
+    return Promise.all(promises);
+  };
 
   // Check authentication status
   useEffect(() => {
@@ -51,70 +96,29 @@ const MessagesPage = () => {
     if (!user) return;
 
     const conversationsRef = collection(db, 'conversations');
-    const q = query(
-      conversationsRef,
-      where('participants', 'array-contains', user.uid)
-    );
+    const q = query(conversationsRef, where('participants', 'array-contains', user.uid));
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const conversationsList = [];
-      
-      for (const docSnapshot of snapshot.docs) {
-        const conversationData = docSnapshot.data();
-        
-        // Get item details
-        let itemData = null;
-        if (conversationData.itemId) {
-          try {
-            const itemDoc = await getDoc(doc(db, 'items', conversationData.itemId));
-            if (itemDoc.exists()) {
-              itemData = { id: itemDoc.id, ...itemDoc.data() };
-            }
-          } catch (error) {
-            console.error('Error fetching item:', error);
-          }
-        }
+      try {
+        const enriched = await enrichConversations(snapshot.docs, user.uid);
 
-        // Get other participant's name
-        const otherParticipantId = conversationData.participants.find(id => id !== user.uid);
-        let otherParticipantName = 'Unknown User';
-        
-        if (otherParticipantId) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', otherParticipantId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              otherParticipantName = userData.displayName || userData.name || userData.email || 'Unknown User';
-            }
-          } catch (error) {
-            console.error('Error fetching user:', error);
-          }
-        }
-
-        conversationsList.push({
-          id: docSnapshot.id,
-          ...conversationData,
-          item: itemData,
-          otherParticipantName
+        // Sort conversations by lastMessageTime (handle missing timestamps)
+        enriched.sort((a, b) => {
+          const aTime = a.lastMessageTime?.seconds || a.createdAt?.seconds || 0;
+          const bTime = b.lastMessageTime?.seconds || b.createdAt?.seconds || 0;
+          return bTime - aTime;
         });
-      }
-      
-      // Sort conversations by lastMessageTime (handle missing timestamps)
-      conversationsList.sort((a, b) => {
-        const aTime = a.lastMessageTime?.seconds || a.createdAt?.seconds || 0;
-        const bTime = b.lastMessageTime?.seconds || b.createdAt?.seconds || 0;
-        return bTime - aTime; // Most recent first
-      });
-      
-      setConversations(conversationsList);
-      
-      // Auto-select conversation if itemId is in URL params
-      const itemId = searchParams.get('item');
-      if (itemId && conversationsList.length > 0) {
-        const conversation = conversationsList.find(c => c.itemId === itemId);
-        if (conversation) {
-          setSelectedConversation(conversation);
+
+        setConversations(enriched);
+
+        // Auto-select conversation if itemId is in URL params
+        const itemId = searchParams.get('item');
+        if (itemId && enriched.length > 0) {
+          const conversation = enriched.find(c => c.itemId === itemId);
+          if (conversation) setSelectedConversation(conversation);
         }
+      } catch (error) {
+        console.error('Error processing conversations:', error);
       }
     });
 
@@ -273,11 +277,14 @@ const MessagesPage = () => {
               </div>
             ) : (
               conversations.map((conversation) => (
-                <div
+                <button
                   key={conversation.id}
-                  className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
+                  type="button"
+                  aria-label={`Conversation about ${conversation.item?.title || 'Deleted Item'} with ${conversation.otherParticipantName}`}
+                  aria-current={selectedConversation?.id === conversation.id ? 'true' : undefined}
+                  className={`w-full text-left p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
                     selectedConversation?.id === conversation.id ? 'bg-emerald-50 border-emerald-200' : ''
-                  }`}
+                  } focus:outline-none`}
                   onClick={() => setSelectedConversation(conversation)}
                 >
                   <div className="flex items-start gap-3">
@@ -307,7 +314,7 @@ const MessagesPage = () => {
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -391,7 +398,12 @@ const MessagesPage = () => {
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
                     placeholder="Type a message..."
                     className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     disabled={sendingMessage}

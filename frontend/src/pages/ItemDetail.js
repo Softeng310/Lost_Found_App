@@ -53,7 +53,7 @@ const ItemDetailPage = () => {
       setItem(normalizedItem);
 
       // Fetch user information from the postedBy reference
-      if (data.postedBy && data.postedBy.path) {
+      if (data.postedBy?.path) {
         try {
           const userDoc = await getDoc(doc(db, data.postedBy.path));
           if (userDoc.exists()) {

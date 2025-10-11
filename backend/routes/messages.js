@@ -5,6 +5,67 @@ const authenticate = require('../middleware/auth');
 
 const db = admin.firestore();
 
+// Helper: fetch item data by id (returns null if missing)
+const getItemData = async (itemId) => {
+  if (!itemId) return null;
+  try {
+    const itemDoc = await db.collection('items').doc(itemId).get();
+    if (!itemDoc.exists) return null;
+    return { id: itemDoc.id, ...itemDoc.data() };
+  } catch (error) {
+    console.error('Error fetching item:', error);
+    return null;
+  }
+};
+
+// Helper: fetch user display/name/email fallback
+const getUserDisplayName = async (uid) => {
+  if (!uid) return 'Unknown User';
+  try {
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (!userDoc.exists) return 'Unknown User';
+    const userData = userDoc.data();
+    return userData.displayName || userData.name || userData.email || 'Unknown User';
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    return 'Unknown User';
+  }
+};
+
+// Helper: collect item IDs that were found before the cutoff timestamp
+const collectItemIdsToCleanup = (foundItemsSnapshot, cutoffTimestamp) => {
+  const itemIds = [];
+  foundItemsSnapshot.forEach(doc => {
+    const data = doc.data();
+    const foundDate = data.foundDate;
+    if (foundDate && foundDate.seconds && foundDate.seconds <= cutoffTimestamp.seconds) {
+      itemIds.push(doc.id);
+    }
+  });
+  return itemIds;
+};
+
+// Helper: add deletions for conversations and messages related to the given item IDs to the provided batch
+const addDeletionsForItemIds = async (itemIds, batch) => {
+  for (const itemId of itemIds) {
+    const conversationsQuery = db.collection('conversations').where('itemId', '==', itemId);
+    const conversationsSnapshot = await conversationsQuery.get();
+
+    for (const conversationDoc of conversationsSnapshot.docs) {
+      // Delete messages for this conversation
+      const messagesQuery = db.collection('messages').where('conversationId', '==', conversationDoc.id);
+      const messagesSnapshot = await messagesQuery.get();
+
+      messagesSnapshot.forEach(messageDoc => {
+        batch.delete(messageDoc.ref);
+      });
+
+      // Delete the conversation
+      batch.delete(conversationDoc.ref);
+    }
+  }
+};
+
 // Auto-cleanup function to delete conversations for items marked as found 24 hours ago
 const autoCleanupFoundItems = async () => {
   try {
@@ -12,55 +73,21 @@ const autoCleanupFoundItems = async () => {
       new Date(Date.now() - 24 * 60 * 60 * 1000)
     );
 
-    // First, find items that are marked as found (without the compound query)
+    // Find items marked as found
     const foundItemsQuery = db.collection('items').where('status', '==', 'found');
     const foundItemsSnapshot = await foundItemsQuery.get();
-    
-    if (foundItemsSnapshot.empty) {
-      return;
-    }
+
+    if (foundItemsSnapshot.empty) return;
+
+    // Collect items older than cutoff
+    const itemIds = collectItemIdsToCleanup(foundItemsSnapshot, twentyFourHoursAgo);
+    if (itemIds.length === 0) return;
 
     const batch = db.batch();
-    const itemIds = [];
-
-    // Filter items that were found 5+ minutes ago
-    foundItemsSnapshot.forEach(doc => {
-      const data = doc.data();
-      const foundDate = data.foundDate;
-      
-      // Check if foundDate exists and is older than 24 hours
-      if (foundDate && foundDate.seconds && foundDate.seconds <= twentyFourHoursAgo.seconds) {
-        itemIds.push(doc.id);
-      }
-    });
-
-    if (itemIds.length === 0) {
-      return;
-    }
-
-    // Find conversations for these items and delete them
-    for (const itemId of itemIds) {
-      const conversationsQuery = db.collection('conversations').where('itemId', '==', itemId);
-      const conversationsSnapshot = await conversationsQuery.get();
-      
-      for (const conversationDoc of conversationsSnapshot.docs) {
-        // Delete messages for this conversation
-        const messagesQuery = db.collection('messages').where('conversationId', '==', conversationDoc.id);
-        const messagesSnapshot = await messagesQuery.get();
-        
-        messagesSnapshot.forEach(messageDoc => {
-          batch.delete(messageDoc.ref);
-        });
-        
-        // Delete the conversation
-        batch.delete(conversationDoc.ref);
-      }
-    }
+    await addDeletionsForItemIds(itemIds, batch);
 
     await batch.commit();
-    if (itemIds.length > 0) {
-      console.log(`Cleaned up ${itemIds.length} conversation(s) for items found 24+ hours ago`);
-    }
+    console.log(`Cleaned up ${itemIds.length} conversation(s) for items found 24+ hours ago`);
   } catch (error) {
     console.error('Error in auto cleanup:', error);
   }
@@ -80,36 +107,12 @@ router.get('/conversations', authenticate, async (req, res) => {
     
     for (const doc of snapshot.docs) {
       const conversationData = doc.data();
-      
-      // Get item details
-      let itemData = null;
-      if (conversationData.itemId) {
-        try {
-          const itemDoc = await db.collection('items').doc(conversationData.itemId).get();
-          if (itemDoc.exists) {
-            itemData = { id: itemDoc.id, ...itemDoc.data() };
-          }
-        } catch (error) {
-          console.error('Error fetching item:', error);
-        }
-      }
-      
-      // Get other participant's info
+
+      // Fetch related item and other participant's display name using helpers
+      const itemData = conversationData.itemId ? await getItemData(conversationData.itemId) : null;
       const otherParticipantId = conversationData.participants.find(id => id !== userId);
-      let otherParticipantName = 'Unknown User';
-      
-      if (otherParticipantId) {
-        try {
-          const userDoc = await db.collection('users').doc(otherParticipantId).get();
-          if (userDoc.exists) {
-            const userData = userDoc.data();
-            otherParticipantName = userData.displayName || userData.name || userData.email || 'Unknown User';
-          }
-        } catch (error) {
-          console.error('Error fetching user:', error);
-        }
-      }
-      
+      const otherParticipantName = otherParticipantId ? await getUserDisplayName(otherParticipantId) : 'Unknown User';
+
       conversations.push({
         id: doc.id,
         ...conversationData,
