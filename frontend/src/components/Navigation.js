@@ -119,6 +119,12 @@ export default function Navigation() {
           {/* User-specific actions */}
           {user ? (
             <>
+              {/* Messages button for logged-in users */}
+              <NavLink
+                href="/messages"
+                label="Messages"
+              />
+              
               {/* Profile button for logged-in users */}
               <Button
                 onClick={handleProfileClick}

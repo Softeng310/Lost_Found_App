@@ -12,6 +12,7 @@ import SignUpPage from './pages/SignUp';
 import AnnouncementsPage from './pages/Announcements';
 import AddAnnouncementPage from './pages/AddAnnouncement';
 import EditAnnouncementPage from './pages/EditAnnouncement';
+import MessagesPage from './pages/Messages';
 
 // Route configuration for better maintainability
 const ROUTES = [
@@ -22,6 +23,7 @@ const ROUTES = [
   { path: '/login', element: LoginPage },
   { path: '/signup', element: SignUpPage },
   { path: '/items/new', element: ReportPage },
+  { path: '/messages', element: MessagesPage },
   { path: '/announcements', element: AnnouncementsPage },
   { path: '/announcements/add', element: AddAnnouncementPage },
   { path: '/announcements/edit/:id', element: EditAnnouncementPage }

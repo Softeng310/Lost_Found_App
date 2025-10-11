@@ -107,6 +107,7 @@ app.locals.storage = admin.storage();
 
 // API Routes - organize by feature
 app.use('/api/items', require('./routes/items'));
+app.use('/api/messages', require('./routes/messages'));
 
 // 404 handler - catch any routes that don't exist
 app.use('*', (req, res) => {
