@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
-import { ArrowLeft, ShieldCheck } from '../components/ui/icons';
+import { ArrowLeft, ShieldCheck, MapPin } from '../components/ui/icons';
 import { db } from '../firebase/config';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { normalizeFirestoreItem, buttonStyles, cardStyles } from '../lib/utils';
+import MapDisplay from '../components/map/MapDisplay';
+import MapModal from '../components/map/MapModal';
 
 const ItemDetailPage = () => {
   const params = useParams();
   const navigate = useNavigate();
   const [item, setItem] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
   useEffect(() => {
     const itemId = String(params?.id || '');
@@ -25,6 +28,8 @@ const ItemDetailPage = () => {
       }
 
       const normalizedItem = normalizeFirestoreItem(data, snapshot.id);
+      console.log('Raw Firestore data:', data);
+      console.log('Normalized item:', normalizedItem);
       setItem(normalizedItem);
 
       // Fetch user information from the postedBy reference
@@ -67,6 +72,9 @@ const ItemDetailPage = () => {
     );
   }
 
+  // Check if item has coordinates
+  const hasCoordinates = item?.coordinates?.latitude && item?.coordinates?.longitude;
+
   return (
     <div className="container mx-auto px-4 py-6 grid lg:grid-cols-[1fr_360px] gap-6">
       <section className="space-y-4">
@@ -104,7 +112,8 @@ const ItemDetailPage = () => {
             <h1 className="text-2xl font-semibold">{item.title}</h1>
             <p className="text-muted-foreground mt-2">{item.description}</p>
             <div className="mt-4 text-sm">
-              <p>
+              <p className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
                 <span className="font-medium">Location:</span>
                 {` ${item.location}`}
               </p>
@@ -125,6 +134,64 @@ const ItemDetailPage = () => {
                 Message
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Map Section - Full width below the main content */}
+        <div className={cardStyles.base}>
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-emerald-600" />
+                Item Location
+              </h3>
+              {hasCoordinates && (
+                <button
+                  onClick={() => setIsMapModalOpen(true)}
+                  className="text-sm text-emerald-600 hover:text-emerald-700 font-medium underline"
+                >
+                  View Full Map
+                </button>
+              )}
+            </div>
+            
+            {hasCoordinates ? (
+              <>
+                <p className="text-sm text-gray-600 mb-3">
+                  {item.location} • Lat: {item.coordinates.latitude.toFixed(4)}, Lng: {item.coordinates.longitude.toFixed(4)}
+                </p>
+                <button 
+                  className="w-full cursor-pointer border-0 p-0 bg-transparent" 
+                  onClick={() => setIsMapModalOpen(true)}
+                  type="button"
+                  aria-label="Open full screen map"
+                >
+                  <MapDisplay
+                    latitude={item.coordinates.latitude}
+                    longitude={item.coordinates.longitude}
+                    locationName={item.location}
+                    height="250px"
+                    zoom={15}
+                  />
+                </button>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Click map to view in full screen
+                </p>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-400 mb-2">
+                  <MapPin className="h-12 w-12 mx-auto" />
+                </div>
+                <p className="text-gray-600 mb-2">Location coordinates not available</p>
+                <p className="text-sm text-gray-500">
+                  This item was reported before map functionality was added.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Location: <strong>{item.location}</strong>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -149,6 +216,18 @@ const ItemDetailPage = () => {
           </div>
         </div>
       </aside>
+
+      {/* Map Modal for full-screen view */}
+      {hasCoordinates && (
+        <MapModal
+          isOpen={isMapModalOpen}
+          onClose={() => setIsMapModalOpen(false)}
+          latitude={item.coordinates.latitude}
+          longitude={item.coordinates.longitude}
+          locationName={item.location}
+          title={`${item.title} - Location`}
+        />
+      )}
     </div>
   );
 };
