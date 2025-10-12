@@ -43,6 +43,9 @@ export const normalizeFirestoreItem = (data, id) => {
     
     // Use provided location or fallback
     const location = data.location || DEFAULT_LOCATION;
+    
+    // Preserve coordinates if they exist
+    const coordinates = data.coordinates || null;
 
     return {
       id: id || data.id || '',
@@ -53,6 +56,7 @@ export const normalizeFirestoreItem = (data, id) => {
       imageUrl,
       date,
       location,
+      coordinates,
       reporter,
     };
   } catch (error) {
@@ -67,6 +71,7 @@ export const normalizeFirestoreItem = (data, id) => {
       imageUrl: DEFAULT_IMAGE_URL,
       date: new Date().toISOString(),
       location: DEFAULT_LOCATION,
+      coordinates: null,
       reporter: DEFAULT_REPORTER,
     };
   }
