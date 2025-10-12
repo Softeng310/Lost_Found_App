@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from "../firebase/config";
 import { getIdToken } from "firebase/auth";
+import MapPicker from './map/MapPicker';
 
 // Constants for better maintainability
 const ITEM_CATEGORIES = [
@@ -37,7 +38,8 @@ const INITIAL_ITEM_STATE = {
   location: '',
   date: '',
   status: 'lost',
-  image: null
+  image: null,
+  coordinates: null
 };
 
 const INITIAL_ERRORS_STATE = {};
@@ -99,6 +101,15 @@ const ItemReportForm = () => {
     }
   }, [preview, errors]);
 
+  const handleLocationSelect = useCallback((coordinates) => {
+    setItem(prev => ({ ...prev, coordinates }));
+    
+    // Clear coordinates error if present
+    if (errors.coordinates) {
+      setErrors(prev => ({ ...prev, coordinates: '' }));
+    }
+  }, [errors]);
+
   const validateForm = useCallback(() => {
     const newErrors = {};
     
@@ -136,6 +147,10 @@ const ItemReportForm = () => {
       newErrors.image = 'Please upload an image';
     }
     
+    if (!item.coordinates) {
+      newErrors.coordinates = 'Please select a location on the map';
+    }
+    
     return newErrors;
   }, [item]);
 
@@ -171,7 +186,13 @@ const ItemReportForm = () => {
       // Append form data
       Object.keys(item).forEach(key => {
         if (item[key] !== null) {
-          formData.append(key, item[key]);
+          // Handle coordinates separately as JSON
+          if (key === 'coordinates') {
+            formData.append('latitude', item.coordinates.latitude);
+            formData.append('longitude', item.coordinates.longitude);
+          } else {
+            formData.append(key, item[key]);
+          }
         }
       });
 
@@ -263,95 +284,106 @@ const ItemReportForm = () => {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-lg grid grid-cols-1 md:grid-cols-2 gap-8"
+        className="bg-white p-8 rounded-lg shadow-lg"
       >
-        {/* Left Column */}
-        <div className="space-y-6">
-          {renderSelectField('status', 'Type', [
-            { value: 'lost', label: 'Lost' },
-            { value: 'found', label: 'Found' }
-          ])}
-          
-          {renderSelectField('type', 'Category', ITEM_CATEGORIES)}
-          {renderSelectField('location', 'Location', LOCATIONS)}
-          
-          <div>
-            <label className="block font-semibold mb-2">Date & Time</label>
-            <input
-              type="datetime-local"
-              name="date"
-              value={item.date}
-              onChange={handleChange}
-              className={`w-full border rounded-lg px-3 py-2 transition-colors ${
-                errors.date ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
-              } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
-            />
-            {renderFieldError('date')}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column */}
+          <div className="space-y-6">
+            {renderSelectField('status', 'Type', [
+              { value: 'lost', label: 'Lost' },
+              { value: 'found', label: 'Found' }
+            ])}
+            
+            {renderSelectField('type', 'Category', ITEM_CATEGORIES)}
+            {renderSelectField('location', 'Location', LOCATIONS)}
+            
+            <div>
+              <label className="block font-semibold mb-2">Date & Time</label>
+              <input
+                type="datetime-local"
+                name="date"
+                value={item.date}
+                onChange={handleChange}
+                className={`w-full border rounded-lg px-3 py-2 transition-colors ${
+                  errors.date ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
+                } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+              />
+              {renderFieldError('date')}
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Image Preview */}
+            <div>
+              <label className="block font-semibold mb-2">Photo</label>
+              <div className="aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden hover:border-emerald-400 transition-colors">
+                {preview ? (
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="object-cover w-full h-full rounded-lg"
+                  />
+                ) : (
+                  <div className="text-center text-gray-500">
+                    <div className="text-4xl mb-2">📷</div>
+                    <div className="text-sm">Click to upload image</div>
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="mt-2 w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-colors"
+              />
+              {renderFieldError('image')}
+            </div>
+
+            {renderInputField('title', 'Title', 'text', 'e.g., Black iPhone 13 with green case')}
+            
+            <div>
+              <label className="block font-semibold mb-2">Description</label>
+              <textarea
+                name="description"
+                value={item.description}
+                onChange={handleChange}
+                placeholder="Add unique identifiers and more details about the item..."
+                rows={4}
+                className={`w-full border rounded-lg px-3 py-2 transition-colors resize-none ${
+                  errors.description ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
+                } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+              />
+              {renderFieldError('description')}
+            </div>
           </div>
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Image Preview */}
-          <div>
-            <label className="block font-semibold mb-2">Photo</label>
-            <div className="aspect-square bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden hover:border-emerald-400 transition-colors">
-              {preview ? (
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="object-cover w-full h-full rounded-lg"
-                />
-              ) : (
-                <div className="text-center text-gray-500">
-                  <div className="text-4xl mb-2">📷</div>
-                  <div className="text-sm">Click to upload image</div>
-                </div>
-              )}
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="mt-2 w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition-colors"
-            />
-            {renderFieldError('image')}
-          </div>
+        {/* Map Section - Full Width */}
+        <div className="mt-8">
+          <MapPicker 
+            onLocationSelect={handleLocationSelect}
+            initialPosition={item.coordinates ? [item.coordinates.latitude, item.coordinates.longitude] : null}
+          />
+          {renderFieldError('coordinates')}
+        </div>
 
-          {renderInputField('title', 'Title', 'text', 'e.g., Black iPhone 13 with green case')}
-          
-          <div>
-            <label className="block font-semibold mb-2">Description</label>
-            <textarea
-              name="description"
-              value={item.description}
-              onChange={handleChange}
-              placeholder="Add unique identifiers and more details about the item..."
-              rows={4}
-              className={`w-full border rounded-lg px-3 py-2 transition-colors resize-none ${
-                errors.description ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-emerald-500'
-              } focus:outline-none focus:ring-1 focus:ring-emerald-500`}
-            />
-            {renderFieldError('description')}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-4 pt-4">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-            >
-              Reset
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {loading ? 'Submitting...' : 'Submit'}
-            </button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-4 pt-6 mt-6 border-t">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+          >
+            Reset
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            {loading ? 'Submitting...' : 'Submit'}
+          </button>
         </div>
       </form>
     </div>
