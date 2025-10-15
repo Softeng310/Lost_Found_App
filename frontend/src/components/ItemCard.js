@@ -4,8 +4,6 @@ import { Link } from 'react-router-dom';
 import Badge from './ui/Badge';
 import { ShieldCheck, MapPin } from './ui/icons';
 import { cardStyles } from '../lib/utils';
-import MapDisplay from './map/MapDisplay';
-import MapModal from './map/MapModal';
 
 // Constants for better maintainability
 const PLACEHOLDER_IMAGE = '/placeholder.svg';
@@ -48,7 +46,6 @@ const getStatusColor = (status) => {
 const ItemCard = ({ item }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
-  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
   // Handle image load success
   const handleImageLoad = useCallback(() => {
@@ -69,20 +66,10 @@ const ItemCard = ({ item }) => {
   // Get status display text
   const statusText = item.kind ? item.kind.charAt(0).toUpperCase() + item.kind.slice(1) : 'Unknown';
 
-  // Check if item has coordinates
-  const hasCoordinates = item.coordinates?.latitude && item.coordinates?.longitude;
-
-  // Handle map click - prevent navigation to detail page
-  const handleMapClick = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsMapModalOpen(true);
-  }, []);
 
   return (
-    <>
-      <Link to={`/items/${item.id}`} className="block group">
-        <div className={`${cardStyles.hover} h-full transition-all duration-200 hover:scale-[1.02]`}>
+    <Link to={`/items/${item.id}`} className="block group">
+      <div className={`${cardStyles.hover} h-full transition-all duration-200 hover:scale-[1.02]`}>
         <div className="p-6">
           <div className="flex gap-4">
             {/* Item Image */}
@@ -155,53 +142,9 @@ const ItemCard = ({ item }) => {
               </div>
             </div>
           </div>
-
-          {/* Map Preview Section - Only show if coordinates exist */}
-          {hasCoordinates && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="flex items-start gap-3">
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    Location Map
-                  </p>
-                  <button
-                    onClick={handleMapClick}
-                    className="w-full text-left border-0 p-0 bg-transparent cursor-pointer hover:opacity-80 transition-opacity"
-                    type="button"
-                    aria-label="View location on full-screen map"
-                  >
-                    <MapDisplay
-                      latitude={item.coordinates.latitude}
-                      longitude={item.coordinates.longitude}
-                      locationName={item.location}
-                      height="120px"
-                      zoom={14}
-                    />
-                  </button>
-                  <p className="text-xs text-gray-500 mt-1 text-center">
-                    Click map for full view
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </Link>
-
-    {/* Map Modal - Opens when map is clicked */}
-    {hasCoordinates && (
-      <MapModal
-        isOpen={isMapModalOpen}
-        onClose={() => setIsMapModalOpen(false)}
-        latitude={item.coordinates.latitude}
-        longitude={item.coordinates.longitude}
-        locationName={item.location}
-        title={`${item.title} - Location`}
-      />
-    )}
-  </>
   );
 };
 
@@ -215,10 +158,6 @@ ItemCard.propTypes = {
     imageUrl: PropTypes.string,
     kind: PropTypes.string,
     category: PropTypes.string,
-    coordinates: PropTypes.shape({
-      latitude: PropTypes.number,
-      longitude: PropTypes.number
-    }),
     reporter: PropTypes.shape({
       trust: PropTypes.bool
     })
