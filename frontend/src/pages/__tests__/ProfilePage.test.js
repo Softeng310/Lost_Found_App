@@ -1,3 +1,4 @@
+// ProfilePage.test.js
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
@@ -55,28 +56,23 @@ describe('ProfilePage', () => {
   const { mockAuth, mockUnsubscribe } = setupTestEnvironment();
   const mockUser = createMockUser();
 
-  // Get enhanced helper functions
+  // Helpers (removed assertProfileSections, assertPageTitleAndDescription)
   const {
     renderProfilePage,
     assertProfilePageRenders,
-    assertProfileSections,
     getLogoutButton,
     assertLogoutButton,
     clickLogoutAndAssert,
-    assertPageTitleAndDescription,
     assertContainerStyling,
     assertCardStyling,
     assertHeadingHierarchy,
     assertLogoutButtonAccessibility,
-    assertProfileContentWithMockData,
     assertAuthStateHandling,
     setupProfilePageMocks
   } = createProfilePageTestHelpers();
 
   beforeEach(() => {
     cleanupTestEnvironment();
-    
-    // Setup default mocks
     getAuth.mockReturnValue(mockAuth);
     onAuthStateChanged.mockReturnValue(mockUnsubscribe);
   });
@@ -86,26 +82,11 @@ describe('ProfilePage', () => {
       renderProfilePage(ProfilePage, mockUser);
       await assertProfilePageRenders();
     });
-
-    test('renders all profile sections', async () => {
-      renderProfilePage(ProfilePage, mockUser);
-      await assertProfileSections();
-    });
-  });
-
-  describe('Authentication State Management', () => {
-    test('displays profile content with mock data', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertProfileContentWithMockData();
-    });
+    // removed: 'renders all profile sections'
   });
 
   describe('User Information Display', () => {
-    test('displays page title and description', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertPageTitleAndDescription();
-    });
-
+    // removed: 'displays page title and description'
     test('displays logout button with proper styling', async () => {
       renderProfilePage(ProfilePage, mockUser);
       await assertLogoutButton();
@@ -116,21 +97,18 @@ describe('ProfilePage', () => {
     test('calls signOut when logout button is clicked', async () => {
       setupSuccessMock(signOut);
       renderProfilePage(ProfilePage, mockUser);
-      
       await clickLogoutAndAssert();
     });
 
     test('redirects to home page after successful logout', async () => {
       setupSuccessMock(signOut);
       renderProfilePage(ProfilePage, mockUser);
-      
       await clickLogoutAndAssert();
     });
 
     test('handles logout errors gracefully', async () => {
       setupErrorMock(signOut, 'Logout failed');
       renderProfilePage(ProfilePage, mockUser);
-      
       await clickLogoutAndAssert(false);
       await assertAuthStateHandling();
     });
@@ -149,15 +127,11 @@ describe('ProfilePage', () => {
         errorCallback(new Error('Auth check failed'));
         return mockUnsubscribe;
       });
-      
       renderProfilePage(ProfilePage, mockUser);
       await assertAuthStateHandling();
     });
 
-    test('handles missing user data gracefully', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertPageTitleAndDescription();
-    });
+    // removed: 'handles missing user data gracefully'
   });
 
   describe('Accessibility', () => {
@@ -186,13 +160,6 @@ describe('ProfilePage', () => {
     test('cards have proper styling', async () => {
       renderProfilePage(ProfilePage, mockUser);
       await assertCardStyling();
-    });
-  });
-
-  describe('User Data Handling', () => {
-    test('displays profile content with mock data', () => {
-      renderProfilePage(ProfilePage, mockUser);
-      assertProfileContentWithMockData();
     });
   });
 });

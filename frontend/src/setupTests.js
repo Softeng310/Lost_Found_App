@@ -4,6 +4,22 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
+// Initialize Firebase with a test config before any Firebase code runs in tests
+import { initializeApp } from "firebase/app";
+
+const firebaseConfig = {
+  apiKey: "test-api-key",
+  authDomain: "test.firebaseapp.com",
+  projectId: "test-project-id",
+  // ...other config values as needed
+};
+
+try {
+  initializeApp(firebaseConfig);
+} catch (e) {
+  // Ignore if already initialized (tests may re-run)
+}
+
 // Add Node.js polyfills for browser environment
 global.setImmediate = global.setImmediate || ((fn, ...args) => global.setTimeout(fn, 0, ...args));
 global.clearImmediate = global.clearImmediate || global.clearTimeout;

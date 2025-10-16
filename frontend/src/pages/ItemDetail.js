@@ -3,7 +3,19 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
 import { ArrowLeft, ShieldCheck, MapPin } from '../components/ui/icons';
 import { db } from '../firebase/config';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { 
+  doc, 
+  onSnapshot, 
+  getDoc, 
+  addDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  updateDoc,
+  Timestamp 
+} from 'firebase/firestore';
 import { normalizeFirestoreItem, buttonStyles, cardStyles } from '../lib/utils';
 import MapDisplay from '../components/map/MapDisplay';
 import MapModal from '../components/map/MapModal';
@@ -14,6 +26,19 @@ const ItemDetailPage = () => {
   const [item, setItem] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [startingConversation, setStartingConversation] = useState(false);
+  const [updatingItem, setUpdatingItem] = useState(false);
+  const auth = getAuth();
+
+  // Check authentication status
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
 
   useEffect(() => {
     const itemId = String(params?.id || '');
@@ -29,16 +54,17 @@ const ItemDetailPage = () => {
 
       const normalizedItem = normalizeFirestoreItem(data, snapshot.id);
       console.log('Raw Firestore data:', data);
-      console.log('Normalized item:', normalizedItem);
+      
       setItem(normalizedItem);
 
       // Fetch user information from the postedBy reference
-      if (data.postedBy && data.postedBy.path) {
+      if (data.postedBy?.path) {
         try {
           const userDoc = await getDoc(doc(db, data.postedBy.path));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setUserInfo({
+              id: userDoc.id,
               name: userData.displayName || userData.name || userData.email || 'Unknown User',
               trust: userData.trust || false
             });
@@ -56,6 +82,114 @@ const ItemDetailPage = () => {
 
     return () => unsubscribe();
   }, [params]);
+
+  // Start a conversation about this item
+  const startConversation = async () => {
+    if (!currentUser || !item || !userInfo?.id || startingConversation) {
+      if (!currentUser) {
+        navigate('/login');
+      }
+      return;
+    }
+
+    // Don't allow messaging yourself
+    if (currentUser.uid === userInfo.id) {
+      return;
+    }
+
+    setStartingConversation(true);
+
+    try {
+      // Check if conversation already exists
+      const conversationsRef = collection(db, 'conversations');
+      const existingConversationQuery = query(
+        conversationsRef,
+        where('itemId', '==', item.id),
+        where('participants', 'array-contains', currentUser.uid)
+      );
+      
+      const existingConversations = await getDocs(existingConversationQuery);
+      
+      if (!existingConversations.empty) {
+        // Conversation exists, redirect to messages
+        navigate(`/messages?item=${item.id}`);
+      } else {
+        // Create new conversation
+        const newConversation = {
+          itemId: item.id,
+          participants: [currentUser.uid, userInfo.id],
+          createdAt: Timestamp.now(),
+          lastMessage: '',
+          lastMessageTime: Timestamp.now(),
+          lastMessageSender: null
+        };
+
+        await addDoc(conversationsRef, newConversation);
+        navigate(`/messages?item=${item.id}`);
+      }
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+    } finally {
+      setStartingConversation(false);
+    }
+  };
+
+  // Handle claiming an item (marks it as found)
+  const handleClaimItem = async () => {
+    if (!currentUser || !item || updatingItem) {
+      if (!currentUser) {
+        navigate('/login');
+      }
+      return;
+    }
+
+    setUpdatingItem(true);
+    try {
+      await updateDoc(doc(db, 'items', item.id), {
+        status: 'found',
+        kind: 'found',
+        foundDate: Timestamp.now(),
+        claimedBy: currentUser.uid,
+        claimedAt: Timestamp.now()
+      });
+      
+      // Show success message and redirect after a short delay
+      alert('Item claimed successfully! You will be redirected to the feed.');
+      setTimeout(() => {
+        navigate('/feed');
+      }, 1500);
+    } catch (error) {
+      console.error('Error claiming item:', error);
+      alert('Failed to claim item. Please try again.');
+    } finally {
+      setUpdatingItem(false);
+    }
+  };
+
+  // Handle marking own item as found
+  const handleMarkAsFound = async () => {
+    if (!currentUser || !item || updatingItem) return;
+
+    setUpdatingItem(true);
+    try {
+      await updateDoc(doc(db, 'items', item.id), {
+        status: 'found',
+        kind: 'found',
+        foundDate: Timestamp.now(),
+        markedFoundBy: currentUser.uid
+      });
+      
+      alert('Item marked as found! Conversations will be cleaned up automatically.');
+      setTimeout(() => {
+        navigate('/feed');
+      }, 1500);
+    } catch (error) {
+      console.error('Error marking item as found:', error);
+      alert('Failed to mark item as found. Please try again.');
+    } finally {
+      setUpdatingItem(false);
+    }
+  };
 
   if (!item) {
     return (
@@ -127,12 +261,67 @@ const ItemDetailPage = () => {
               </p>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
-              <button className={`${buttonStyles.base} ${buttonStyles.primary}`}>
-                Claim Item
-              </button>
-              <button className={`${buttonStyles.base} ${buttonStyles.secondary}`}>
-                Message
-              </button>
+              {/* Show different buttons based on user relationship to item */}
+              {currentUser ? (
+                <>
+                  {/* If user is the item owner */}
+                  {currentUser.uid === userInfo?.id ? (
+                    <button 
+                      onClick={handleMarkAsFound}
+                      disabled={updatingItem || item.status === 'found'}
+                      className={`${buttonStyles.base} ${
+                        item.status === 'found' 
+                          ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' 
+                          : buttonStyles.primary
+                      }`}
+                    >
+                      {updatingItem ? 'Updating...' : 
+                       item.status === 'found' ? 'Already Found' : 'Set as Found'}
+                    </button>
+                  ) : (
+                    /* If user is not the owner */
+                    <>
+                      <button 
+                        onClick={handleClaimItem}
+                        disabled={updatingItem || item.status === 'found'}
+                        className={`${buttonStyles.base} ${
+                          item.status === 'found' 
+                            ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' 
+                            : buttonStyles.primary
+                        }`}
+                      >
+                        {updatingItem ? 'Claiming...' : 
+                         item.status === 'found' ? 'Already Claimed' : 'Claim Item'}
+                      </button>
+                      
+                      {/* Message button for non-owners */}
+                      <button 
+                        onClick={startConversation}
+                        disabled={startingConversation}
+                        className={`${buttonStyles.base} ${buttonStyles.secondary}`}
+                      >
+                        {startingConversation ? 'Starting...' : 'Message'}
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                /* Not logged in */
+                <>
+                  <button 
+                    onClick={() => navigate('/login')}
+                    className={`${buttonStyles.base} ${buttonStyles.primary}`}
+                  >
+                    Login to Claim
+                  </button>
+                  <button 
+                    onClick={() => navigate('/login')}
+                    className={`${buttonStyles.base} ${buttonStyles.secondary}`}
+                  >
+                    Login to Message
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
