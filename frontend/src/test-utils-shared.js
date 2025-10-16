@@ -11,14 +11,30 @@ export const setupConsoleErrorSuppression = () => {
   const originalConsoleError = console.error;
   beforeAll(() => {
     console.error = (...args) => {
-      if (
-        typeof args[0] === 'string' &&
-        (args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-         args[0].includes('Warning: An invalid form control') ||
-         args[0].includes('Warning: Each child in a list should have a unique "key" prop'))
-      ) {
-        return;
+      // silence a set of expected, noisy warnings/errors that occur during tests
+      if (typeof args[0] === 'string') {
+        const message = args[0];
+        const suppressedPatterns = [
+          'Warning: ReactDOM.render is no longer supported',
+          'Warning: An invalid form control',
+          'Warning: Each child in a list should have a unique "key" prop',
+          // React testing "act" warnings
+          'not wrapped in act(',
+          // App-level error logs used in components (tests intentionally trigger these)
+          '❌ Error updating announcement',
+          '❌ Error deleting announcement',
+          '❌ Error creating announcement',
+          'Error fetching items',
+          'Error setting up items listener',
+          'Failed to load items',
+          'Failed to connect to database',
+        ];
+
+        for (const p of suppressedPatterns) {
+          if (message.includes(p)) return;
+        }
       }
+
       originalConsoleError.call(console, ...args);
     };
   });

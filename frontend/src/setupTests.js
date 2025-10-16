@@ -20,6 +20,43 @@ try {
   // Ignore if already initialized (tests may re-run)
 }
 
+// ---------------------------------------------------------------------------
+// Mock react-leaflet (ES module) for Jest tests
+// react-leaflet ships ESM code that Jest may not transform in node_modules.
+// Provide a lightweight CommonJS mock so components importing it in tests
+// (MapPicker, MapDisplay, etc.) won't cause a parser error.
+// ---------------------------------------------------------------------------
+jest.mock('react-leaflet', () => {
+  const React = require('react');
+  return {
+    MapContainer: ({ children, ...props }) => React.createElement('div', { 'data-testid': 'map-container', ...props }, children),
+    TileLayer: (props) => React.createElement('div', { 'data-testid': 'tile-layer', ...props }),
+    Marker: ({ children, ...props }) => React.createElement('div', { 'data-testid': 'marker', ...props }, children),
+    Popup: ({ children, ...props }) => React.createElement('div', { 'data-testid': 'popup', ...props }, children),
+    useMapEvents: () => ({}),
+    useMap: () => ({}),
+    useMapEvent: () => ({}),
+    useMapEvents: () => ({}),
+  };
+});
+
+// Mock the MapPicker component used by ItemReportForm so tests don't need to
+// interact with a real map. The mock will call `onLocationSelect` with a
+// default coordinate immediately on mount so forms that require coordinates
+// will validate in tests.
+jest.mock('./components/map/MapPicker', () => {
+  const React = require('react');
+  return ({ onLocationSelect, initialPosition }) => {
+    React.useEffect(() => {
+      if (onLocationSelect) {
+        onLocationSelect({ latitude: -36.8524, longitude: 174.7691 });
+      }
+    }, [onLocationSelect]);
+
+    return React.createElement('div', { 'data-testid': 'mock-map-picker' }, null);
+  };
+});
+
 // Add Node.js polyfills for browser environment
 global.setImmediate = global.setImmediate || ((fn, ...args) => global.setTimeout(fn, 0, ...args));
 global.clearImmediate = global.clearImmediate || global.clearTimeout;

@@ -99,7 +99,6 @@ This repository does not include an automated test suite yet. Manual smoke test 
 2. Open http://localhost:3000
 3. Sign up a user, create a lost/found listing with an image, search for it, and view details.
 
-If you want, I can add unit and integration tests (Jest + React Testing Library for frontend; a small mocha/jest test for the backend health endpoint).
 
 ## Versions / Releases
 

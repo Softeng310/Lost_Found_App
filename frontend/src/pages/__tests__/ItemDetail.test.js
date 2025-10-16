@@ -109,7 +109,7 @@ describe('ItemDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
       expect(screen.getByText('Black iPhone 13 lost in library')).toBeInTheDocument();
-      expect(screen.getByText('library')).toBeInTheDocument();
+      expect(screen.getAllByText('library').length).toBeGreaterThan(0);
     });
   };
 
@@ -258,7 +258,7 @@ describe('ItemDetailPage', () => {
       setupOnSnapshotMock();
       renderItemDetailPage();
       await waitFor(() => {
-        expect(screen.getByText('library')).toBeInTheDocument();
+        expect(screen.getAllByText('library').length).toBeGreaterThan(0);
       });
     });
 
