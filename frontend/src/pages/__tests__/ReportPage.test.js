@@ -3,6 +3,25 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import ReportPage from '../ReportPage';
 
+// Mock react-leaflet components
+jest.mock('../../components/map/MapPicker', () => {
+  return function MockMapPicker({ onLocationSelect }) {
+    return (
+      <div data-testid="map-picker">
+        <button 
+          onClick={() => onLocationSelect({ lat: 40.7128, lng: -74.0060, address: 'Test Location' })}
+          data-testid="select-location-btn"
+        >
+          Select Test Location
+        </button>
+      </div>
+    );
+  };
+});
+
+// Mock leaflet CSS
+jest.mock('leaflet/dist/leaflet.css', () => ({}));
+
 // Mock react-router-dom
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -208,6 +227,10 @@ describe('ReportPage', () => {
       const fileInput = document.querySelector('input[type="file"]');
       const file = new File(['test'], 'test.png', { type: 'image/png' });
       fireEvent.change(fileInput, { target: { files: [file] } });
+      
+      // Select location on map (required for form submission)
+      const selectLocationBtn = screen.getByTestId('select-location-btn');
+      fireEvent.click(selectLocationBtn);
       
       const submitButton = screen.getByRole('button', { name: 'Submit' });
       fireEvent.click(submitButton);
