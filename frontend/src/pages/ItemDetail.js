@@ -54,7 +54,7 @@ const ItemDetailPage = () => {
 
       const normalizedItem = normalizeFirestoreItem(data, snapshot.id);
       console.log('Raw Firestore data:', data);
-      console.log('Normalized item:', normalizedItem);
+      
       setItem(normalizedItem);
 
       // Fetch user information from the postedBy reference
