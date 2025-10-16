@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet Map Styles */
+@import '~leaflet/dist/leaflet.css';
+
+/* Fix z-index issues with Leaflet maps */
+.leaflet-container {
+  z-index: 1;
+}
+
+/* Ensure modal maps have higher z-index */
+.leaflet-modal .leaflet-container {
+  z-index: 10000 !important;
+}
+
+.leaflet-modal .leaflet-control-container {
+  z-index: 10001 !important;
+}
+
+.leaflet-modal .leaflet-popup {
+  z-index: 10002 !important;
+}
+
+/* Hide any maps that might be behind the modal */
+.modal-open .leaflet-container:not(.leaflet-modal .leaflet-container) {
+  visibility: hidden;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;

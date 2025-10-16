@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import Badge from './ui/Badge';
-import { ShieldCheck } from './ui/icons';
+import { ShieldCheck, MapPin } from './ui/icons';
 import { cardStyles } from '../lib/utils';
 
 // Constants for better maintainability
@@ -64,6 +65,7 @@ const ItemCard = ({ item }) => {
 
   // Get status display text
   const statusText = item.kind ? item.kind.charAt(0).toUpperCase() + item.kind.slice(1) : 'Unknown';
+
 
   return (
     <Link to={`/items/${item.id}`} className="block group">
@@ -129,8 +131,9 @@ const ItemCard = ({ item }) => {
               
               {/* Location and Date */}
               <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="truncate">
-                  📍 {item.location || 'Unknown location'}
+                <span className="flex items-center gap-1 truncate">
+                  <MapPin className="h-3 w-3" />
+                  {item.location || 'Unknown location'}
                 </span>
                 <span className="text-gray-400">•</span>
                 <span className="truncate">
@@ -143,6 +146,22 @@ const ItemCard = ({ item }) => {
       </div>
     </Link>
   );
+};
+
+ItemCard.propTypes = {
+  item: PropTypes.shape({
+    id: PropTypes.string,
+    title: PropTypes.string,
+    description: PropTypes.string,
+    location: PropTypes.string,
+    date: PropTypes.string,
+    imageUrl: PropTypes.string,
+    kind: PropTypes.string,
+    category: PropTypes.string,
+    reporter: PropTypes.shape({
+      trust: PropTypes.bool
+    })
+  }).isRequired
 };
 
 export default ItemCard;

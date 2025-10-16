@@ -14,6 +14,32 @@ import {
   assertElementExists
 } from '../../test-utils-shared';
 
+// Mock map components
+jest.mock('../../components/map/MapDisplay', () => {
+  return function MockMapDisplay({ latitude, longitude, locationName, height }) {
+    return (
+      <div data-testid="map-display" data-lat={latitude} data-lng={longitude} data-location={locationName} style={{ height }}>
+        Mock Map: {locationName}
+      </div>
+    );
+  };
+});
+
+jest.mock('../../components/map/MapModal', () => {
+  return function MockMapModal({ isOpen, onClose, latitude, longitude, locationName, title }) {
+    if (!isOpen) return null;
+    return (
+      <div data-testid="map-modal" data-lat={latitude} data-lng={longitude} data-location={locationName} data-title={title}>
+        <div>Mock Map Modal: {title}</div>
+        <button onClick={onClose} data-testid="close-modal">Close</button>
+      </div>
+    );
+  };
+});
+
+// Mock leaflet CSS
+jest.mock('leaflet/dist/leaflet.css', () => ({}));
+
 // Mock Firebase config
 jest.mock('../../firebase/config', () => ({
   app: {},
@@ -101,7 +127,7 @@ describe('ItemDetailPage', () => {
 
   const assertItemNotFound = async () => {
     await waitFor(() => {
-      expect(screen.getByText(/Item not found/i)).toBeInTheDocument();
+      expect(screen.getByText('Item not found.')).toBeInTheDocument();
     });
   };
 
@@ -109,7 +135,8 @@ describe('ItemDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Lost iPhone')).toBeInTheDocument();
       expect(screen.getByText('Black iPhone 13 lost in library')).toBeInTheDocument();
-      expect(screen.getByText('library')).toBeInTheDocument();
+      expect(screen.getAllByText('library').length).toBeGreaterThan(0);
+
     });
   };
 
@@ -134,7 +161,7 @@ describe('ItemDetailPage', () => {
 
   const assertReporterInfo = async () => {
     await waitFor(() => {
-      expect(screen.getByText(/Reporter:/)).toBeInTheDocument();
+      expect(screen.getByText('Reporter:')).toBeInTheDocument();
     });
   };
 
@@ -258,7 +285,8 @@ describe('ItemDetailPage', () => {
       setupOnSnapshotMock();
       renderItemDetailPage();
       await waitFor(() => {
-        expect(screen.getByText('library')).toBeInTheDocument();
+        expect(screen.getAllByText('library').length).toBeGreaterThan(0);
+
       });
     });
 
@@ -267,7 +295,7 @@ describe('ItemDetailPage', () => {
       renderItemDetailPage();
       
       await waitFor(() => {
-        expect(screen.getByText(/Posted:/)).toBeInTheDocument();
+        expect(screen.getByText('Posted:')).toBeInTheDocument();
       });
     });
   });

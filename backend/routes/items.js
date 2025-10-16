@@ -39,7 +39,7 @@ const upload = multer({
 
 // Validate incoming item data before processing
 const validateItemInput = (req, res, next) => {
-  const { title, description, type, location, date, status } = req.body;
+  const { title, description, type, location, date, status, latitude, longitude } = req.body;
   const validationErrors = [];
 
   // Check title length and format
@@ -84,6 +84,22 @@ const validateItemInput = (req, res, next) => {
   // Status must be either 'lost' or 'found'
   if (!status || !['lost', 'found'].includes(status)) {
     validationErrors.push('Status must be either "lost" or "found"');
+  }
+
+  // Validate coordinates
+  if (latitude === undefined || longitude === undefined) {
+    validationErrors.push('Location coordinates are required');
+  } else {
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      validationErrors.push('Coordinates must be valid numbers');
+    } else if (lat < -90 || lat > 90) {
+      validationErrors.push('Latitude must be between -90 and 90');
+    } else if (lng < -180 || lng > 180) {
+      validationErrors.push('Longitude must be between -180 and 180');
+    }
   }
 
   // Return validation errors if any exist
@@ -159,10 +175,10 @@ router.post('/',
   async (req, res) => {
     try {
       const db = req.app.locals.db;
-      const { title, description, type, location, date, status } = req.body;
+      const { title, description, type, location, date, status, latitude, longitude } = req.body;
       const uid = req.user.uid; // From auth middleware
 
-      console.log('📝 Creating new item:', { title, type, location, status, uid });
+      console.log('📝 Creating new item:', { title, type, location, status, latitude, longitude, uid });
 
       // Ensure an image was uploaded
       if (!req.file) {
@@ -191,6 +207,12 @@ router.post('/',
       // Convert date string to Firestore timestamp
       const timestamp = admin.firestore.Timestamp.fromDate(new Date(date));
 
+      // Create coordinates object
+      const coordinates = {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude)
+      };
+
       // Prepare the item data for Firestore
       const itemData = {
         title: title.trim(),
@@ -200,6 +222,7 @@ router.post('/',
         date: timestamp,
         status,
         imageURL,
+        coordinates, // Store coordinates object
         postedBy: userDocRef, // Reference to user document
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -213,7 +236,8 @@ router.post('/',
       res.status(201).json({ 
         message: 'Item created successfully!',
         id: docRef.id,
-        imageURL
+        imageURL,
+        coordinates
       });
 
     } catch (error) {
