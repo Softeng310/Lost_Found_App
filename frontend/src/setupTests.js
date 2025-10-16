@@ -36,7 +36,6 @@ jest.mock('react-leaflet', () => {
     useMapEvents: () => ({}),
     useMap: () => ({}),
     useMapEvent: () => ({}),
-    useMapEvents: () => ({}),
   };
 });
 
