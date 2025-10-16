@@ -43,7 +43,6 @@ body:
     attributes:
       label: Relevant Output or Screenshots
       description: Include error logs, stack traces, or screenshots if applicable
-      render: shell
 
   - type: input
     id: environment
