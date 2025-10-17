@@ -181,7 +181,14 @@ export default function ProfilePage() {
   // Track auth user in state so changes trigger re-renders and effects
   const [currentUser, setCurrentUser] = useState(auth.currentUser)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUser(user))
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => setCurrentUser(user),
+      (err) => {
+        console.error('Auth state listener error:', err)
+        setError('Failed to verify authentication')
+      }
+    )
     return () => unsubscribe()
   }, [auth])
   const navigate = useNavigate()
