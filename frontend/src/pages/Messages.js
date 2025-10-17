@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { 
-  collection, 
-  query, 
+import {
+  collection,
+  query,
   where,
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
   getDoc,
-  getDocs,
-  Timestamp 
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ArrowLeft, Send, Check } from '../components/ui/icons';
@@ -204,9 +202,9 @@ const MessagesPage = () => {
 
   // 'Mark item retrieved' is now a no-op; marking items as 'found' only happens at creation time.
   const markItemRetrieved = useCallback(async () => {
-    // intentionally do nothing
+    // intentionally do nothing; kept as a placeholder per app policy
     console.debug('markItemRetrieved called but is disabled by app configuration');
-  }, [selectedConversation, user]);
+  }, []);
 
   if (loading) {
     return (

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, memo } from "react"
+import React, { useState, useEffect, memo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { getAuth, signOut } from "firebase/auth"
+import { getAuth, signOut, onAuthStateChanged } from "firebase/auth"
 import { LogOut, Trash2, Edit3, X } from "lucide-react"
+import PropTypes from 'prop-types'
 import { getUserPosts, getUserClaims, formatTimestamp, updateItemStatus, updateItem } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
@@ -18,38 +19,45 @@ const StatusPill = memo(({ color, text }) => (
   </span>
 ))
 
+StatusPill.propTypes = {
+  color: PropTypes.string,
+  text: PropTypes.string
+}
+
 /** Keep original business logic: compute status badge by context (posts vs claims) */
-const getStatusBadge = (item, isMyPost = false) => {
-  if (isMyPost) {
-    const status = item.status || 'open'
-    switch (status.toLowerCase()) {
-      case 'found':
-      case 'resolved':
-        return { variant: 'default', text: 'Resolved', color: 'bg-green-100 text-green-800' }
-      case 'claimed':
-        return { variant: 'secondary', text: 'Claimed', color: 'bg-purple-100 text-purple-800' }
-      case 'pending':
-        return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
-      case 'lost':
-      case 'open':
-      case 'active':
-      default:
-        return { variant: 'secondary', text: 'Active', color: 'bg-blue-100 text-blue-800' }
-    }
-  } else {
-    const claimStatus = item.claimData?.status || item.status || 'pending'
-    switch (claimStatus.toLowerCase()) {
-      case 'pending':
-        return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
-      case 'approved':
-        return { variant: 'default', text: 'Approved', color: 'bg-green-100 text-green-800' }
-      case 'rejected':
-        return { variant: 'outline', text: 'Rejected', color: 'bg-red-100 text-red-800' }
-      default:
-        return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
-    }
+const getStatusBadgeForPost = (item) => {
+  const status = (item.status || 'open').toLowerCase()
+  switch (status) {
+    case 'found':
+    case 'resolved':
+      return { variant: 'default', text: 'Resolved', color: 'bg-green-100 text-green-800' }
+    case 'claimed':
+      return { variant: 'secondary', text: 'Claimed', color: 'bg-purple-100 text-purple-800' }
+    case 'pending':
+      return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+    case 'lost':
+    case 'open':
+    case 'active':
+    default:
+      return { variant: 'secondary', text: 'Active', color: 'bg-blue-100 text-blue-800' }
   }
 }
+
+const getStatusBadgeForClaim = (item) => {
+  const claimStatus = (item.claimData?.status || item.status || 'pending').toLowerCase()
+  switch (claimStatus) {
+    case 'pending':
+      return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+    case 'approved':
+      return { variant: 'default', text: 'Approved', color: 'bg-green-100 text-green-800' }
+    case 'rejected':
+      return { variant: 'outline', text: 'Rejected', color: 'bg-red-100 text-red-800' }
+    default:
+      return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
+  }
+}
+
+const getStatusBadge = (item, isMyPost = false) => (isMyPost ? getStatusBadgeForPost(item) : getStatusBadgeForClaim(item))
 
 /** Shared row component used by both Posts and Claims lists */
 const ItemRow = memo(function ItemRow({
@@ -66,23 +74,15 @@ const ItemRow = memo(function ItemRow({
   const when = formatTimestamp(coalesceDate(item))
 
   const go = () => onNavigate(item.id)
-  const keyGo = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onNavigate(item.id)
-    }
-  }
 
   return (
-    <div
-      className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-200"
-      role="button"
-      tabIndex={0}
-      onClick={go}
-      onKeyDown={keyGo}
-      aria-label={`View details for ${item.title || 'Untitled Item'}`}
-    >
-      <div className="flex-1 cursor-pointer">
+    <div className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-sm transition-all duration-200">
+      <button
+        type="button"
+        onClick={go}
+        className="flex-1 text-left"
+        aria-label={`View details for ${item.title || 'Untitled Item'}`}
+      >
         <div className="flex items-center gap-2 mb-1">
           <span className="text-sm font-medium text-gray-900">{item.title || 'Untitled Item'}</span>
           <StatusPill color={badge.color} text={badge.text} />
@@ -92,16 +92,17 @@ const ItemRow = memo(function ItemRow({
           <span>📅 {when}</span>
           {item.location && <span>📍 {item.location}</span>}
         </div>
-      </div>
+      </button>
 
       {/* Edit/Close buttons only for user's posts and only when not resolved */}
       {isMyPost && !resolved && (
-        <>
+        <div className="ml-2 flex items-center">
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(item) }}
             className="ml-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
             title="Edit this post"
             aria-label="Edit post"
+            type="button"
           >
             <Edit3 className="w-4 h-4" />
           </button>
@@ -110,14 +111,23 @@ const ItemRow = memo(function ItemRow({
             className="ml-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
             title="Close this post"
             aria-label="Close post"
+            type="button"
           >
             <Trash2 className="w-4 h-4" />
           </button>
-        </>
+        </div>
       )}
     </div>
   )
 })
+
+ItemRow.propTypes = {
+  item: PropTypes.object.isRequired,
+  isMyPost: PropTypes.bool,
+  onNavigate: PropTypes.func.isRequired,
+  onEdit: PropTypes.func,
+  onClose: PropTypes.func,
+}
 
 /** Shared card (title + empty text + list renderer) */
 const ItemsCard = memo(function ItemsCard({
@@ -142,6 +152,13 @@ const ItemsCard = memo(function ItemsCard({
   )
 })
 
+ItemsCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  emptyText: PropTypes.string,
+  items: PropTypes.array.isRequired,
+  renderItem: PropTypes.func.isRequired
+}
+
 export default function ProfilePage() {
   const [myPosts, setMyPosts] = useState([])
   const [myClaims, setMyClaims] = useState([])
@@ -161,7 +178,12 @@ export default function ProfilePage() {
   const [error, setError] = useState(null)
 
   const auth = getAuth()
-  const currentUser = auth.currentUser
+  // Track auth user in state so changes trigger re-renders and effects
+  const [currentUser, setCurrentUser] = useState(auth.currentUser)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUser(user))
+    return () => unsubscribe()
+  }, [auth])
   const navigate = useNavigate()
 
   /** Load user's posts and claims */
@@ -188,8 +210,9 @@ export default function ProfilePage() {
   }, [currentUser])
 
   /** Close/resolve a post */
-  const handleClosePost = async (itemId, itemTitle) => {
-    if (!window.confirm(`Are you sure you want to close "${itemTitle}"? This will mark it as resolved.`)) return
+  const handleClosePost = useCallback(async (itemId, itemTitle) => {
+    const confirmed = (typeof window !== 'undefined') ? window.confirm(`Are you sure you want to close "${itemTitle}"? This will mark it as resolved.`) : true
+    if (!confirmed) return
     try {
       // Optimistic UI: remove from list immediately
       setMyPosts(prev => prev.filter(p => p.id !== itemId))
@@ -211,16 +234,16 @@ export default function ProfilePage() {
         console.error('Error refreshing data:', refreshError)
       }
     }
-  }
+  }, [currentUser])
 
   /** Open edit modal with prefilled values */
-  const handleEditPost = (item) => {
+  const handleEditPost = useCallback((item) => {
     let dateValue = ''
     let timeValue = ''
     const raw = coalesceDate(item)
     if (raw) {
       const d = new Date(raw)
-      if (!isNaN(d.getTime())) {
+      if (!Number.isNaN(d.getTime())) {
         dateValue = d.toISOString().split('T')[0]
         timeValue = d.toTimeString().split(' ')[0].slice(0, 5)
       }
@@ -237,10 +260,10 @@ export default function ProfilePage() {
       time: timeValue
     })
     setEditModalOpen(true)
-  }
+  }, [])
 
   /** Close edit modal and reset form */
-  const handleCloseEditModal = () => {
+  const handleCloseEditModal = useCallback(() => {
     setEditModalOpen(false)
     setEditingItem(null)
     setEditFormData({
@@ -253,15 +276,15 @@ export default function ProfilePage() {
       date: '',
       time: ''
     })
-  }
+  }, [])
 
   /** Edit form change handler */
-  const handleFormChange = (field, value) => {
+  const handleFormChange = useCallback((field, value) => {
     setEditFormData(prev => ({ ...prev, [field]: value }))
-  }
+  }, [])
 
   /** Save edited post */
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editingItem || !editFormData.title.trim()) {
       alert('Please fill in at least the title field.')
       return
@@ -281,7 +304,7 @@ export default function ProfilePage() {
         status: editFormData.kind,   // Firestore uses 'status' for lost/found
         imageURL: editFormData.imageUrl.trim() // Firestore uses 'imageURL'
       }
-      if (combinedDateTime && !isNaN(combinedDateTime.getTime())) {
+  if (combinedDateTime && !Number.isNaN(combinedDateTime.getTime())) {
         updateData.date = combinedDateTime.toISOString()
       }
 
@@ -302,20 +325,20 @@ export default function ProfilePage() {
       console.error('Error updating post:', error)
       alert('Failed to update post. Please try again.')
     }
-  }
+  }, [editingItem, editFormData, currentUser, handleCloseEditModal])
 
   /** Sign out and redirect */
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await signOut(auth)
       navigate('/')
     } catch (error) {
       console.error('Error signing out:', error)
     }
-  }
+  }, [auth, navigate])
 
   /** Shared navigation to detail page */
-  const goItemDetail = (id) => navigate(`/items/${id}`)
+  const goItemDetail = useCallback((id) => navigate(`/items/${id}`), [navigate])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -417,8 +440,9 @@ export default function ProfilePage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
                   <input
+                    id="edit-title"
                     type="text"
                     value={editFormData.title}
                     onChange={(e) => handleFormChange('title', e.target.value)}
@@ -428,8 +452,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <textarea
+                    id="edit-description"
                     value={editFormData.description}
                     onChange={(e) => handleFormChange('description', e.target.value)}
                     rows={3}
@@ -439,8 +464,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                   <select
+                    id="edit-category"
                     value={editFormData.category}
                     onChange={(e) => handleFormChange('category', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -458,8 +484,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <label htmlFor="edit-location" className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                   <select
+                    id="edit-location"
                     value={editFormData.location}
                     onChange={(e) => handleFormChange('location', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -481,8 +508,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+                  <label htmlFor="edit-kind" className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
                   <select
+                    id="edit-kind"
                     value={editFormData.kind}
                     onChange={(e) => handleFormChange('kind', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -494,8 +522,9 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                  <label htmlFor="edit-imageUrl" className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
                   <input
+                    id="edit-imageUrl"
                     type="url"
                     value={editFormData.imageUrl}
                     onChange={(e) => handleFormChange('imageUrl', e.target.value)}
@@ -506,8 +535,9 @@ export default function ProfilePage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <label htmlFor="edit-date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                     <input
+                      id="edit-date"
                       type="date"
                       value={editFormData.date}
                       onChange={(e) => handleFormChange('date', e.target.value)}
@@ -515,8 +545,9 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                    <label htmlFor="edit-time" className="block text-sm font-medium text-gray-700 mb-1">Time</label>
                     <input
+                      id="edit-time"
                       type="time"
                       value={editFormData.time}
                       onChange={(e) => handleFormChange('time', e.target.value)}
