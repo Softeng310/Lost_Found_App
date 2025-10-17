@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
 import { ArrowLeft, ShieldCheck, MapPin } from '../components/ui/icons';
@@ -13,12 +14,81 @@ import {
   query, 
   where, 
   getDocs,
-  updateDoc,
   Timestamp 
 } from 'firebase/firestore';
 import { normalizeFirestoreItem, buttonStyles, cardStyles } from '../lib/utils';
 import MapDisplay from '../components/map/MapDisplay';
 import MapModal from '../components/map/MapModal';
+
+/* Small subcomponent to render the action buttons; extracted to reduce parent complexity */
+export const ActionButtons = ({ currentUser, userInfo, item, onStart, startingConversation, onLogin }) => {
+  const isOwner = !!(currentUser && userInfo?.id && currentUser.uid === userInfo.id)
+
+  const ownerDisabled = item?.status === 'found'
+  const ownerText = ownerDisabled ? 'Already Found' : 'Set as Found'
+
+  const claimDisabled = item?.status === 'found'
+  const claimText = claimDisabled ? 'Already Claimed' : 'Claim Item'
+
+  if (currentUser) {
+    if (isOwner) {
+      return (
+        <button
+          type="button"
+          onClick={() => { /* intentionally inert - marking as found disabled */ }}
+          disabled={ownerDisabled}
+          className={`${buttonStyles.base} ${ownerDisabled ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' : buttonStyles.primary}`}
+        >
+          {ownerText}
+        </button>
+      )
+    }
+
+    // Non-owner actions
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => { /* intentionally inert - claim disabled per request */ }}
+          disabled={claimDisabled}
+          className={`${buttonStyles.base} ${claimDisabled ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' : buttonStyles.primary}`}
+        >
+          {claimText}
+        </button>
+
+        <button
+          type="button"
+          onClick={onStart}
+          disabled={startingConversation}
+          className={`${buttonStyles.base} ${buttonStyles.secondary}`}
+        >
+          {startingConversation ? 'Starting...' : 'Message'}
+        </button>
+      </>
+    )
+  }
+
+  // Not logged in
+  return (
+    <>
+      <button type="button" onClick={onLogin} className={`${buttonStyles.base} ${buttonStyles.primary}`}>
+        Login to Claim
+      </button>
+      <button type="button" onClick={onLogin} className={`${buttonStyles.base} ${buttonStyles.secondary}`}>
+        Login to Message
+      </button>
+    </>
+  )
+}
+
+ActionButtons.propTypes = {
+  currentUser: PropTypes.object,
+  userInfo: PropTypes.object,
+  item: PropTypes.object.isRequired,
+  onStart: PropTypes.func,
+  startingConversation: PropTypes.bool,
+  onLogin: PropTypes.func
+}
 
 const ItemDetailPage = () => {
   const params = useParams();
@@ -28,10 +98,8 @@ const ItemDetailPage = () => {
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [startingConversation, setStartingConversation] = useState(false);
-  const [updatingItem, setUpdatingItem] = useState(false);
+  // Following project policy: runtime transitions to 'found' are disabled; no updating state needed
   const auth = getAuth();
-
-  // Check authentication status
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -52,10 +120,8 @@ const ItemDetailPage = () => {
         return;
       }
 
-      const normalizedItem = normalizeFirestoreItem(data, snapshot.id);
-      console.log('Raw Firestore data:', data);
-      
-      setItem(normalizedItem);
+  const normalizedItem = normalizeFirestoreItem(data, snapshot.id);
+  setItem(normalizedItem);
 
       // Fetch user information from the postedBy reference
       if (data.postedBy?.path) {
@@ -72,6 +138,7 @@ const ItemDetailPage = () => {
             setUserInfo({ name: 'Unknown User', trust: false });
           }
         } catch (userError) {
+          // Log via console.error is acceptable for unexpected errors but avoid noisy logs in prod
           console.error('Error fetching user info:', userError);
           setUserInfo({ name: 'Unknown User', trust: false });
         }
@@ -84,112 +151,52 @@ const ItemDetailPage = () => {
   }, [params]);
 
   // Start a conversation about this item
-  const startConversation = async () => {
-    if (!currentUser || !item || !userInfo?.id || startingConversation) {
-      if (!currentUser) {
-        navigate('/login');
-      }
+  const startConversation = useCallback(async () => {
+    if (!currentUser) {
+      navigate('/login');
       return;
     }
+    if (!item || !userInfo?.id || startingConversation) return;
 
     // Don't allow messaging yourself
-    if (currentUser.uid === userInfo.id) {
-      return;
-    }
+    if (currentUser.uid === userInfo.id) return;
 
     setStartingConversation(true);
-
     try {
-      // Check if conversation already exists
       const conversationsRef = collection(db, 'conversations');
       const existingConversationQuery = query(
         conversationsRef,
         where('itemId', '==', item.id),
         where('participants', 'array-contains', currentUser.uid)
       );
-      
-      const existingConversations = await getDocs(existingConversationQuery);
-      
-      if (!existingConversations.empty) {
-        // Conversation exists, redirect to messages
-        navigate(`/messages?item=${item.id}`);
-      } else {
-        // Create new conversation
-        const newConversation = {
-          itemId: item.id,
-          participants: [currentUser.uid, userInfo.id],
-          createdAt: Timestamp.now(),
-          lastMessage: '',
-          lastMessageTime: Timestamp.now(),
-          lastMessageSender: null
-        };
 
-        await addDoc(conversationsRef, newConversation);
+      const existingConversations = await getDocs(existingConversationQuery);
+
+      if (!existingConversations.empty) {
         navigate(`/messages?item=${item.id}`);
+        return;
       }
+
+      // Create new conversation
+      await addDoc(conversationsRef, {
+        itemId: item.id,
+        participants: [currentUser.uid, userInfo.id],
+        createdAt: Timestamp.now(),
+        lastMessage: '',
+        lastMessageTime: Timestamp.now(),
+        lastMessageSender: null
+      });
+
+      navigate(`/messages?item=${item.id}`);
     } catch (error) {
       console.error('Error starting conversation:', error);
     } finally {
       setStartingConversation(false);
     }
-  };
+  }, [currentUser, item, userInfo, startingConversation, navigate]);
 
-  // Handle claiming an item (marks it as found)
-  const handleClaimItem = async () => {
-    if (!currentUser || !item || updatingItem) {
-      if (!currentUser) {
-        navigate('/login');
-      }
-      return;
-    }
-
-    setUpdatingItem(true);
-    try {
-      await updateDoc(doc(db, 'items', item.id), {
-        status: 'found',
-        kind: 'found',
-        foundDate: Timestamp.now(),
-        claimedBy: currentUser.uid,
-        claimedAt: Timestamp.now()
-      });
-      
-      // Show success message and redirect after a short delay
-      alert('Item claimed successfully! You will be redirected to the feed.');
-      setTimeout(() => {
-        navigate('/feed');
-      }, 1500);
-    } catch (error) {
-      console.error('Error claiming item:', error);
-      alert('Failed to claim item. Please try again.');
-    } finally {
-      setUpdatingItem(false);
-    }
-  };
-
-  // Handle marking own item as found
-  const handleMarkAsFound = async () => {
-    if (!currentUser || !item || updatingItem) return;
-
-    setUpdatingItem(true);
-    try {
-      await updateDoc(doc(db, 'items', item.id), {
-        status: 'found',
-        kind: 'found',
-        foundDate: Timestamp.now(),
-        markedFoundBy: currentUser.uid
-      });
-      
-      alert('Item marked as found! Conversations will be cleaned up automatically.');
-      setTimeout(() => {
-        navigate('/feed');
-      }, 1500);
-    } catch (error) {
-      console.error('Error marking item as found:', error);
-      alert('Failed to mark item as found. Please try again.');
-    } finally {
-      setUpdatingItem(false);
-    }
-  };
+  /* Small subcomponent to render the action buttons; extracted to keep main component simple */
+  // ActionButtons was moved to module scope (see below) to reduce component complexity
 
   if (!item) {
     return (
@@ -207,7 +214,7 @@ const ItemDetailPage = () => {
   }
 
   // Check if item has coordinates
-  const hasCoordinates = item?.coordinates?.latitude && item?.coordinates?.longitude;
+  const hasCoordinates = !!(item?.coordinates && typeof item.coordinates.latitude === 'number' && typeof item.coordinates.longitude === 'number');
 
   return (
     <div className="container mx-auto px-4 py-6 grid lg:grid-cols-[1fr_360px] gap-6">
@@ -261,67 +268,14 @@ const ItemDetailPage = () => {
               </p>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
-              {/* Show different buttons based on user relationship to item */}
-              {currentUser ? (
-                <>
-                  {/* If user is the item owner */}
-                  {currentUser.uid === userInfo?.id ? (
-                    <button 
-                      onClick={handleMarkAsFound}
-                      disabled={updatingItem || item.status === 'found'}
-                      className={`${buttonStyles.base} ${
-                        item.status === 'found' 
-                          ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' 
-                          : buttonStyles.primary
-                      }`}
-                    >
-                      {updatingItem ? 'Updating...' : 
-                       item.status === 'found' ? 'Already Found' : 'Set as Found'}
-                    </button>
-                  ) : (
-                    /* If user is not the owner */
-                    <>
-                      <button 
-                        onClick={handleClaimItem}
-                        disabled={updatingItem || item.status === 'found'}
-                        className={`${buttonStyles.base} ${
-                          item.status === 'found' 
-                            ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' 
-                            : buttonStyles.primary
-                        }`}
-                      >
-                        {updatingItem ? 'Claiming...' : 
-                         item.status === 'found' ? 'Already Claimed' : 'Claim Item'}
-                      </button>
-                      
-                      {/* Message button for non-owners */}
-                      <button 
-                        onClick={startConversation}
-                        disabled={startingConversation}
-                        className={`${buttonStyles.base} ${buttonStyles.secondary}`}
-                      >
-                        {startingConversation ? 'Starting...' : 'Message'}
-                      </button>
-                    </>
-                  )}
-                </>
-              ) : (
-                /* Not logged in */
-                <>
-                  <button 
-                    onClick={() => navigate('/login')}
-                    className={`${buttonStyles.base} ${buttonStyles.primary}`}
-                  >
-                    Login to Claim
-                  </button>
-                  <button 
-                    onClick={() => navigate('/login')}
-                    className={`${buttonStyles.base} ${buttonStyles.secondary}`}
-                  >
-                    Login to Message
-                  </button>
-                </>
-              )}
+              <ActionButtons
+                currentUser={currentUser}
+                userInfo={userInfo}
+                item={item}
+                onStart={startConversation}
+                onLogin={() => navigate('/login')}
+                startingConversation={startingConversation}
+              />
             </div>
           </div>
         </div>
@@ -347,7 +301,7 @@ const ItemDetailPage = () => {
             {hasCoordinates ? (
               <>
                 <p className="text-sm text-gray-600 mb-3">
-                  {item.location} • Lat: {item.coordinates.latitude.toFixed(4)}, Lng: {item.coordinates.longitude.toFixed(4)}
+                  {item.location} • Lat: {Number(item.coordinates.latitude).toFixed(4)}, Lng: {Number(item.coordinates.longitude).toFixed(4)}
                 </p>
                 <button 
                   className="w-full cursor-pointer border-0 p-0 bg-transparent" 

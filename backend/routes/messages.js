@@ -35,13 +35,13 @@ const getUserDisplayName = async (uid) => {
 // Helper: collect item IDs that were found before the cutoff timestamp
 const collectItemIdsToCleanup = (foundItemsSnapshot, cutoffTimestamp) => {
   const itemIds = [];
-  foundItemsSnapshot.forEach(doc => {
+  for (const doc of foundItemsSnapshot.docs) {
     const data = doc.data();
     const foundDate = data.foundDate;
     if (foundDate && foundDate.seconds && foundDate.seconds <= cutoffTimestamp.seconds) {
       itemIds.push(doc.id);
     }
-  });
+  }
   return itemIds;
 };
 
@@ -56,9 +56,9 @@ const addDeletionsForItemIds = async (itemIds, batch) => {
       const messagesQuery = db.collection('messages').where('conversationId', '==', conversationDoc.id);
       const messagesSnapshot = await messagesQuery.get();
 
-      messagesSnapshot.forEach(messageDoc => {
+      for (const messageDoc of messagesSnapshot.docs) {
         batch.delete(messageDoc.ref);
-      });
+      }
 
       // Delete the conversation
       batch.delete(conversationDoc.ref);
@@ -68,29 +68,9 @@ const addDeletionsForItemIds = async (itemIds, batch) => {
 
 // Auto-cleanup function to delete conversations for items marked as found 24 hours ago
 const autoCleanupFoundItems = async () => {
-  try {
-    const twentyFourHoursAgo = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() - 24 * 60 * 60 * 1000)
-    );
-
-    // Find items marked as found
-    const foundItemsQuery = db.collection('items').where('status', '==', 'found');
-    const foundItemsSnapshot = await foundItemsQuery.get();
-
-    if (foundItemsSnapshot.empty) return;
-
-    // Collect items older than cutoff
-    const itemIds = collectItemIdsToCleanup(foundItemsSnapshot, twentyFourHoursAgo);
-    if (itemIds.length === 0) return;
-
-    const batch = db.batch();
-    await addDeletionsForItemIds(itemIds, batch);
-
-    await batch.commit();
-    console.log(`Cleaned up ${itemIds.length} conversation(s) for items found 24+ hours ago`);
-  } catch (error) {
-    console.error('Error in auto cleanup:', error);
-  }
+  // Disabled: auto-cleanup based on 'found' status is no longer performed.
+  console.log('autoCleanupFoundItems: disabled by configuration (no-op)');
+  return { cleaned: 0, items: [] };
 };
 
 // Get all conversations for a user
@@ -281,41 +261,15 @@ router.delete('/conversations/:conversationId/mark-retrieved', authenticate, asy
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    const batch = db.batch();
-    
-    // Update item status if it exists
-    if (conversationData.itemId) {
-      const itemRef = db.collection('items').doc(conversationData.itemId);
-      batch.update(itemRef, {
-        status: 'found',
-        kind: 'found',
-        foundDate: admin.firestore.Timestamp.now()
-      });
-    }
-    
-    // Delete all messages in this conversation
-    const messagesQuery = db.collection('messages').where('conversationId', '==', conversationId);
-    const messagesSnapshot = await messagesQuery.get();
-    messagesSnapshot.forEach(messageDoc => {
-      batch.delete(messageDoc.ref);
-    });
-    
-    // Delete the conversation
-    batch.delete(conversationDoc.ref);
-    
-    await batch.commit();
-    
-    res.json({ success: true });
+    // Feature disabled: marking retrieved / deleting conversations is not supported.
+    // Return 204 No Content to indicate action is intentionally ignored.
+    return res.status(204).json({ success: false, message: 'mark-retrieved disabled by server configuration' });
   } catch (error) {
     console.error('Error marking item as retrieved:', error);
     res.status(500).json({ error: 'Failed to mark item as retrieved' });
   }
 });
 
-// Run cleanup every hour
-setInterval(autoCleanupFoundItems, 60 * 60 * 1000); // 1 hour
-
-// Also run cleanup on startup
-autoCleanupFoundItems();
+// Auto-cleanup of 'found' items has been disabled because items are marked 'found' only at creation time.
 
 module.exports = router;
