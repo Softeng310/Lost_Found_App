@@ -134,61 +134,10 @@ const ItemDetailPage = () => {
     }
   };
 
-  // Handle claiming an item (marks it as found)
-  const handleClaimItem = async () => {
-    if (!currentUser || !item || updatingItem) {
-      if (!currentUser) {
-        navigate('/login');
-      }
-      return;
-    }
-
-    setUpdatingItem(true);
-    try {
-      await updateDoc(doc(db, 'items', item.id), {
-        status: 'found',
-        kind: 'found',
-        foundDate: Timestamp.now(),
-        claimedBy: currentUser.uid,
-        claimedAt: Timestamp.now()
-      });
-      
-      // Show success message and redirect after a short delay
-      alert('Item claimed successfully! You will be redirected to the feed.');
-      setTimeout(() => {
-        navigate('/feed');
-      }, 1500);
-    } catch (error) {
-      console.error('Error claiming item:', error);
-      alert('Failed to claim item. Please try again.');
-    } finally {
-      setUpdatingItem(false);
-    }
-  };
-
-  // Handle marking own item as found
-  const handleMarkAsFound = async () => {
-    if (!currentUser || !item || updatingItem) return;
-
-    setUpdatingItem(true);
-    try {
-      await updateDoc(doc(db, 'items', item.id), {
-        status: 'found',
-        kind: 'found',
-        foundDate: Timestamp.now(),
-        markedFoundBy: currentUser.uid
-      });
-      
-      alert('Item marked as found! Conversations will be cleaned up automatically.');
-      setTimeout(() => {
-        navigate('/feed');
-      }, 1500);
-    } catch (error) {
-      console.error('Error marking item as found:', error);
-      alert('Failed to mark item as found. Please try again.');
-    } finally {
-      setUpdatingItem(false);
-    }
+  // Owner 'Set as Found' functionality removed: marking items as 'found' now only happens at initial posting.
+  // Keep a placeholder function in case other code expects it; it intentionally does nothing.
+  const handleMarkAsFound = () => {
+    // no-op by design
   };
 
   if (!item) {
@@ -267,7 +216,7 @@ const ItemDetailPage = () => {
                   {/* If user is the item owner */}
                   {currentUser.uid === userInfo?.id ? (
                     <button 
-                      onClick={handleMarkAsFound}
+                      onClick={() => { /* intentionally inert - marking as found disabled */ }}
                       disabled={updatingItem || item.status === 'found'}
                       className={`${buttonStyles.base} ${
                         item.status === 'found' 
@@ -282,7 +231,7 @@ const ItemDetailPage = () => {
                     /* If user is not the owner */
                     <>
                       <button 
-                        onClick={handleClaimItem}
+                        onClick={() => { /* intentionally inert - claim disabled per request */ }}
                         disabled={updatingItem || item.status === 'found'}
                         className={`${buttonStyles.base} ${
                           item.status === 'found' 

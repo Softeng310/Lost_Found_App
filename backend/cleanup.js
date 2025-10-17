@@ -21,90 +21,12 @@ const db = admin.firestore();
 
 /**
  * Auto-cleanup function to delete conversations for items marked as found 24 hours ago
- * This function should be called periodically (e.g., every hour)
+ * Disabled: per new application policy, items are only marked 'found' at creation time and
+ * we do not perform automatic cleanup based on a 'found' status.
  */
 const autoCleanupFoundItems = async () => {
-  try {
-    console.log('🧹 Starting auto-cleanup of found items...');
-    
-    const twentyFourHoursAgo = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() - 24 * 60 * 60 * 1000)
-    );
-
-    // Find items that were marked as found 24+ hours ago
-    const foundItemsQuery = db.collection('items')
-      .where('status', '==', 'found')
-      .where('foundDate', '<=', twentyFourHoursAgo);
-
-    const foundItemsSnapshot = await foundItemsQuery.get();
-    
-    if (foundItemsSnapshot.empty) {
-      console.log('✅ No items found for cleanup');
-      return { cleaned: 0, items: [] };
-    }
-
-    const itemIds = [];
-    let conversationsDeleted = 0;
-    let messagesDeleted = 0;
-
-    foundItemsSnapshot.forEach(doc => {
-      itemIds.push(doc.id);
-    });
-
-    console.log(`🔍 Found ${itemIds.length} items marked as found 24+ hours ago`);
-
-    // Process each item
-    for (const itemId of itemIds) {
-      try {
-        // Find conversations for this item
-        const conversationsQuery = db.collection('conversations').where('itemId', '==', itemId);
-        const conversationsSnapshot = await conversationsQuery.get();
-        
-        if (conversationsSnapshot.empty) {
-          continue;
-        }
-
-        // Create a batch for efficient deletion
-        const batch = db.batch();
-        
-        for (const conversationDoc of conversationsSnapshot.docs) {
-          const conversationId = conversationDoc.id;
-          
-          // Find and delete all messages for this conversation
-          const messagesQuery = db.collection('messages').where('conversationId', '==', conversationId);
-          const messagesSnapshot = await messagesQuery.get();
-          
-          messagesSnapshot.forEach(messageDoc => {
-            batch.delete(messageDoc.ref);
-            messagesDeleted++;
-          });
-          
-          // Delete the conversation
-          batch.delete(conversationDoc.ref);
-          conversationsDeleted++;
-        }
-        
-        // Execute the batch
-        await batch.commit();
-        
-      } catch (itemError) {
-        console.error(`❌ Error processing item ${itemId}:`, itemError);
-      }
-    }
-
-    console.log(`✅ Cleanup completed: ${conversationsDeleted} conversations and ${messagesDeleted} messages deleted`);
-    
-    return {
-      cleaned: itemIds.length,
-      items: itemIds,
-      conversationsDeleted,
-      messagesDeleted
-    };
-    
-  } catch (error) {
-    console.error('❌ Error in auto cleanup:', error);
-    throw error;
-  }
+  console.log('autoCleanupFoundItems is disabled by app configuration; no action taken');
+  return { cleaned: 0, items: [] };
 };
 
 /**

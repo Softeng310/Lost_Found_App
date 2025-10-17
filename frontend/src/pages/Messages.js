@@ -202,36 +202,10 @@ const MessagesPage = () => {
     }
   }, [newMessage, selectedConversation, user, sendingMessage]);
 
-  // Mark item as retrieved and delete conversation
+  // 'Mark item retrieved' is now a no-op; marking items as 'found' only happens at creation time.
   const markItemRetrieved = useCallback(async () => {
-    if (!selectedConversation || !user) return;
-
-    try {
-      // Update item status to found
-      if (selectedConversation.itemId) {
-        await updateDoc(doc(db, 'items', selectedConversation.itemId), {
-          status: 'found',
-          kind: 'found',
-          foundDate: Timestamp.now()
-        });
-      }
-
-      // Delete all messages in this conversation
-      const messagesRef = collection(db, 'messages');
-      const messagesQuery = query(messagesRef, where('conversationId', '==', selectedConversation.id));
-      
-      const messagesSnapshot = await getDocs(messagesQuery);
-      const deletePromises = messagesSnapshot.docs.map(msgDoc => deleteDoc(msgDoc.ref));
-      await Promise.all(deletePromises);
-
-      // Delete the conversation
-      await deleteDoc(doc(db, 'conversations', selectedConversation.id));
-
-      setSelectedConversation(null);
-      setMessages([]);
-    } catch (error) {
-      console.error('Error marking item as retrieved:', error);
-    }
+    // intentionally do nothing
+    console.debug('markItemRetrieved called but is disabled by app configuration');
   }, [selectedConversation, user]);
 
   if (loading) {
