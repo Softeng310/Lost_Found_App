@@ -35,13 +35,13 @@ const getUserDisplayName = async (uid) => {
 // Helper: collect item IDs that were found before the cutoff timestamp
 const collectItemIdsToCleanup = (foundItemsSnapshot, cutoffTimestamp) => {
   const itemIds = [];
-  foundItemsSnapshot.forEach(doc => {
+  for (const doc of foundItemsSnapshot.docs) {
     const data = doc.data();
     const foundDate = data.foundDate;
     if (foundDate && foundDate.seconds && foundDate.seconds <= cutoffTimestamp.seconds) {
       itemIds.push(doc.id);
     }
-  });
+  }
   return itemIds;
 };
 
@@ -56,9 +56,9 @@ const addDeletionsForItemIds = async (itemIds, batch) => {
       const messagesQuery = db.collection('messages').where('conversationId', '==', conversationDoc.id);
       const messagesSnapshot = await messagesQuery.get();
 
-      messagesSnapshot.forEach(messageDoc => {
+      for (const messageDoc of messagesSnapshot.docs) {
         batch.delete(messageDoc.ref);
-      });
+      }
 
       // Delete the conversation
       batch.delete(conversationDoc.ref);

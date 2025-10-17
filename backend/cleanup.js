@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 
 // Initialize Firebase if not already initialized
 if (!admin.apps.length) {
-  const path = require('path');
+  const path = require('node:path');
   const serviceAccountPath = path.join(__dirname, 'firebase-service-account.json');
   
   try {
@@ -25,8 +25,10 @@ const db = admin.firestore();
  * we do not perform automatic cleanup based on a 'found' status.
  */
 const autoCleanupFoundItems = async () => {
-  console.log('autoCleanupFoundItems is disabled by app configuration; no action taken');
-  return { cleaned: 0, items: [] };
+  // Disabled by app configuration: per policy items are only marked 'found' at creation time
+  // Return a consistent shape so callers don't need to defensively check fields.
+  console.info('autoCleanupFoundItems is disabled by app configuration; no action taken');
+  return { cleaned: 0, items: [], conversationsDeleted: 0, messagesDeleted: 0 };
 };
 
 /**
@@ -35,7 +37,7 @@ const autoCleanupFoundItems = async () => {
  */
 const cleanupOldConversations = async () => {
   try {
-    console.log('🧹 Starting cleanup of old conversations...');
+  console.info('🧹 Starting cleanup of old conversations...');
     
     const sevenDaysAgo = admin.firestore.Timestamp.fromDate(
       new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
@@ -47,8 +49,8 @@ const cleanupOldConversations = async () => {
     const oldConversationsSnapshot = await oldConversationsQuery.get();
     
     if (oldConversationsSnapshot.empty) {
-      console.log('✅ No old conversations found for cleanup');
-      return { cleaned: 0 };
+      console.info('✅ No old conversations found for cleanup');
+      return { cleaned: 0, messagesDeleted: 0 };
     }
 
     let conversationsDeleted = 0;
@@ -64,10 +66,10 @@ const cleanupOldConversations = async () => {
       const messagesQuery = db.collection('messages').where('conversationId', '==', conversationId);
       const messagesSnapshot = await messagesQuery.get();
       
-      messagesSnapshot.forEach(messageDoc => {
+      for (const messageDoc of messagesSnapshot.docs) {
         batch.delete(messageDoc.ref);
         messagesDeleted++;
-      });
+      }
       
       // Delete the conversation
       batch.delete(conversationDoc.ref);
@@ -76,9 +78,9 @@ const cleanupOldConversations = async () => {
     
     // Execute the batch
     await batch.commit();
-    
-    console.log(`✅ Old conversations cleanup completed: ${conversationsDeleted} conversations and ${messagesDeleted} messages deleted`);
-    
+
+    console.info(`✅ Old conversations cleanup completed: ${conversationsDeleted} conversations and ${messagesDeleted} messages deleted`);
+
     return {
       cleaned: conversationsDeleted,
       messagesDeleted
@@ -95,21 +97,27 @@ const cleanupOldConversations = async () => {
  */
 const runFullCleanup = async () => {
   try {
-    console.log('🚀 Starting full cleanup process...');
-    
+    console.info('🚀 Starting full cleanup process...');
+
     const foundItemsResult = await autoCleanupFoundItems();
     const oldConversationsResult = await cleanupOldConversations();
-    
+
+    // Compute totals defensively: prefer explicit numeric fallbacks to avoid NaN
+    const foundConversationsDeleted = Number(foundItemsResult.conversationsDeleted || foundItemsResult.cleaned || 0);
+    const foundMessagesDeleted = Number(foundItemsResult.messagesDeleted || 0);
+    const oldConversationsDeleted = Number(oldConversationsResult.cleaned || 0);
+    const oldMessagesDeleted = Number(oldConversationsResult.messagesDeleted || 0);
+
     const totalResult = {
       timestamp: new Date().toISOString(),
       foundItemsCleanup: foundItemsResult,
       oldConversationsCleanup: oldConversationsResult,
-      totalConversationsDeleted: foundItemsResult.conversationsDeleted + oldConversationsResult.cleaned,
-      totalMessagesDeleted: foundItemsResult.messagesDeleted + oldConversationsResult.messagesDeleted
+      totalConversationsDeleted: foundConversationsDeleted + oldConversationsDeleted,
+      totalMessagesDeleted: foundMessagesDeleted + oldMessagesDeleted
     };
-    
-    console.log('🎉 Full cleanup completed:', totalResult);
-    
+
+    console.info('🎉 Full cleanup completed:', totalResult);
+
     return totalResult;
     
   } catch (error) {
@@ -127,13 +135,18 @@ module.exports = {
 
 // If this file is run directly, execute the cleanup
 if (require.main === module) {
-  runFullCleanup()
-    .then((result) => {
+  /* eslint-disable prefer-top-level-await -- required: file is CommonJS and top-level await is not supported here */
+  (async () => {
+    try {
+      await runFullCleanup();
       console.log('✅ Cleanup script completed successfully');
+      // eslint-disable-next-line no-process-exit
       process.exit(0);
-    })
-    .catch((error) => {
+    } catch (error) {
       console.error('❌ Cleanup script failed:', error);
+      // eslint-disable-next-line no-process-exit
       process.exit(1);
-    });
+    }
+  })();
+  /* eslint-enable prefer-top-level-await */
 }
