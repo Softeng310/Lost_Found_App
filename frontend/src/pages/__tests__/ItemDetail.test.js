@@ -1,33 +1,3 @@
-import { render, screen } from '@testing-library/react';
-import ItemDetailPage from '../ItemDetail';
-import React from 'react';
-
-describe('ItemDetailPage', () => {
-  it('shows Claimed badge when item is claimed', async () => {
-    // Mock item and userInfo
-    const mockItem = {
-      id: 'item123',
-      kind: 'lost',
-      category: 'electronics',
-      title: 'Lost Phone',
-      description: 'Black iPhone',
-      imageUrl: '/test.jpg',
-      date: new Date().toISOString(),
-      location: 'Library',
-      coordinates: { latitude: 1, longitude: 2 },
-      claimed: true,
-    };
-    const mockUserInfo = { id: 'user123', name: 'Alice', trust: true };
-    // Mock hooks and context
-    jest.spyOn(React, 'useState').mockImplementation((init) => {
-      if (init === null) return [mockItem, () => {}];
-      if (init === null) return [mockUserInfo, () => {}];
-      return [init, () => {}];
-    });
-    render(<ItemDetailPage />);
-    expect(screen.getByText('Claimed')).toBeInTheDocument();
-  });
-});
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { useParams } from 'react-router-dom';
@@ -300,6 +270,26 @@ describe('ItemDetailPage', () => {
       setupOnSnapshotMock(foundItem);
       renderItemDetailPage();
       await assertItemStatusBadge('found');
+    });
+
+    test('displays claimed badge when item is claimed', async () => {
+      const claimedItem = { ...mockItem, claimed: true };
+      setupOnSnapshotMock(claimedItem);
+      renderItemDetailPage();
+      
+      await waitFor(() => {
+        expect(screen.getByText('Claimed')).toBeInTheDocument();
+      });
+    });
+
+    test('does not display claimed badge when item is not claimed', async () => {
+      const unclaimedItem = { ...mockItem, claimed: false };
+      setupOnSnapshotMock(unclaimedItem);
+      renderItemDetailPage();
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Claimed')).not.toBeInTheDocument();
+      });
     });
 
     test('displays item category', async () => {

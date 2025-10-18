@@ -91,7 +91,6 @@ const validateItemInput = (req, res, next) => {
   if (latitude === undefined || longitude === undefined) {
     validationErrors.push('Location coordinates are required');
   } else {
-// PATCH /api/items/:id/unclaim - Mark item as unclaimed (owner only)
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
     

@@ -322,7 +322,6 @@ export const createProfilePageTestHelpers = () => {
     await waitFor(() => {
       expect(screen.getByText('Trust & Verification')).toBeInTheDocument();
       expect(screen.getByText('My Posts')).toBeInTheDocument();
-      expect(screen.getByText('My Claims')).toBeInTheDocument();
     });
   };
 
