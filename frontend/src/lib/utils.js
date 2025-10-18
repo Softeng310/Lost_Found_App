@@ -24,28 +24,21 @@ const DEFAULT_REPORTER = { name: 'Unknown', trust: false };
  */
 export const normalizeFirestoreItem = (data, id) => {
   try {
-    // Handle different image URL field names (some APIs use imageURL vs imageUrl)
+    // ...existing code...
     const imageUrl = data.imageURL || data.imageUrl || DEFAULT_IMAGE_URL;
-    
-    // Normalize status/kind - some items use 'status', others use 'kind'
     const kindRaw = data.kind || data.status || '';
     const kind = String(kindRaw).toLowerCase();
-    
-    // Normalize category/type - handle different naming conventions
     const typeRaw = data.category || data.type || '';
     const category = normalizeCategory(String(typeRaw).toLowerCase());
-    
-    // Extract reporter info - could be direct or a reference
     const reporter = normalizeReporter(data.reporter, data.postedBy);
-    
-    // Parse date - handle Firestore timestamps and strings
     const date = normalizeDate(data.date);
-    
-    // Use provided location or fallback
     const location = data.location || DEFAULT_LOCATION;
-    
-    // Preserve coordinates if they exist
     const coordinates = data.coordinates || null;
+
+    // Claim fields
+    const claimed = Boolean(data.claimed);
+    const claimedAt = data.claimedAt ? normalizeDate(data.claimedAt) : null;
+    const claimedBy = data.claimedBy || null;
 
     return {
       id: id || data.id || '',
@@ -58,6 +51,9 @@ export const normalizeFirestoreItem = (data, id) => {
       location,
       coordinates,
       reporter,
+      claimed,
+      claimedAt,
+      claimedBy,
     };
   } catch (error) {
     console.error('Error normalizing Firestore item:', error);

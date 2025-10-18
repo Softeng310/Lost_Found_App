@@ -272,6 +272,26 @@ describe('ItemDetailPage', () => {
       await assertItemStatusBadge('found');
     });
 
+    test('displays claimed badge when item is claimed', async () => {
+      const claimedItem = { ...mockItem, claimed: true };
+      setupOnSnapshotMock(claimedItem);
+      renderItemDetailPage();
+      
+      await waitFor(() => {
+        expect(screen.getByText('Claimed')).toBeInTheDocument();
+      });
+    });
+
+    test('does not display claimed badge when item is not claimed', async () => {
+      const unclaimedItem = { ...mockItem, claimed: false };
+      setupOnSnapshotMock(unclaimedItem);
+      renderItemDetailPage();
+      
+      await waitFor(() => {
+        expect(screen.queryByText('Claimed')).not.toBeInTheDocument();
+      });
+    });
+
     test('displays item category', async () => {
       setupOnSnapshotMock();
       renderItemDetailPage();

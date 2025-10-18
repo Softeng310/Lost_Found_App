@@ -21,64 +21,56 @@ import MapDisplay from '../components/map/MapDisplay';
 import MapModal from '../components/map/MapModal';
 
 /* Small subcomponent to render the action buttons; extracted to reduce parent complexity */
-export const ActionButtons = ({ currentUser, userInfo, item, onStart, startingConversation, onLogin }) => {
-  const isOwner = !!(currentUser && userInfo?.id && currentUser.uid === userInfo.id)
+export const ActionButtons = ({ currentUser, userInfo, item, onStart, startingConversation, onLogin, onClaim, onUnclaim }) => {
+  const isOwner = !!(currentUser && userInfo?.id && currentUser.uid === userInfo.id);
 
-  const ownerDisabled = item?.status === 'found'
-  const ownerText = ownerDisabled ? 'Already Found' : 'Set as Found'
-
-  const claimDisabled = item?.status === 'found'
-  const claimText = claimDisabled ? 'Already Claimed' : 'Claim Item'
-
-  if (currentUser) {
-    if (isOwner) {
+  // Only owner can claim/unclaim
+  if (currentUser && isOwner) {
+    if (item.claimed) {
       return (
         <button
           type="button"
-          onClick={() => { /* intentionally inert - marking as found disabled */ }}
-          disabled={ownerDisabled}
-          className={`${buttonStyles.base} ${ownerDisabled ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' : buttonStyles.primary}`}
-        >
-          {ownerText}
-        </button>
-      )
-    }
-
-    // Non-owner actions
-    return (
-      <>
-        <button
-          type="button"
-          onClick={() => { /* intentionally inert - claim disabled per request */ }}
-          disabled={claimDisabled}
-          className={`${buttonStyles.base} ${claimDisabled ? buttonStyles.secondary + ' opacity-50 cursor-not-allowed' : buttonStyles.primary}`}
-        >
-          {claimText}
-        </button>
-
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={startingConversation}
+          onClick={onUnclaim}
           className={`${buttonStyles.base} ${buttonStyles.secondary}`}
         >
-          {startingConversation ? 'Starting...' : 'Message'}
+          Set as Unclaimed
         </button>
-      </>
-    )
+      );
+    } else {
+      return (
+        <button
+          type="button"
+          onClick={onClaim}
+          className={`${buttonStyles.base} ${buttonStyles.primary}`}
+        >
+          Set as Claimed
+        </button>
+      );
+    }
+  }
+
+  // Non-owner actions
+  if (currentUser && !isOwner) {
+    return (
+      <button
+        type="button"
+        onClick={onStart}
+        disabled={startingConversation}
+        className={`${buttonStyles.base} ${buttonStyles.secondary}`}
+      >
+        {startingConversation ? 'Starting...' : 'Message'}
+      </button>
+    );
   }
 
   // Not logged in
   return (
     <>
       <button type="button" onClick={onLogin} className={`${buttonStyles.base} ${buttonStyles.primary}`}>
-        Login to Claim
-      </button>
-      <button type="button" onClick={onLogin} className={`${buttonStyles.base} ${buttonStyles.secondary}`}>
         Login to Message
       </button>
     </>
-  )
+  );
 }
 
 ActionButtons.propTypes = {
@@ -87,6 +79,8 @@ ActionButtons.propTypes = {
   item: PropTypes.object.isRequired,
   onStart: PropTypes.func,
   startingConversation: PropTypes.bool,
+  onClaim: PropTypes.func,
+  onUnclaim: PropTypes.func,
   onLogin: PropTypes.func
 }
 
@@ -157,10 +151,7 @@ const ItemDetailPage = () => {
       return;
     }
     if (!item || !userInfo?.id || startingConversation) return;
-
-    // Don't allow messaging yourself
     if (currentUser.uid === userInfo.id) return;
-
     setStartingConversation(true);
     try {
       const conversationsRef = collection(db, 'conversations');
@@ -169,15 +160,11 @@ const ItemDetailPage = () => {
         where('itemId', '==', item.id),
         where('participants', 'array-contains', currentUser.uid)
       );
-
       const existingConversations = await getDocs(existingConversationQuery);
-
       if (!existingConversations.empty) {
         navigate(`/messages?item=${item.id}`);
         return;
       }
-
-      // Create new conversation
       await addDoc(conversationsRef, {
         itemId: item.id,
         participants: [currentUser.uid, userInfo.id],
@@ -186,7 +173,6 @@ const ItemDetailPage = () => {
         lastMessageTime: Timestamp.now(),
         lastMessageSender: null
       });
-
       navigate(`/messages?item=${item.id}`);
     } catch (error) {
       console.error('Error starting conversation:', error);
@@ -194,6 +180,43 @@ const ItemDetailPage = () => {
       setStartingConversation(false);
     }
   }, [currentUser, item, userInfo, startingConversation, navigate]);
+
+  // Claim/unclaim handlers
+  const handleClaim = useCallback(async () => {
+    if (!item?.id) return;
+    try {
+      const token = await getAuth().currentUser.getIdToken();
+      const res = await fetch(`http://localhost:5876/api/items/${item.id}/claim`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert('Failed to claim item');
+      }
+    } catch (err) {
+      alert('Error claiming item');
+    }
+  }, [item]);
+
+  const handleUnclaim = useCallback(async () => {
+    if (!item?.id) return;
+    try {
+      const token = await getAuth().currentUser.getIdToken();
+      const res = await fetch(`http://localhost:5876/api/items/${item.id}/unclaim`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert('Failed to unclaim item');
+      }
+    } catch (err) {
+      alert('Error unclaiming item');
+    }
+  }, [item]);
 
   /* Small subcomponent to render the action buttons; extracted to keep main component simple */
   // ActionButtons was moved to module scope (see below) to reduce component complexity
@@ -240,6 +263,9 @@ const ItemDetailPage = () => {
               <Badge variant="secondary" className="capitalize">
                 {item.kind || item.status}
               </Badge>
+              {item.claimed && (
+                <Badge className="bg-slate-600 text-white">Claimed</Badge>
+              )}
               <Badge className="bg-emerald-600 hover:bg-emerald-700">
                 {item.category || item.type}
               </Badge>
@@ -275,6 +301,8 @@ const ItemDetailPage = () => {
                 onStart={startConversation}
                 onLogin={() => navigate('/login')}
                 startingConversation={startingConversation}
+                onClaim={handleClaim}
+                onUnclaim={handleUnclaim}
               />
             </div>
           </div>
