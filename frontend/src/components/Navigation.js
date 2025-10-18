@@ -4,6 +4,7 @@ import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth';
 import { ShieldCheck, Siren, User, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
+import NotificationBell from './NotificationBell';
 
 // App branding - keep these consistent across the app
 const APP_NAME = {
@@ -124,6 +125,9 @@ export default function Navigation() {
                 href="/messages"
                 label="Messages"
               />
+              
+              {/* Notification Bell - only for logged-in users */}
+              <NotificationBell />
               
               {/* Profile button for logged-in users */}
               <Button

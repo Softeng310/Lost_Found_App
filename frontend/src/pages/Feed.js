@@ -7,6 +7,7 @@ import Badge from '../components/ui/Badge';
 import { db } from '../firebase/config';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { normalizeFirestoreItem } from '../lib/utils';
+import NotificationBell from '../components/NotificationBell';
 
 // Constants for better maintainability
 const INITIAL_FILTERS = {
@@ -177,12 +178,15 @@ const FeedPage = () => {
               Browse through reported items and help reunite people with their belongings
             </p>
           </div>
-          <Link 
-            to="/items/new" 
-            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-          >
-            Report an Item
-          </Link>
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <Link 
+              to="/items/new" 
+              className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+            >
+              Report an Item
+            </Link>
+          </div>
         </div>
 
         {/* Tabs */}

@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
 const cloudinary = require('../cloudinary');
 const authenticate = require('../middleware/auth');
+const { checkAndCreateNotifications } = require('../utils/notificationService');
 
 // Upload configuration - limits and allowed file types
 const UPLOAD_CONFIG = {
@@ -209,6 +210,21 @@ router.post('/',
       const docRef = await db.collection('items').add(itemData);
 
       console.log('✅ Item created successfully:', docRef.id);
+
+      // Trigger notification check for matching user preferences
+      const fullItemData = {
+        id: docRef.id,
+        title: title.trim(),
+        description: description.trim(),
+        category: type,
+        type: status,
+        imageUrl: imageURL,
+        reportedBy: uid
+      };
+      
+      checkAndCreateNotifications(fullItemData).catch(err => 
+        console.error('⚠️ Notification error:', err)
+      );
 
       res.status(201).json({ 
         message: 'Item created successfully!',
