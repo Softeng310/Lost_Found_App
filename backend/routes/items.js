@@ -339,6 +339,32 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Helper function to verify item ownership
+const verifyItemOwnership = async (db, itemId, uid) => {
+  const itemDoc = await db.collection('items').doc(itemId).get();
+  if (!itemDoc.exists) {
+    return { error: { status: 404, message: 'Item not found' } };
+  }
+  
+  const item = itemDoc.data();
+  
+  // Get user doc ref
+  const userDocRef = db.collection('users').doc(uid);
+  const userSnap = await userDocRef.get();
+  if (!userSnap.exists) {
+    return { error: { status: 403, message: 'User profile not found' } };
+  }
+  
+  // Check ownership - postedBy is a DocumentReference
+  const postedByRef = item.postedBy;
+  if (!postedByRef || postedByRef.id !== uid) {
+    console.log('❌ Ownership check failed. postedBy:', postedByRef?.id, 'uid:', uid);
+    return { error: { status: 403, message: 'Only the owner can modify this item' } };
+  }
+  
+  return { item, userDocRef };
+};
+
 // PATCH /api/items/:id/claim - Mark item as claimed (owner only)
 router.patch('/:id/claim', authenticate, async (req, res) => {
   try {
@@ -348,24 +374,9 @@ router.patch('/:id/claim', authenticate, async (req, res) => {
 
     console.log('📝 Claim request for item:', id, 'by user:', uid);
 
-    const itemDoc = await db.collection('items').doc(id).get();
-    if (!itemDoc.exists) {
-      return res.status(404).json({ error: 'Item not found' });
-    }
-    const item = itemDoc.data();
-
-    // Get user doc ref
-    const userDocRef = db.collection('users').doc(uid);
-    const userSnap = await userDocRef.get();
-    if (!userSnap.exists) {
-      return res.status(403).json({ error: 'User profile not found' });
-    }
-
-    // Check ownership - postedBy is a DocumentReference
-    const postedByRef = item.postedBy;
-    if (!postedByRef || postedByRef.id !== uid) {
-      console.log('❌ Ownership check failed. postedBy:', postedByRef?.id, 'uid:', uid);
-      return res.status(403).json({ error: 'Only the owner can claim this item' });
+    const { item, userDocRef, error } = await verifyItemOwnership(db, id, uid);
+    if (error) {
+      return res.status(error.status).json({ error: error.message });
     }
 
     // If already claimed, return success
@@ -396,24 +407,9 @@ router.patch('/:id/unclaim', authenticate, async (req, res) => {
 
     console.log('📝 Unclaim request for item:', id, 'by user:', uid);
 
-    const itemDoc = await db.collection('items').doc(id).get();
-    if (!itemDoc.exists) {
-      return res.status(404).json({ error: 'Item not found' });
-    }
-    const item = itemDoc.data();
-
-    // Get user doc ref
-    const userDocRef = db.collection('users').doc(uid);
-    const userSnap = await userDocRef.get();
-    if (!userSnap.exists) {
-      return res.status(403).json({ error: 'User profile not found' });
-    }
-
-    // Check ownership - postedBy is a DocumentReference
-    const postedByRef = item.postedBy;
-    if (!postedByRef || postedByRef.id !== uid) {
-      console.log('❌ Ownership check failed. postedBy:', postedByRef?.id, 'uid:', uid);
-      return res.status(403).json({ error: 'Only the owner can unclaim this item' });
+    const { item, error } = await verifyItemOwnership(db, id, uid);
+    if (error) {
+      return res.status(error.status).json({ error: error.message });
     }
 
     // If already unclaimed, return success
