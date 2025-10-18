@@ -13,6 +13,7 @@ import AnnouncementsPage from './pages/Announcements';
 import AddAnnouncementPage from './pages/AddAnnouncement';
 import EditAnnouncementPage from './pages/EditAnnouncement';
 import MessagesPage from './pages/Messages';
+import NotificationSettingsPage from './pages/NotificationSettingsPage';
 
 // Route configuration for better maintainability
 const ROUTES = [
@@ -26,7 +27,8 @@ const ROUTES = [
   { path: '/messages', element: MessagesPage },
   { path: '/announcements', element: AnnouncementsPage },
   { path: '/announcements/add', element: AddAnnouncementPage },
-  { path: '/announcements/edit/:id', element: EditAnnouncementPage }
+  { path: '/announcements/edit/:id', element: EditAnnouncementPage },
+  { path: '/notifications/settings', element: NotificationSettingsPage }
 ];
 
 // Error Boundary Component
