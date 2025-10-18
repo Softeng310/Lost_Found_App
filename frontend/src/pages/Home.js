@@ -115,28 +115,29 @@ const HomePage = () => {
 
         {/* Call to action - encourage signups */}
         <section className="py-20">
-          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-2xl p-12 text-center text-white">
+          <div className="bg-gradient-to-b from-emerald-600 to-emerald-700 rounded-2xl p-12 text-center text-white">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
               Ready to get started?
             </h2>
-            <p className="text-xl mb-8 text-emerald-100 max-w-2xl mx-auto">
+            <p className="text-xl mb-8 max-w-2xl mx-auto text-gray-300" style={{ color: '#D1D5DB' }}>
               Join our community and help make a difference in your campus. Every item reunited is a story of hope and community.
             </p>
             {/* CTA buttons with inverted colors */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/signup">
                 <Button 
+                  variant="outline"
                   size="lg" 
-                  className="gap-3 text-lg px-8 py-4 bg-white text-emerald-700 hover:bg-gray-50 shadow-lg hover:shadow-xl transition-all duration-200"
+                  className="gap-3 text-lg px-8 py-4 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-sm hover:shadow-md transition-all duration-200 border-emerald-600"
                 >
                   Create Account
                 </Button>
               </Link>
               <Link to="/feed">
                 <Button 
-                  variant="outline" 
+                  variant="outline"
                   size="lg" 
-                  className="gap-3 text-lg px-8 py-4 border-white text-white hover:bg-white hover:text-emerald-700 transition-all duration-200"
+                  className="gap-3 text-lg px-8 py-4 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-sm hover:shadow-md transition-all duration-200 border-emerald-600"
                 >
                   Browse Items
                 </Button>
