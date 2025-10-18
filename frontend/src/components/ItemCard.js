@@ -66,7 +66,6 @@ const ItemCard = ({ item }) => {
   // Get status display text
   const statusText = item.kind ? item.kind.charAt(0).toUpperCase() + item.kind.slice(1) : 'Unknown';
 
-
   return (
     <Link to={`/items/${item.id}`} className="block group">
       <div className={`${cardStyles.hover} h-full transition-all duration-200 hover:scale-[1.02]`}>
@@ -112,23 +111,23 @@ const ItemCard = ({ item }) => {
                 >
                   {statusText}
                 </Badge>
+                {item.claimed && (
+                  <Badge className="bg-slate-600 text-white text-xs font-medium">Claimed</Badge>
+                )}
                 <Badge 
                   className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium capitalize"
                 >
                   {item.category || 'Uncategorized'}
                 </Badge>
               </div>
-              
               {/* Title */}
               <h3 className="font-semibold text-gray-900 text-sm mb-2 leading-tight line-clamp-2 group-hover:text-emerald-700 transition-colors">
                 {item.title || 'Untitled Item'}
               </h3>
-              
               {/* Description */}
               <p className="text-xs text-gray-600 mb-3 leading-relaxed line-clamp-2">
                 {item.description || 'No description provided'}
               </p>
-              
               {/* Location and Date */}
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span className="flex items-center gap-1 truncate">

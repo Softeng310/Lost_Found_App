@@ -91,6 +91,7 @@ const validateItemInput = (req, res, next) => {
   if (latitude === undefined || longitude === undefined) {
     validationErrors.push('Location coordinates are required');
   } else {
+// PATCH /api/items/:id/unclaim - Mark item as unclaimed (owner only)
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
     
@@ -335,6 +336,102 @@ router.get('/:id', async (req, res) => {
       error: 'Server error',
       message: 'Failed to fetch item'
     });
+  }
+});
+
+// PATCH /api/items/:id/claim - Mark item as claimed (owner only)
+router.patch('/:id/claim', authenticate, async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { id } = req.params;
+    const uid = req.user.uid;
+
+    console.log('📝 Claim request for item:', id, 'by user:', uid);
+
+    const itemDoc = await db.collection('items').doc(id).get();
+    if (!itemDoc.exists) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    const item = itemDoc.data();
+
+    // Get user doc ref
+    const userDocRef = db.collection('users').doc(uid);
+    const userSnap = await userDocRef.get();
+    if (!userSnap.exists) {
+      return res.status(403).json({ error: 'User profile not found' });
+    }
+
+    // Check ownership - postedBy is a DocumentReference
+    const postedByRef = item.postedBy;
+    if (!postedByRef || postedByRef.id !== uid) {
+      console.log('❌ Ownership check failed. postedBy:', postedByRef?.id, 'uid:', uid);
+      return res.status(403).json({ error: 'Only the owner can claim this item' });
+    }
+
+    // If already claimed, return success
+    if (item.claimed) {
+      return res.json({ message: 'Already claimed', claimed: true });
+    }
+
+    await db.collection('items').doc(id).update({
+      claimed: true,
+      claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+      claimedBy: userDocRef
+    });
+    
+    console.log('✅ Item claimed successfully');
+    return res.json({ message: 'Item claimed', claimed: true });
+  } catch (error) {
+    console.error('❌ Error claiming item:', error);
+    return res.status(500).json({ error: 'Failed to claim item', message: error.message });
+  }
+});
+
+// PATCH /api/items/:id/unclaim - Mark item as unclaimed (owner only)
+router.patch('/:id/unclaim', authenticate, async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { id } = req.params;
+    const uid = req.user.uid;
+
+    console.log('📝 Unclaim request for item:', id, 'by user:', uid);
+
+    const itemDoc = await db.collection('items').doc(id).get();
+    if (!itemDoc.exists) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    const item = itemDoc.data();
+
+    // Get user doc ref
+    const userDocRef = db.collection('users').doc(uid);
+    const userSnap = await userDocRef.get();
+    if (!userSnap.exists) {
+      return res.status(403).json({ error: 'User profile not found' });
+    }
+
+    // Check ownership - postedBy is a DocumentReference
+    const postedByRef = item.postedBy;
+    if (!postedByRef || postedByRef.id !== uid) {
+      console.log('❌ Ownership check failed. postedBy:', postedByRef?.id, 'uid:', uid);
+      return res.status(403).json({ error: 'Only the owner can unclaim this item' });
+    }
+
+    // If already unclaimed, return success
+    if (!item.claimed) {
+      return res.json({ message: 'Already unclaimed', claimed: false });
+    }
+
+    await db.collection('items').doc(id).update({
+      claimed: false,
+      claimedAt: null,
+      claimedBy: null
+    });
+    
+    console.log('✅ Item unclaimed successfully');
+    return res.json({ message: 'Item unclaimed', claimed: false });
+  } catch (error) {
+    console.error('❌ Error unclaiming item:', error);
+    return res.status(500).json({ error: 'Failed to unclaim item', message: error.message });
   }
 });
 

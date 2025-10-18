@@ -1,3 +1,33 @@
+import { render, screen } from '@testing-library/react';
+import ItemDetailPage from '../ItemDetail';
+import React from 'react';
+
+describe('ItemDetailPage', () => {
+  it('shows Claimed badge when item is claimed', async () => {
+    // Mock item and userInfo
+    const mockItem = {
+      id: 'item123',
+      kind: 'lost',
+      category: 'electronics',
+      title: 'Lost Phone',
+      description: 'Black iPhone',
+      imageUrl: '/test.jpg',
+      date: new Date().toISOString(),
+      location: 'Library',
+      coordinates: { latitude: 1, longitude: 2 },
+      claimed: true,
+    };
+    const mockUserInfo = { id: 'user123', name: 'Alice', trust: true };
+    // Mock hooks and context
+    jest.spyOn(React, 'useState').mockImplementation((init) => {
+      if (init === null) return [mockItem, () => {}];
+      if (init === null) return [mockUserInfo, () => {}];
+      return [init, () => {}];
+    });
+    render(<ItemDetailPage />);
+    expect(screen.getByText('Claimed')).toBeInTheDocument();
+  });
+});
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { useParams } from 'react-router-dom';

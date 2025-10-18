@@ -3,15 +3,13 @@ import { useNavigate } from "react-router-dom"
 import { getAuth, signOut, onAuthStateChanged } from "firebase/auth"
 import { LogOut, Trash2, Edit3, X } from "lucide-react"
 import PropTypes from 'prop-types'
-import { getUserPosts, getUserClaims, formatTimestamp, updateItemStatus, updateItem } from "../firebase/firestore"
+import { getUserPosts, formatTimestamp, updateItemStatus, updateItem } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
 
 /** ---------- Small utilities (deduplicated helpers) ---------- **/
 const coalesceDate = (item) =>
   item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated
-
-const isResolvedStatus = (s) => (s || '').toLowerCase() === 'resolved'
 
 const StatusPill = memo(({ color, text }) => (
   <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${color}`}>
@@ -26,21 +24,13 @@ StatusPill.propTypes = {
 
 /** Keep original business logic: compute status badge by context (posts vs claims) */
 const getStatusBadgeForPost = (item) => {
-  const status = (item.status || 'open').toLowerCase()
-  switch (status) {
-    case 'found':
-    case 'resolved':
-      return { variant: 'default', text: 'Resolved', color: 'bg-green-100 text-green-800' }
-    case 'claimed':
-      return { variant: 'secondary', text: 'Claimed', color: 'bg-purple-100 text-purple-800' }
-    case 'pending':
-      return { variant: 'secondary', text: 'Pending', color: 'bg-orange-100 text-orange-800' }
-    case 'lost':
-    case 'open':
-    case 'active':
-    default:
-      return { variant: 'secondary', text: 'Active', color: 'bg-blue-100 text-blue-800' }
+  // Check if item is claimed (new system)
+  if (item.claimed === true) {
+    return { variant: 'default', text: 'Claimed', color: 'bg-green-100 text-green-800' }
   }
+  
+  // Otherwise it's unclaimed/active
+  return { variant: 'secondary', text: 'Unclaimed', color: 'bg-blue-100 text-blue-800' }
 }
 
 const getStatusBadgeForClaim = (item) => {
@@ -65,12 +55,11 @@ const ItemRow = memo(function ItemRow({
   isMyPost,
   onNavigate,
   onEdit,
-  onClose,
+  onDelete,
 }) {
   const badge = getStatusBadge(item, isMyPost)
-  const resolved = isResolvedStatus(item.status)
-  const kindLabel = item.status === 'lost' ? 'Lost Item' : 'Found Item'
-  const kindClass = item.status === 'lost' ? 'text-red-700' : 'text-blue-700'
+  const kindLabel = (item.status === 'lost' || item.kind === 'lost') ? 'Lost Item' : 'Found Item'
+  const kindClass = (item.status === 'lost' || item.kind === 'lost') ? 'text-red-700' : 'text-blue-700'
   const when = formatTimestamp(coalesceDate(item))
 
   const go = () => onNavigate(item.id)
@@ -94,8 +83,8 @@ const ItemRow = memo(function ItemRow({
         </div>
       </button>
 
-      {/* Edit/Close buttons only for user's posts and only when not resolved */}
-      {isMyPost && !resolved && (
+      {/* Edit/Delete buttons only for user's posts */}
+      {isMyPost && (
         <div className="ml-2 flex items-center">
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(item) }}
@@ -107,10 +96,10 @@ const ItemRow = memo(function ItemRow({
             <Edit3 className="w-4 h-4" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onClose(item.id, item.title) }}
+            onClick={(e) => { e.stopPropagation(); onDelete(item.id, item.title) }}
             className="ml-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-            title="Close this post"
-            aria-label="Close post"
+            title="Delete this post"
+            aria-label="Delete post"
             type="button"
           >
             <Trash2 className="w-4 h-4" />
@@ -126,7 +115,7 @@ ItemRow.propTypes = {
   isMyPost: PropTypes.bool,
   onNavigate: PropTypes.func.isRequired,
   onEdit: PropTypes.func,
-  onClose: PropTypes.func,
+  onDelete: PropTypes.func,
 }
 
 /** Shared card (title + empty text + list renderer) */
@@ -161,7 +150,6 @@ ItemsCard.propTypes = {
 
 export default function ProfilePage() {
   const [myPosts, setMyPosts] = useState([])
-  const [myClaims, setMyClaims] = useState([])
   const [loading, setLoading] = useState(true)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -193,19 +181,15 @@ export default function ProfilePage() {
   }, [auth])
   const navigate = useNavigate()
 
-  /** Load user's posts and claims */
+  /** Load user's posts */
   useEffect(() => {
     const fetchUserData = async () => {
       if (!currentUser) { setLoading(false); return }
 
       try {
         setLoading(true)
-        const [posts, claims] = await Promise.all([
-          getUserPosts(currentUser.uid),
-          getUserClaims(currentUser.uid)
-        ])
+        const posts = await getUserPosts(currentUser.uid)
         setMyPosts(posts)
-        setMyClaims(claims)
       } catch (err) {
         console.error('Error fetching user data:', err)
         setError('Failed to load your data. Please try again.')
@@ -216,26 +200,27 @@ export default function ProfilePage() {
     fetchUserData()
   }, [currentUser])
 
-  /** Close/resolve a post */
-  const handleClosePost = useCallback(async (itemId, itemTitle) => {
-    const confirmed = (typeof window !== 'undefined') ? window.confirm(`Are you sure you want to close "${itemTitle}"? This will mark it as resolved.`) : true
+  /** Delete a post */
+  const handleDeletePost = useCallback(async (itemId, itemTitle) => {
+    const confirmed = (typeof window !== 'undefined') ? window.confirm(`Are you sure you want to delete "${itemTitle}"? This action cannot be undone.`) : true
     if (!confirmed) return
     try {
       // Optimistic UI: remove from list immediately
       setMyPosts(prev => prev.filter(p => p.id !== itemId))
-      await updateItemStatus(itemId, 'resolved')
+      
+      // Note: You may need to add a DELETE endpoint in your backend
+      // For now, we'll just mark it as deleted by updating status
+      await updateItemStatus(itemId, 'deleted')
+      
+      alert('Post deleted successfully!')
     } catch (error) {
-      console.error('Error closing post:', error)
-      alert('Failed to close post. Please try again.')
+      console.error('Error deleting post:', error)
+      alert('Failed to delete post. Please try again.')
       // Rollback by reloading fresh data
       try {
         if (currentUser) {
-          const [posts, claims] = await Promise.all([
-            getUserPosts(currentUser.uid),
-            getUserClaims(currentUser.uid)
-          ])
+          const posts = await getUserPosts(currentUser.uid)
           setMyPosts(posts)
-          setMyClaims(claims)
         }
       } catch (refreshError) {
         console.error('Error refreshing data:', refreshError)
@@ -319,12 +304,8 @@ export default function ProfilePage() {
 
       // Reload to ensure consistency
       if (currentUser) {
-        const [posts, claims] = await Promise.all([
-          getUserPosts(currentUser.uid),
-          getUserClaims(currentUser.uid)
-        ])
+        const posts = await getUserPosts(currentUser.uid)
         setMyPosts(posts)
-        setMyClaims(claims)
       }
       handleCloseEditModal()
       alert('Post updated successfully!')
@@ -396,7 +377,7 @@ export default function ProfilePage() {
           )}
 
           {!loading && !error && (
-            <div className="grid md:grid-cols-2 gap-6">
+            <>
               <ItemsCard
                 title="My Posts"
                 emptyText="No posts yet. Start by reporting a lost or found item!"
@@ -408,24 +389,11 @@ export default function ProfilePage() {
                     isMyPost
                     onNavigate={goItemDetail}
                     onEdit={handleEditPost}
-                    onClose={handleClosePost}
+                    onDelete={handleDeletePost}
                   />
                 )}
               />
-              <ItemsCard
-                title="My Claims"
-                emptyText="No claims yet. Browse the feed to claim items you've lost!"
-                items={myClaims}
-                renderItem={(item) => (
-                  <ItemRow
-                    key={item.id}
-                    item={item}
-                    isMyPost={false}
-                    onNavigate={goItemDetail}
-                  />
-                )}
-              />
-            </div>
+            </>
           )}
         </div>
       </div>

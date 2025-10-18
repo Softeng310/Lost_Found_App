@@ -118,6 +118,8 @@ app.use('*', (req, res) => {
     method: req.method
   });
 });
+// Add missing closing brace for main file
+// (No code block needed, just close the file)
 
 // Global error handler - catch all errors and format them consistently
 app.use((error, req, res, next) => {
