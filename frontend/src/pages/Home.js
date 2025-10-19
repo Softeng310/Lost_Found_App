@@ -128,7 +128,7 @@ const HomePage = () => {
                 <Button 
                   variant="outline"
                   size="lg" 
-                  className="gap-3 text-lg px-8 py-4 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-sm hover:shadow-md transition-all duration-200 border-emerald-600"
+                  className="gap-3 text-lg px-8 py-4 bg-white text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-600 active:bg-emerald-100 active:text-emerald-800 shadow-sm hover:shadow-md transition-all duration-200 border-emerald-600"
                 >
                   Create Account
                 </Button>
@@ -137,7 +137,7 @@ const HomePage = () => {
                 <Button 
                   variant="outline"
                   size="lg" 
-                  className="gap-3 text-lg px-8 py-4 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-sm hover:shadow-md transition-all duration-200 border-emerald-600"
+                  className="gap-3 text-lg px-8 py-4 bg-white text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-600 active:bg-emerald-100 active:text-emerald-800 shadow-sm hover:shadow-md transition-all duration-200 border-emerald-600"
                 >
                   Browse Items
                 </Button>
