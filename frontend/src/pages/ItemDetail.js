@@ -288,9 +288,18 @@ const ItemDetailPage = () => {
                 <span className="font-medium">Posted:</span>
                 {` ${new Date(item.date).toLocaleString()}`}
               </p>
-              <p>
+              <p className="flex items-center gap-1">
                 <span className="font-medium">Reporter:</span>
-                {` ${userInfo?.name || 'Unknown User'}`}
+                {userInfo?.id ? (
+                  <Link 
+                    to={`/profile/${userInfo.id}`}
+                    className="text-emerald-600 hover:text-emerald-700 hover:underline transition-colors font-medium"
+                  >
+                    {userInfo.name}
+                  </Link>
+                ) : (
+                  <span>{userInfo?.name || 'Unknown User'}</span>
+                )}
               </p>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">

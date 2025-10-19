@@ -14,6 +14,7 @@ import AddAnnouncementPage from './pages/AddAnnouncement';
 import EditAnnouncementPage from './pages/EditAnnouncement';
 import MessagesPage from './pages/Messages';
 import NotificationSettingsPage from './pages/NotificationSettingsPage';
+import PublicProfile from './pages/PublicProfile';
 
 // Route configuration for better maintainability
 const ROUTES = [
@@ -21,6 +22,7 @@ const ROUTES = [
   { path: '/feed', element: FeedPage },
   { path: '/items/:id', element: ItemDetailPage },
   { path: '/profile', element: ProfilePage },
+  { path: '/profile/:userId', element: PublicProfile },
   { path: '/login', element: LoginPage },
   { path: '/signup', element: SignUpPage },
   { path: '/items/new', element: ReportPage },
