@@ -49,25 +49,25 @@ const Footer = () => {
           </div>
         {/* Browse items list */}
           <div className="text-center md:text-right">
-            <Link 
-              to="/feed" 
+            <Link
+              to="/feed"
               onClick={handleBrowseClick}
-              className="flex items-center space-x-2 text-green-400 hover:text-green-300 text-sm transition-colors"
+              className="group flex items-center space-x-2 text-green-400 hover:text-green-300 text-sm transition-colors"
             >
-              <Search className="h-4 w-4" />
-              <span className="hover:underline">Browse Items</span>
+              <Search className="h-4 w-4 no-underline" />
+              <span className="group-hover:underline">Browse Items</span>
             </Link>
           </div>
 
         {/* My Account Button */}
           <div className="text-center md:text-right">
-            <Link 
+            <Link
               to={accountLink}
               onClick={handleAccountClick}
-              className="flex items-center space-x-2 text-green-400 hover:text-green-300 text-sm transition-colors"
+              className="group flex items-center space-x-2 text-green-400 hover:text-green-300 text-sm transition-colors"
             >
-              <User className="h-4 w-4" />
-              <span className="hover:underline">My Account</span>
+              <User className="h-4 w-4 no-underline" />
+              <span className="group-hover:underline">My Account</span>
             </Link>
           </div>
 
