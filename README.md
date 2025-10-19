@@ -38,15 +38,15 @@ The Lost & Found Community Platform (Lost No More) is a web application that hel
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **React 18.3.1** - Modern React with hooks, routing (React Router DOM 6.30.1), and UI components (Lucide React 0.540.0)
-- **Tailwind CSS 3.4.17** - Utility-first CSS framework for responsive design
-- **Leaflet 1.9.4 + React Leaflet 4.2.1** - Interactive maps for location services
-- **Firebase 12.0.0** - Client-side Firebase SDK for authentication and data
+- **React** - Modern React with hooks, routing (React Router DOM 6.30.1), and UI components (Lucide React 0.540.0)
+- **Tailwind CSS** - Utility-first CSS framework for responsive design
+- **Leaflet + React Leaflet** - Interactive maps for location services
+- **Firebase** - Client-side Firebase SDK for authentication and data
 
 ### Backend
-- **Node.js 16+ + Express 4.21.2** - JavaScript runtime and web framework
-- **Firebase Admin 13.4.0** - Server-side Firebase SDK for admin operations
-- **Cloudinary 2.7.0** - Cloud-based image and video management
+- **Node.js + Express** - JavaScript runtime and web framework
+- **Firebase Admin** - Server-side Firebase SDK for admin operations
+- **Cloudinary** - Cloud-based image and video management
 - **Express Middleware** - Multer (file uploads), CORS, UUID generation
 
 ### Database & Storage
@@ -204,7 +204,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines, cod
 
 - Course / Project: SOFTENG 310 – Lost No More
 - Repo lead: Softeng310
-- Major contributors:  Manan Patel(mpat501), Nadia Askari(nask472), Jerry Kim (pkim777), Rudra Patel (rpat943), Soham Kulkarni(skul970), Liam Byrne (lbyr117)
+- Major contributors:  Manan Patel(mpat501), Nadia Askari(nask472), Jerry Kim (pkim777), Rudra Patel (rpat943), Soham Kulkarni(skul970), Liam Byrne (lbyr117), Daniel Kim(dkim848), Kieran McKenna(kmck133), Meara Keelty(mkee115), Minseo Kim(mkim719), Muhammad Mohamad Hanafiah(mmoh314), Nathan Turley(ntur101)
 - Tech stack highlight: React, Tailwind CSS, Firebase (Auth, Firestore, Storage), Node.js, Express, Cloudinary, Multer
 
 For a full list of contributors, see the GitHub contributors graph:
