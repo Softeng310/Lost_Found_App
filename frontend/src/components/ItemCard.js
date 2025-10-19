@@ -119,6 +119,11 @@ const ItemCard = ({ item }) => {
               {item.category}
             </span>
           )}
+          {item.claimed && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">
+              Claimed
+            </span>
+          )}
           {item.reporter?.trust && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
               ✓ Verified
@@ -140,6 +145,7 @@ ItemCard.propTypes = {
     imageUrl: PropTypes.string,
     kind: PropTypes.string,
     category: PropTypes.string,
+    claimed: PropTypes.bool,
     reporter: PropTypes.shape({
       trust: PropTypes.bool
     })
