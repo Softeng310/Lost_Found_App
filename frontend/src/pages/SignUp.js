@@ -220,7 +220,7 @@ export default function SignUpPage() {
             />
             {profilePicFile && (
               <p className="text-xs text-emerald-600 mt-1">
-                ✓ Selected: {profilePicFile.name}
+                Selected: {profilePicFile.name}
               </p>
             )}
             <p className="text-xs text-gray-500 mt-1">
