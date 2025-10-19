@@ -391,3 +391,48 @@ export async function updateItem(itemId, updateData) {
     throw error;
   }
 }
+
+/**
+ * Update user's UPI in Firestore
+ * @param {string} userId - The user's UID
+ * @param {string} upi - The UPI to save
+ * @returns {Promise<void>}
+ */
+export async function updateUserUpi(userId, upi) {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      upi: upi,
+      updatedAt: new Date()
+    });
+    console.log('User UPI updated successfully:', userId, upi);
+  } catch (error) {
+    console.error('Error updating user UPI:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate and save a random 4-digit verification code to Firestore
+ * @param {string} userId - The user's UID
+ * @returns {Promise<string>} The generated code
+ */
+export async function generateAndSaveVerificationCode(userId) {
+  try {
+    // Generate random 4-digit code
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      verificationCode: code,
+      codeGeneratedAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    console.log('Verification code saved to Firestore:', code);
+    return code;
+  } catch (error) {
+    console.error('Error saving verification code:', error);
+    throw error;
+  }
+}

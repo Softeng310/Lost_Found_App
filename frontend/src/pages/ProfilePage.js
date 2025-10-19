@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { getAuth, signOut, onAuthStateChanged } from "firebase/auth"
 import { LogOut, Trash2, Edit3, X } from "lucide-react"
 import PropTypes from 'prop-types'
-import { getUserPosts, formatTimestamp, updateItemStatus, updateItem, getUserProfile } from "../firebase/firestore"
+import { getUserPosts, formatTimestamp, updateItemStatus, updateItem, getUserProfile, updateUserUpi, generateAndSaveVerificationCode } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
 
@@ -393,6 +393,15 @@ export default function ProfilePage() {
                       setVerificationMessage("")
                       setSendingCode(true)
                       try {
+                        // Step 1: Save UPI to Firestore first
+                        await updateUserUpi(currentUser.uid, upiInput.trim())
+                        console.log('UPI saved to Firestore:', upiInput.trim())
+                        
+                        // Step 2: Generate and save random 4-digit code to Firestore
+                        const generatedCode = await generateAndSaveVerificationCode(currentUser.uid)
+                        console.log('Random 4-digit code generated and saved:', generatedCode)
+                        
+                        // Step 3: Request verification code from backend
                         const token = await currentUser.getIdToken()
                         const resp = await fetch(`${process.env.REACT_APP_API_BASE || 'http://localhost:5876'}/api/verification/request-code`, {
                           method: 'POST',
@@ -406,6 +415,7 @@ export default function ProfilePage() {
                         if (!resp.ok) throw new Error(data.message || 'Failed to send code')
                         setVerificationMessage(`Code sent to ${data.target}`)
                       } catch (e) {
+                        console.error('Error sending code:', e)
                         setVerificationMessage(e.message)
                       } finally {
                         setSendingCode(false)
