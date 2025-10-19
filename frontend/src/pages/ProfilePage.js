@@ -157,7 +157,7 @@ export default function ProfilePage() {
     title: '',
     description: '',
     category: '',
-    location: '',
+    location: '',   // only for campus locations 
     kind: '', // 'lost' or 'found'
     imageUrl: '',
     date: '',
