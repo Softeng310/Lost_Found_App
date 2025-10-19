@@ -20,7 +20,7 @@ jest.mock('../../firebase/config', () => ({
 }));
 
 // Mock fetch for profile picture upload
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 // Helper to render component with router
 const renderWithRouter = (component) => {
@@ -31,6 +31,34 @@ const renderWithRouter = (component) => {
   );
 };
 
+// Helper to fill out the signup form
+const fillSignupForm = (includeProfilePic = false, filename = 'profile.png', fileType = 'image/png') => {
+  fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
+  fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+  fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
+  fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'password123' } });
+  
+  if (includeProfilePic) {
+    const fileInput = screen.getByLabelText(/profile picture/i);
+    const file = new File(['dummy'], filename, { type: fileType });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+  }
+};
+
+// Helper to mock successful upload
+const mockSuccessfulUpload = () => {
+  const mockResponse = {
+    ok: true,
+    json: async () => ({ success: true, url: 'https://cloudinary.com/test.jpg' })
+  };
+  
+  globalThis.fetch.mockImplementation(() => 
+    new Promise(resolve => {
+      setTimeout(() => resolve(mockResponse), 100);
+    })
+  );
+};
+
 describe('SignUp Page - Profile Picture Upload', () => {
   beforeEach(() => {
     // Reset all mocks before each test
@@ -38,7 +66,7 @@ describe('SignUp Page - Profile Picture Upload', () => {
     mockNavigate.mockClear();
     
     // Reset fetch mock completely
-    global.fetch.mockReset();
+    globalThis.fetch.mockReset();
     
     // Mock Firebase auth
     getAuth.mockReturnValue({});
@@ -119,27 +147,10 @@ describe('SignUp Page - Profile Picture Upload', () => {
 
   describe('Profile Picture Upload', () => {
     test('shows uploading state during upload', async () => {
-      // Mock slow upload
-      global.fetch.mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => 
-          resolve({
-            ok: true,
-            json: async () => ({ success: true, url: 'https://cloudinary.com/test.jpg' })
-          }), 100)
-        )
-      );
-
+      mockSuccessfulUpload();
       renderWithRouter(<SignUpPage />);
       
-      // Fill form
-      fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
-      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
-      fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'password123' } });
-      
-      const fileInput = screen.getByLabelText(/profile picture/i);
-      const file = new File(['dummy'], 'profile.png', { type: 'image/png' });
-      fireEvent.change(fileInput, { target: { files: [file] } });
+      fillSignupForm(true);
       
       const submitButton = screen.getByRole('button', { name: /create account/i });
       fireEvent.click(submitButton);
@@ -155,17 +166,13 @@ describe('SignUp Page - Profile Picture Upload', () => {
     test('creates account without profile picture', async () => {
       renderWithRouter(<SignUpPage />);
       
-      // Fill form WITHOUT selecting profile picture
-      fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
-      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
-      fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'password123' } });
+      fillSignupForm(false);
       
       const submitButton = screen.getByRole('button', { name: /create account/i });
       fireEvent.click(submitButton);
       
       // Should NOT call upload endpoint
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
       
       // Should still create account with empty profilePic
       await waitFor(() => {
@@ -181,26 +188,12 @@ describe('SignUp Page - Profile Picture Upload', () => {
 
   describe('UI States', () => {
     test('disables file input during upload', async () => {
-      global.fetch.mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => 
-          resolve({
-            ok: true,
-            json: async () => ({ success: true, url: 'https://cloudinary.com/test.jpg' })
-          }), 100)
-        )
-      );
-
+      mockSuccessfulUpload();
       renderWithRouter(<SignUpPage />);
       
-      fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
-      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
-      fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'password123' } });
+      fillSignupForm(true);
       
       const fileInput = screen.getByLabelText(/profile picture/i);
-      const file = new File(['dummy'], 'profile.png', { type: 'image/png' });
-      fireEvent.change(fileInput, { target: { files: [file] } });
-      
       const submitButton = screen.getByRole('button', { name: /create account/i });
       fireEvent.click(submitButton);
       
@@ -211,25 +204,10 @@ describe('SignUp Page - Profile Picture Upload', () => {
     });
 
     test('disables submit button during upload', async () => {
-      global.fetch.mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => 
-          resolve({
-            ok: true,
-            json: async () => ({ success: true, url: 'https://cloudinary.com/test.jpg' })
-          }), 100)
-        )
-      );
-
+      mockSuccessfulUpload();
       renderWithRouter(<SignUpPage />);
       
-      fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test User' } });
-      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
-      fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'password123' } });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'password123' } });
-      
-      const fileInput = screen.getByLabelText(/profile picture/i);
-      const file = new File(['dummy'], 'profile.png', { type: 'image/png' });
-      fireEvent.change(fileInput, { target: { files: [file] } });
+      fillSignupForm(true);
       
       const submitButton = screen.getByRole('button', { name: /create account/i });
       fireEvent.click(submitButton);

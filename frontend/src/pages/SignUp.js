@@ -130,8 +130,8 @@ export default function SignUpPage() {
       if (profilePicFile) {
         try {
           uploadedImageUrl = await uploadProfilePicture();
-        } catch (uploadErr) {
-          setError(uploadErr.message);
+        } catch (uploadError) {
+          setError(uploadError.message);
           setLoading(false);
           return;
         }
@@ -274,7 +274,11 @@ export default function SignUpPage() {
             className="w-full mb-4"
             disabled={loading || uploading}
           >
-            {uploading ? "Uploading Image..." : loading ? "Creating Account..." : "Create Account"}
+            {(() => {
+              if (uploading) return "Uploading Image...";
+              if (loading) return "Creating Account...";
+              return "Create Account";
+            })()}
           </Button>
           
           {/* Login link for existing users */}
