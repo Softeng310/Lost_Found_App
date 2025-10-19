@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { Mail, Phone } from 'lucide-react';
 
 const Footer = () => {
+  const handleBrowseClick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <footer className="bg-gray-900 text-white py-8">
       <div className="container mx-auto px-4">
@@ -16,7 +20,11 @@ const Footer = () => {
           </div>
         {/* Browse items list */}
           <div className="text-center md:text-right">
-            <Link to="/feed" className="text-green-400 hover:text-green-300 text-sm transition-colors">
+            <Link 
+              to="/feed" 
+              onClick={handleBrowseClick}
+              className="text-green-400 hover:text-green-300 text-sm transition-colors"
+            >
               Browse Items
             </Link>
           </div>
