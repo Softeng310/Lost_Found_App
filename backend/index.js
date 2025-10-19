@@ -109,6 +109,7 @@ app.locals.storage = admin.storage();
 app.use('/api/items', require('./routes/items'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/users', require('./routes/users'));
 
 // 404 handler - catch any routes that don't exist
 app.use('*', (req, res) => {
