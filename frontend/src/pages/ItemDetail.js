@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import Badge from '../components/ui/Badge';
-import { ArrowLeft, ShieldCheck, MapPin } from '../components/ui/icons';
+import { ArrowLeft, MapPin } from '../components/ui/icons';
 import { db } from '../firebase/config';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { 
