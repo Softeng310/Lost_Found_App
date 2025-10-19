@@ -168,7 +168,7 @@ const FeedPage = () => {
     <div className="container mx-auto px-4 py-6 grid lg:grid-cols-[300px_1fr] gap-6 min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="space-y-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8 sticky top-20">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900">Search & Filter</h3>
             <button
@@ -188,7 +188,7 @@ const FeedPage = () => {
       {/* Main Content */}
       <section className="space-y-6">
         {/* Header - Dynamic based on active tab */}
-        <div className="flex items-center justify-between mt-8">
+        <div className="flex items-center justify-between mt-8 mb-8">
           <div className="flex-1 text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               {currentTabContent.title}
@@ -211,7 +211,7 @@ const FeedPage = () => {
         {/* Tabs */}
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsList className="w-full max-w-md mx-auto">
               {TAB_OPTIONS.map(({ value, label }) => (
                 <TabsTrigger key={value} value={value}>
                   {label}
