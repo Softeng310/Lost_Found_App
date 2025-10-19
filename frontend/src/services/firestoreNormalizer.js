@@ -42,7 +42,9 @@ export const normalizeTimestamp = (value) => {
   // Firestore snapshot with .seconds property
   if (value.seconds !== undefined) {
     try {
-      return new Date(value.seconds * 1000).toISOString();
+      // Include nanoseconds for precision (avoids loss when ordering messages)
+      const milliseconds = value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+      return new Date(milliseconds).toISOString();
     } catch (e) {
       console.warn('Failed to convert Firestore seconds:', e);
       return null;

@@ -16,6 +16,27 @@ const DEFAULT_IMAGE_URL = '/placeholder.svg';
 const DEFAULT_REPORTER = { name: 'Unknown', trust: false };
 
 /**
+ * Map category names to consistent values for UI
+ * Handles variations like 'accessories' vs 'accessory', 'keys/cards' -> 'keys-cards'
+ * @param {string} category - Raw category string
+ * @returns {string} Normalized category name
+ */
+const normalizeCategory = (category) => {
+  const categoryMap = {
+    'accessories': 'accessory',
+    'keys/cards': 'keys-cards',
+    'wallets': 'wallet',
+    'documents': 'document',
+    'stationery': 'stationery',
+    'electronics': 'electronics',
+    'clothing': 'clothing',
+    'other': 'other'
+  };
+  
+  return categoryMap[category] || category;
+};
+
+/**
  * Clean up Firestore data to match our UI expectations
  * REFACTORED: Now uses centralized normalizeItem from firestoreNormalizer service
  * This function wraps the service to add UI-specific fields like 'reporter'
@@ -36,11 +57,18 @@ export const normalizeFirestoreItem = (data, id) => {
     // Add UI-specific fields that aren't in the base normalizer
     const reporter = normalizeReporter(data.reporter, data.postedBy);
     const coordinates = data.coordinates || null;
+    
+    // Apply category normalization for UI (keys/cards -> keys-cards, etc.)
+    const category = normalizeCategory(normalized.category);
 
     return {
       ...normalized,
       // Override imageUrl default if it's empty
       imageUrl: normalized.imageUrl || DEFAULT_IMAGE_URL,
+      // Override location default for UI consistency
+      location: normalized.location || 'Unknown',
+      // Apply UI-specific category normalization
+      category,
       // Add UI-specific fields
       reporter,
       coordinates,

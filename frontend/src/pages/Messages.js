@@ -112,9 +112,14 @@ const MessagesPage = () => {
         const enriched = await enrichConversations(snapshot.docs, user.uid);
 
         // Sort conversations by lastMessageTime using normalized timestamps
+        // Fall back to createdAt if lastMessageTime is missing
         enriched.sort((a, b) => {
-          const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-          const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+          const aTime = a.lastMessageTime
+            ? new Date(a.lastMessageTime).getTime()
+            : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+          const bTime = b.lastMessageTime
+            ? new Date(b.lastMessageTime).getTime()
+            : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
           return bTime - aTime;
         });
 
