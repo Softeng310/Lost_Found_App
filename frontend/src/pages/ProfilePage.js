@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { getAuth, signOut, onAuthStateChanged } from "firebase/auth"
 import { LogOut, Trash2, Edit3, X } from "lucide-react"
 import PropTypes from 'prop-types'
-import { getUserPosts, formatTimestamp, updateItemStatus, updateItem } from "../firebase/firestore"
+import { getUserPosts, formatTimestamp, updateItemStatus, updateItem, getUserProfile } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
 
@@ -164,6 +164,12 @@ export default function ProfilePage() {
     time: ''
   })
   const [error, setError] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [upiInput, setUpiInput] = useState("")
+  const [codeInput, setCodeInput] = useState("")
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [verificationMessage, setVerificationMessage] = useState("")
 
   const auth = getAuth()
   // Track auth user in state so changes trigger re-renders and effects
@@ -189,7 +195,10 @@ export default function ProfilePage() {
       try {
         setLoading(true)
         const posts = await getUserPosts(currentUser.uid)
+        const prof = await getUserProfile(currentUser.uid)
         setMyPosts(posts)
+        setProfile(prof)
+        setUpiInput(prof?.upi || "")
       } catch (err) {
         console.error('Error fetching user data:', err)
         setError('Failed to load your data. Please try again.')
@@ -355,11 +364,110 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Trust & Verification
-                <ProfileBadge variant="outline">Unverified</ProfileBadge>
+                {profile?.isVerified ? (
+                  <ProfileBadge variant="success">Verified</ProfileBadge>
+                ) : (
+                  <ProfileBadge variant="outline">Unverified</ProfileBadge>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-gray-600">
-              Connect university SSO to verify identity and earn trust badges for faster claims and higher credibility.
+            <CardContent className="text-sm text-gray-600 space-y-3">
+              <p>Verify your identity with your UPI to earn a trust badge. We'll send a 4-digit code to your university email.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">UPI</label>
+                  <input
+                    type="text"
+                    value={upiInput}
+                    onChange={(e) => setUpiInput(e.target.value)}
+                    placeholder="e.g. hlee345"
+                    className="w-full border rounded px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    disabled={!upiInput || sendingCode}
+                    onClick={async () => {
+                      if (!currentUser) return
+                      setVerificationMessage("")
+                      setSendingCode(true)
+                      try {
+                        const token = await currentUser.getIdToken()
+                        const resp = await fetch(`${process.env.REACT_APP_API_BASE || 'http://localhost:5876'}/api/verification/request-code`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
+                          body: JSON.stringify({ upi: upiInput.trim() })
+                        })
+                        const data = await resp.json()
+                        if (!resp.ok) throw new Error(data.message || 'Failed to send code')
+                        setVerificationMessage(`Code sent to ${data.target}`)
+                      } catch (e) {
+                        setVerificationMessage(e.message)
+                      } finally {
+                        setSendingCode(false)
+                      }
+                    }}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {sendingCode ? 'Sending…' : 'Send Code'}
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Verification Code</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={codeInput}
+                      onChange={(e) => setCodeInput(e.target.value)}
+                      placeholder="4-digit code"
+                      className="w-full border rounded px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      disabled={!codeInput || verifying}
+                      onClick={async () => {
+                        if (!currentUser) return
+                        setVerificationMessage("")
+                        setVerifying(true)
+                        try {
+                          const token = await currentUser.getIdToken()
+                          const resp = await fetch(`${process.env.REACT_APP_API_BASE || 'http://localhost:5876'}/api/verification/verify-code`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ code: codeInput.trim() })
+                          })
+                          const data = await resp.json()
+                          if (!resp.ok) throw new Error(data.message || 'Verification failed')
+                          setVerificationMessage('Verified successfully')
+                          // Refresh profile
+                          const prof = await getUserProfile(currentUser.uid)
+                          setProfile(prof)
+                        } catch (e) {
+                          setVerificationMessage(e.message)
+                        } finally {
+                          setVerifying(false)
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {verifying ? 'Verifying…' : 'Verify'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {verificationMessage && (
+                <p className="text-xs text-gray-600">{verificationMessage}</p>
+              )}
             </CardContent>
           </Card>
 

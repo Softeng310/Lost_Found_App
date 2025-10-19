@@ -30,8 +30,6 @@ The Lost & Found Community Platform (Lost No More) is a web application that hel
 
 ---
 
-## 🛠️ Tech Stack
-
 - **Frontend**: React + Tailwind CSS
 - **Auth / Database / Storage**: Firebase — the app uses Firebase Authentication for user sign-in, Cloud Firestore for application data, and Firebase Storage for item images.
 - **Backend**: Node.js + Express — a lightweight API server is included (health endpoints). The frontend currently communicates directly with Firebase; the backend contains minimal Express code and `firebase-admin` is available in package.json for optional server-side admin tasks.
