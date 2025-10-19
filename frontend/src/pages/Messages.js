@@ -221,16 +221,19 @@ const MessagesPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="mb-6">
+    <div className="container mx-auto" style={{ paddingTop: '6px' }}>
+      <div className="flex justify-start mb-6">
         <Button
           onClick={() => navigate('/feed')}
           variant="ghost"
-          className="gap-2 mb-4"
+          className="gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Feed
         </Button>
+      </div>
+      
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
         <p className="text-gray-600">Chat with other users about items</p>
       </div>
@@ -344,16 +347,24 @@ const MessagesPage = () => {
                       <div
                         className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                           message.senderId === user.uid
-                            ? 'bg-emerald-600 text-white'
+                            ? 'bg-emerald-600'
                             : 'bg-gray-100 text-gray-900'
                         }`}
                       >
-                        <p className={`text-sm ${
-                          message.senderId === user.uid ? 'text-white' : 'text-gray-900'
-                        }`}>{message.text}</p>
-                        <p className={`text-xs mt-1 ${
-                          message.senderId === user.uid ? 'text-emerald-100' : 'text-gray-500'
-                        }`}>
+                        <p 
+                          className={`text-sm ${
+                            message.senderId === user.uid ? '' : 'text-gray-900'
+                          }`}
+                          style={message.senderId === user.uid ? { color: '#FFFFFF' } : undefined}
+                        >
+                          {message.text}
+                        </p>
+                        <p 
+                          className={`text-xs mt-1 ${
+                            message.senderId === user.uid ? '' : 'text-gray-500'
+                          }`}
+                          style={message.senderId === user.uid ? { color: '#FFFFFF' } : undefined}
+                        >
                           {message.timestamp?.toDate?.()?.toLocaleTimeString() || 'Just now'}
                         </p>
                       </div>
