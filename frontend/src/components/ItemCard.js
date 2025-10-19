@@ -1,9 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import Badge from './ui/Badge';
-import { ShieldCheck, MapPin } from './ui/icons';
-import { cardStyles } from '../lib/utils';
+import { MapPin } from 'lucide-react';
+import PropTypes from 'prop-types';
 
 // Constants for better maintainability
 const PLACEHOLDER_IMAGE = '/placeholder.svg';
