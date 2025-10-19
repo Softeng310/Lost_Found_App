@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { normalizeItem } from '../services/firestoreNormalizer';
 
 /**
  * Combine multiple class names conditionally
@@ -12,48 +13,37 @@ export function cn(...inputs) {
 
 // Default values for when data is missing or invalid
 const DEFAULT_IMAGE_URL = '/placeholder.svg';
-const DEFAULT_LOCATION = 'Unknown';
 const DEFAULT_REPORTER = { name: 'Unknown', trust: false };
 
 /**
  * Clean up Firestore data to match our UI expectations
- * Handles different field names and data formats from various sources
+ * REFACTORED: Now uses centralized normalizeItem from firestoreNormalizer service
+ * This function wraps the service to add UI-specific fields like 'reporter'
+ * 
  * @param {Object} data - Raw document data from Firestore
  * @param {string} id - Document ID (optional)
  * @returns {Object} Normalized item object ready for the UI
  */
 export const normalizeFirestoreItem = (data, id) => {
   try {
-    // ...existing code...
-    const imageUrl = data.imageURL || data.imageUrl || DEFAULT_IMAGE_URL;
-    const kindRaw = data.kind || data.status || '';
-    const kind = String(kindRaw).toLowerCase();
-    const typeRaw = data.category || data.type || '';
-    const category = normalizeCategory(String(typeRaw).toLowerCase());
+    // Use centralized normalization service
+    const normalized = normalizeItem(data, id);
+    
+    if (!normalized) {
+      throw new Error('normalizeItem returned null');
+    }
+
+    // Add UI-specific fields that aren't in the base normalizer
     const reporter = normalizeReporter(data.reporter, data.postedBy);
-    const date = normalizeDate(data.date);
-    const location = data.location || DEFAULT_LOCATION;
     const coordinates = data.coordinates || null;
 
-    // Claim fields
-    const claimed = Boolean(data.claimed);
-    const claimedAt = data.claimedAt ? normalizeDate(data.claimedAt) : null;
-    const claimedBy = data.claimedBy || null;
-
     return {
-      id: id || data.id || '',
-      kind,
-      category,
-      title: String(data.title || '').trim(),
-      description: String(data.description || '').trim(),
-      imageUrl,
-      date,
-      location,
-      coordinates,
+      ...normalized,
+      // Override imageUrl default if it's empty
+      imageUrl: normalized.imageUrl || DEFAULT_IMAGE_URL,
+      // Add UI-specific fields
       reporter,
-      claimed,
-      claimedAt,
-      claimedBy,
+      coordinates,
     };
   } catch (error) {
     console.error('Error normalizing Firestore item:', error);
@@ -66,32 +56,14 @@ export const normalizeFirestoreItem = (data, id) => {
       description: 'This item could not be loaded properly.',
       imageUrl: DEFAULT_IMAGE_URL,
       date: new Date().toISOString(),
-      location: DEFAULT_LOCATION,
+      location: 'Unknown',
       coordinates: null,
       reporter: DEFAULT_REPORTER,
+      claimed: false,
+      claimedAt: null,
+      claimedBy: null,
     };
   }
-};
-
-/**
- * Map category names to consistent values
- * Handles variations like 'accessories' vs 'accessory'
- * @param {string} category - Raw category string
- * @returns {string} Normalized category name
- */
-const normalizeCategory = (category) => {
-  const categoryMap = {
-    'accessories': 'accessory',
-    'keys/cards': 'keys-cards',
-    'wallets': 'wallet',
-    'documents': 'document',
-    'stationery': 'stationery',
-    'electronics': 'electronics',
-    'clothing': 'clothing',
-    'other': 'other'
-  };
-  
-  return categoryMap[category] || category;
 };
 
 /**
@@ -123,42 +95,6 @@ const normalizeReporter = (reporter, postedBy) => {
   }
   
   return DEFAULT_REPORTER;
-};
-
-/**
- * Convert various date formats to ISO strings
- * Handles Firestore timestamps, Date objects, strings, and numbers
- * @param {any} dateValue - Date value from Firestore or form
- * @returns {string} ISO date string for consistent display
- */
-const normalizeDate = (dateValue) => {
-  try {
-    // Handle Firestore Timestamp objects
-    if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
-      return dateValue.toDate().toISOString();
-    } else if (dateValue instanceof Date) {
-      // Handle JavaScript Date objects
-      return dateValue.toISOString();
-    } else if (typeof dateValue === 'string') {
-      // Handle string dates
-      const parsed = new Date(dateValue);
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
-      }
-    } else if (typeof dateValue === 'number') {
-      // Handle timestamp numbers (milliseconds since epoch)
-      const parsed = new Date(dateValue);
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
-      }
-    }
-    
-    // Fallback to current date if parsing fails
-    return new Date().toISOString();
-  } catch (error) {
-    console.warn('Error normalizing date:', error);
-    return new Date().toISOString();
-  }
 };
 
 /**

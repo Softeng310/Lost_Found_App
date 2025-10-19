@@ -16,6 +16,7 @@ import { db } from '../firebase/config';
 import { ArrowLeft, Send, Check } from '../components/ui/icons';
 import { Button } from '../components/ui/button';
 import { cardStyles } from '../lib/utils';
+import { normalizeConversation, normalizeMessage, normalizeItem } from '../services/firestoreNormalizer';
 
 const MessagesPage = () => {
   const [user, setUser] = useState(null);
@@ -31,11 +32,15 @@ const MessagesPage = () => {
   const messagesEndRef = useRef(null);
 
   // Helper: fetch item document by id (returns null if not found)
+  // REFACTORED: Now uses normalizeItem for consistent data shape
   const fetchItemData = useCallback(async (itemId) => {
     if (!itemId) return null;
     try {
       const itemDoc = await getDoc(doc(db, 'items', itemId));
-      return itemDoc.exists() ? { id: itemDoc.id, ...itemDoc.data() } : null;
+      if (!itemDoc.exists()) return null;
+      
+      // Use normalizer for consistent data structure
+      return normalizeItem(itemDoc.data(), itemDoc.id);
     } catch (error) {
       console.error('Error fetching item:', error);
       return null;
@@ -57,17 +62,22 @@ const MessagesPage = () => {
   }, []);
 
   // Helper: enrich a list of conversation docs with item data and participant name
+  // REFACTORED: Now uses normalizeConversation for consistent data structure
   const enrichConversations = useCallback(async (docs, userUid) => {
     const promises = docs.map(async (docSnapshot) => {
       const conversationData = docSnapshot.data();
+      
+      // Normalize the conversation data first
+      const normalized = normalizeConversation(conversationData, docSnapshot.id);
+      
+      // Fetch related data
       const [itemData, otherParticipantName] = await Promise.all([
-        fetchItemData(conversationData.itemId),
-        fetchUserNameById(conversationData.participants.find(id => id !== userUid))
+        fetchItemData(normalized.itemId),
+        fetchUserNameById(normalized.participants.find(id => id !== userUid))
       ]);
 
       return {
-        id: docSnapshot.id,
-        ...conversationData,
+        ...normalized,
         item: itemData,
         otherParticipantName
       };
@@ -90,6 +100,7 @@ const MessagesPage = () => {
   }, [auth, navigate]);
 
   // Load conversations for the current user
+  // REFACTORED: Uses normalizeConversation for consistent data handling
   useEffect(() => {
     if (!user) return;
 
@@ -100,10 +111,10 @@ const MessagesPage = () => {
       try {
         const enriched = await enrichConversations(snapshot.docs, user.uid);
 
-        // Sort conversations by lastMessageTime (handle missing timestamps)
+        // Sort conversations by lastMessageTime using normalized timestamps
         enriched.sort((a, b) => {
-          const aTime = a.lastMessageTime?.seconds || a.createdAt?.seconds || 0;
-          const bTime = b.lastMessageTime?.seconds || b.createdAt?.seconds || 0;
+          const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+          const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
           return bTime - aTime;
         });
 
@@ -124,6 +135,7 @@ const MessagesPage = () => {
   }, [user, searchParams, enrichConversations]);
 
   // Load messages for selected conversation
+  // REFACTORED: Uses normalizeMessage for consistent timestamp handling
   useEffect(() => {
     if (!selectedConversation) {
       setMessages([]);
@@ -131,22 +143,21 @@ const MessagesPage = () => {
     }
     const messagesRef = collection(db, 'messages');
     
-    // Try without ordering first to see if messages exist
     const q = query(
       messagesRef,
       where('conversationId', '==', selectedConversation.id)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messagesList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Use normalizer for consistent message structure
+      const messagesList = snapshot.docs
+        .map(doc => normalizeMessage(doc.data(), doc.id))
+        .filter(msg => msg !== null);
       
-      // Sort messages by timestamp (handle cases where timestamp might be missing)
+      // Sort messages by timestamp (now consistently ISO strings)
       messagesList.sort((a, b) => {
-        const aTime = a.timestamp?.seconds || 0;
-        const bTime = b.timestamp?.seconds || 0;
+        const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return aTime - bTime;
       });
       
@@ -363,9 +374,9 @@ const MessagesPage = () => {
                           className={`text-xs mt-1 ${
                             message.senderId === user.uid ? '' : 'text-gray-500'
                           }`}
-                          style={message.senderId === user.uid ? { color: '#FFFFFF' } : undefined}
+                          style={message.senderId === user.uid ? { color: '#D1D5DB' } : undefined}
                         >
-                          {message.timestamp?.toDate?.()?.toLocaleTimeString() || 'Just now'}
+                          {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : 'Just now'}
                         </p>
                       </div>
                     </div>
