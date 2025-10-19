@@ -13,13 +13,16 @@ export async function getUserPosts(userId) {
     const querySnapshot = await getDocs(q);
     
     const posts = [];
-    querySnapshot.forEach((doc) => {
-      const itemData = doc.data();
+    querySnapshot.forEach((docSnapshot) => {
+      const itemData = docSnapshot.data();
+      
       // Only include items that are not resolved (exclude closed posts)
       if (itemData.status?.toLowerCase() !== 'resolved') {
         posts.push({
-          id: doc.id,
-          ...itemData
+          id: docSnapshot.id,
+          ...itemData,
+          // Normalize: if kind is missing, use status field as fallback
+          kind: itemData.kind || (itemData.status?.toLowerCase() === 'found' || itemData.status?.toLowerCase() === 'lost' ? itemData.status : undefined)
         });
       }
     });

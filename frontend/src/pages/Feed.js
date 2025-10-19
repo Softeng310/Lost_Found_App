@@ -23,6 +23,22 @@ const TAB_OPTIONS = [
   { value: 'found', label: 'Found' }
 ];
 
+// Dynamic content based on active tab
+const TAB_CONTENT = {
+  all: {
+    title: 'Lost & Found Feed',
+    description: 'Browse through reported items and help reunite people with their belongings'
+  },
+  lost: {
+    title: 'Lost Items Feed',
+    description: 'Browse items people are searching for and help them find what they lost'
+  },
+  found: {
+    title: 'Found Items Feed',
+    description: 'Browse items that have been found and claim them if they belong to you'
+  }
+};
+
 const FeedPage = () => {
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [activeTab, setActiveTab] = useState('all');
@@ -114,6 +130,9 @@ const FeedPage = () => {
     setActiveTab('all');
   }, []);
 
+  // Get current tab content
+  const currentTabContent = TAB_CONTENT[activeTab];
+
   // Loading state
   if (loading) {
     return (
@@ -149,7 +168,7 @@ const FeedPage = () => {
     <div className="container mx-auto px-4 py-6 grid lg:grid-cols-[300px_1fr] gap-6 min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="space-y-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8 sticky top-20">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900">Search & Filter</h3>
             <button
@@ -168,17 +187,17 @@ const FeedPage = () => {
 
       {/* Main Content */}
       <section className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        {/* Header - Dynamic based on active tab */}
+        <div className="flex items-center justify-between mt-8 mb-8">
+          <div className="flex-1 text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Lost & Found Feed
+              {currentTabContent.title}
             </h1>
             <p className="text-gray-600">
-              Browse through reported items and help reunite people with their belongings
+              {currentTabContent.description}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mb-6">
             <NotificationBell />
             <Link 
               to="/items/new" 
@@ -192,7 +211,7 @@ const FeedPage = () => {
         {/* Tabs */}
         <div className="bg-white rounded-lg border border-gray-200 p-4">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsList className="w-full max-w-md mx-auto">
               {TAB_OPTIONS.map(({ value, label }) => (
                 <TabsTrigger key={value} value={value}>
                   {label}

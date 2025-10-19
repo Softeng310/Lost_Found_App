@@ -1,15 +1,27 @@
 import React, { useState, useEffect, memo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { getAuth, signOut, onAuthStateChanged } from "firebase/auth"
-import { LogOut, Trash2, Edit3, X } from "lucide-react"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
+import { db } from "../firebase/config"
+import { LogOut, Trash2, Edit3, X, Camera } from "lucide-react"
 import PropTypes from 'prop-types'
 import { getUserPosts, formatTimestamp, updateItemStatus, updateItem, getUserProfile, updateUserUpi, generateAndSaveVerificationCode } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
+import { extractDate, normalizeTimestamp } from "../services/firestoreNormalizer"
 
 /** ---------- Small utilities (deduplicated helpers) ---------- **/
-const coalesceDate = (item) =>
-  item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated
+// REFACTORED: Replaced coalesceDate with extractDate from firestoreNormalizer
+// This provides consistent date handling across the entire app
+// Falls back to normalizeTimestamp to ensure we always return an ISO string
+const coalesceDate = (item) => {
+  const extracted = extractDate(item);
+  if (extracted) return extracted;
+  
+  // Fallback to normalizeTimestamp to handle Firestore Timestamps
+  const normalized = normalizeTimestamp(item.date);
+  return normalized || new Date().toISOString();
+}
 
 const StatusPill = memo(({ color, text }) => (
   <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${color}`}>
@@ -170,10 +182,16 @@ export default function ProfilePage() {
   const [sendingCode, setSendingCode] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [verificationMessage, setVerificationMessage] = useState("")
+  
+  // New state for profile picture functionality
+  const [userData, setUserData] = useState(null)
+  const [profilePicFile, setProfilePicFile] = useState(null)
+  const [uploadingProfilePic, setUploadingProfilePic] = useState(false)
+  const [profilePicPreview, setProfilePicPreview] = useState(null)
 
   const auth = getAuth()
-  // Track auth user in state so changes trigger re-renders and effects
   const [currentUser, setCurrentUser] = useState(auth.currentUser)
+  
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
@@ -185,15 +203,28 @@ export default function ProfilePage() {
     )
     return () => unsubscribe()
   }, [auth])
+  
   const navigate = useNavigate()
 
-  /** Load user's posts */
+  /** Load user's posts and profile data */
   useEffect(() => {
     const fetchUserData = async () => {
       if (!currentUser) { setLoading(false); return }
 
       try {
         setLoading(true)
+        
+        // Fetch user profile data
+        const userDocRef = doc(db, 'users', currentUser.uid)
+        const userDocSnap = await getDoc(userDocRef)
+        
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data()
+          setUserData(data)
+          setProfilePicPreview(data.profilePic || null)
+        }
+        
+        // Fetch user posts
         const posts = await getUserPosts(currentUser.uid)
         const prof = await getUserProfile(currentUser.uid)
         setMyPosts(posts)
@@ -208,6 +239,94 @@ export default function ProfilePage() {
     }
     fetchUserData()
   }, [currentUser])
+
+  /** Handle profile picture file selection */
+  const handleProfilePicSelect = useCallback((e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+      if (!validTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, or WEBP)')
+        return
+      }
+      
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024
+      if (file.size > maxSize) {
+        alert('Image must be less than 5MB')
+        return
+      }
+      
+      setProfilePicFile(file)
+      setProfilePicPreview(URL.createObjectURL(file))
+    }
+  }, [])
+
+  /** Upload and save new profile picture */
+  const handleProfilePicUpload = useCallback(async () => {
+    if (!profilePicFile || !currentUser) return
+    
+    setUploadingProfilePic(true)
+    try {
+      const formData = new FormData()
+      formData.append('profilePic', profilePicFile)
+      
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      
+      const response = await fetch('http://localhost:5876/api/users/upload-profile-picture', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Upload failed')
+      }
+      
+      const data = await response.json()
+      const uploadedUrl = data.url
+      
+      // Update Firestore with new profile picture URL
+      const userDocRef = doc(db, 'users', currentUser.uid)
+      await updateDoc(userDocRef, {
+        profilePic: uploadedUrl
+      })
+      
+      // Update local state
+      setUserData(prev => ({ ...prev, profilePic: uploadedUrl }))
+      setProfilePicPreview(uploadedUrl)
+      setProfilePicFile(null)
+      
+      alert('Profile picture updated successfully!')
+    } catch (err) {
+      console.error('Upload error:', err)
+      
+      if (err.name === 'AbortError') {
+        alert('Upload timed out. Please check if the server is running and try again.')
+      } else if (err.message.includes('Failed to fetch')) {
+        alert('Cannot connect to server. Please make sure the backend is running on port 5876.')
+      } else {
+        alert('Failed to upload profile picture: ' + err.message)
+      }
+      
+      // Revert preview on error
+      setProfilePicPreview(userData?.profilePic || null)
+      setProfilePicFile(null)
+    } finally {
+      setUploadingProfilePic(false)
+    }
+  }, [profilePicFile, currentUser, userData])
+
+  /** Cancel profile picture change */
+  const handleCancelProfilePicChange = useCallback(() => {
+    setProfilePicFile(null)
+    setProfilePicPreview(userData?.profilePic || null)
+  }, [userData])
 
   /** Delete a post */
   const handleDeletePost = useCallback(async (itemId, itemTitle) => {
@@ -342,14 +461,72 @@ export default function ProfilePage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
-          {/* Header */}
+          {/* Header with Profile Picture */}
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Profile & History</h1>
-              <p className="text-gray-600 mt-2">
-                Welcome back, {currentUser?.displayName || currentUser?.email || 'User'}!
-              </p>
+            <div className="flex items-center gap-6">
+              {/* Profile Picture Section */}
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-emerald-600 bg-gray-200">
+                  {profilePicPreview ? (
+                    <img
+                      src={profilePicPreview}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600 text-2xl font-bold">
+                      {(userData?.name || currentUser?.email || 'U')[0].toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Camera icon button */}
+                <label
+                  htmlFor="profile-pic-upload"
+                  className="absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full cursor-pointer hover:bg-emerald-700 transition-colors shadow-lg"
+                  title="Change profile picture"
+                >
+                  <Camera className="w-4 h-4" />
+                  <input
+                    id="profile-pic-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleProfilePicSelect}
+                    className="hidden"
+                    disabled={uploadingProfilePic}
+                  />
+                </label>
+              </div>
+              
+              {/* User Info */}
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Profile & History</h1>
+                <p className="text-gray-600 mt-2 text-left">
+                  Welcome back, {userData?.name || currentUser?.displayName || currentUser?.email || 'User'}!
+                </p>
+                
+                {/* Profile picture upload buttons */}
+                {profilePicFile && (
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={handleProfilePicUpload}
+                      disabled={uploadingProfilePic}
+                      className="px-3 py-1 bg-emerald-600 text-white text-sm rounded-md hover:bg-emerald-700 transition-colors disabled:bg-gray-400"
+                    >
+                      {uploadingProfilePic ? 'Uploading...' : 'Save Photo'}
+                    </button>
+                    <button
+                      onClick={handleCancelProfilePicChange}
+                      disabled={uploadingProfilePic}
+                      className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400 transition-colors disabled:bg-gray-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+            
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
