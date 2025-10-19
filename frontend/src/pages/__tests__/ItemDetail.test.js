@@ -153,7 +153,7 @@ describe('ItemDetailPage', () => {
     });
   };
 
-  const assertItemStatusBadge = async (status = 'lost') => {
+  const assertItemStatusBadge = async (status = 'Lost') => {
     await waitFor(() => {
       expect(screen.getByText(status)).toBeInTheDocument();
     });
@@ -262,14 +262,14 @@ describe('ItemDetailPage', () => {
     test('displays item status badge correctly', async () => {
       setupOnSnapshotMock();
       renderItemDetailPage();
-      await assertItemStatusBadge('lost');
+      await assertItemStatusBadge('Lost');
     });
 
     test('displays found item status badge correctly', async () => {
       const foundItem = { ...mockItem, kind: 'found' };
       setupOnSnapshotMock(foundItem);
       renderItemDetailPage();
-      await assertItemStatusBadge('found');
+      await assertItemStatusBadge('Found');
     });
 
     test('displays claimed badge when item is claimed', async () => {
