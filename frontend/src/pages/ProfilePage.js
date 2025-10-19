@@ -8,10 +8,20 @@ import PropTypes from 'prop-types'
 import { getUserPosts, formatTimestamp, updateItemStatus, updateItem } from "../firebase/firestore"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { ProfileBadge } from '../components/ui/ProfileBadge'
+import { extractDate, normalizeTimestamp } from "../services/firestoreNormalizer"
 
 /** ---------- Small utilities (deduplicated helpers) ---------- **/
-const coalesceDate = (item) =>
-  item.date || item.createdAt || item.created_at || item.timestamp || item.dateCreated
+// REFACTORED: Replaced coalesceDate with extractDate from firestoreNormalizer
+// This provides consistent date handling across the entire app
+// Falls back to normalizeTimestamp to ensure we always return an ISO string
+const coalesceDate = (item) => {
+  const extracted = extractDate(item);
+  if (extracted) return extracted;
+  
+  // Fallback to normalizeTimestamp to handle Firestore Timestamps
+  const normalized = normalizeTimestamp(item.date);
+  return normalized || new Date().toISOString();
+}
 
 const StatusPill = memo(({ color, text }) => (
   <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${color}`}>
