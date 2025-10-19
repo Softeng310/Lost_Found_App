@@ -125,6 +125,11 @@ export const normalizeItem = (data, id) => {
     user: data.user || null,
     userId: data.userId || data.user?.id || null,
     
+    // Contact information for reporter
+    contactName: data.contactName || null,
+    contactEmail: data.contactEmail || null,
+    contactPhone: data.contactPhone || null,
+    
     // Legacy status field (kept for backward compatibility)
     status: data.status || data.kind || 'lost',
     

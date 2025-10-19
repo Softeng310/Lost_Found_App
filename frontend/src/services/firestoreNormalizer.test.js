@@ -27,12 +27,12 @@ describe('normalizeTimestamp', () => {
 
   it('should handle Firestore snapshot with seconds property', () => {
     const mockSnapshot = {
-      seconds: 1705315800, // Jan 15, 2024 10:30:00 UTC
+      seconds: 1705315800, // Jan 15, 2024 10:50:00 UTC
       nanoseconds: 0
     };
     
     const result = normalizeTimestamp(mockSnapshot);
-    expect(result).toBe('2024-01-15T10:30:00.000Z');
+    expect(result).toBe('2024-01-15T10:50:00.000Z');
   });
 
   it('should handle Date objects', () => {
@@ -63,18 +63,18 @@ describe('extractDate', () => {
   it('should extract date from first matching field', () => {
     const doc = {
       otherField: 'value',
-      createdAt: { seconds: 1705315800 },
-      date: { seconds: 1705315900 } // Different time
+      createdAt: { seconds: 1705314600 },
+      date: { seconds: 1705314660 } // Different time (1 minute later)
     };
     
     // Should use 'date' first (default field order)
     const result = extractDate(doc);
-    expect(result).toBe('2024-01-15T10:31:40.000Z');
+    expect(result).toBe('2024-01-15T10:31:00.000Z');
   });
 
   it('should fall back to other field names', () => {
     const doc = {
-      created_at: { seconds: 1705315800 }
+      created_at: { seconds: 1705314600 }
     };
     
     const result = extractDate(doc);
@@ -83,7 +83,7 @@ describe('extractDate', () => {
 
   it('should support custom field names', () => {
     const doc = {
-      lastModified: { seconds: 1705315800 }
+      lastModified: { seconds: 1705314600 }
     };
     
     const result = extractDate(doc, ['lastModified', 'updated']);
@@ -110,9 +110,9 @@ describe('normalizeItem', () => {
       status: 'lost', // Using 'status' instead of 'kind'
       imageURL: 'https://example.com/image.jpg', // Using 'imageURL' instead of 'imageUrl'
       location: 'OGGB',
-      date: { seconds: 1705315800 },
+      date: { seconds: 1705314600 },
       claimed: true,
-      claimedAt: { seconds: 1705320000 }
+      claimedAt: { seconds: 1705318800 }
     };
 
     const result = normalizeItem(rawItem, 'item123');
@@ -133,7 +133,7 @@ describe('normalizeItem', () => {
       category: 'keys/cards', // Alternative field name
       kind: 'found', // Alternative field name
       imageUrl: 'https://example.com/keys.jpg', // Alternative field name
-      createdAt: { seconds: 1705315800 } // Alternative date field
+      createdAt: { seconds: 1705314600 } // Alternative date field
     };
 
     const result = normalizeItem(rawItem, 'item456');
@@ -179,7 +179,7 @@ describe('normalizeMessage', () => {
       senderId: 'user456',
       senderName: 'John Doe',
       text: 'Hello, is this still available?',
-      timestamp: { seconds: 1705315800 }
+      timestamp: { seconds: 1705314600 }
     };
 
     const result = normalizeMessage(rawMessage, 'msg789');
@@ -209,9 +209,9 @@ describe('normalizeConversation', () => {
       participants: ['user1', 'user2'],
       itemId: 'item123',
       lastMessage: 'Thanks!',
-      lastMessageTime: { seconds: 1705315800 },
+      lastMessageTime: { seconds: 1705314600 },
       lastMessageSender: 'user2',
-      createdAt: { seconds: 1705310000 }
+      createdAt: { seconds: 1705309600 }
     };
 
     const result = normalizeConversation(rawConversation, 'conv456');
