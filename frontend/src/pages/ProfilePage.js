@@ -232,10 +232,10 @@ export default function ProfilePage() {
         return
       }
       
-      // Validate file size (2MB max)
-      const maxSize = 2 * 1024 * 1024
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024
       if (file.size > maxSize) {
-        alert('Image must be less than 2MB')
+        alert('Image must be less than 5MB')
         return
       }
       
