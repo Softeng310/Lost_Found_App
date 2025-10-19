@@ -14,12 +14,13 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
-  const [profilePic, setProfilePic] = useState("");
+  const [profilePicFile, setProfilePicFile] = useState(null); // For file upload
   const [upi, setUpi] = useState("");
   
   // UI state - loading and error handling
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false); // New: track upload status
   
   const navigate = useNavigate();
   const auth = getAuth();
@@ -33,6 +34,74 @@ export default function SignUpPage() {
     });
     return () => unsubscribe();
   }, [auth, navigate]);
+
+  // Handle file selection for profile picture
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        setError('Please select a valid image file (JPEG, PNG, or WEBP)');
+        return;
+      }
+      
+      // Validate file size (2MB max)
+      const maxSize = 2 * 1024 * 1024; // 2MB
+      if (file.size > maxSize) {
+        setError('Image must be less than 2MB');
+        return;
+      }
+      
+      setProfilePicFile(file);
+      setError(""); // Clear any previous errors
+    }
+  };
+
+  // Upload profile picture to backend
+  const uploadProfilePicture = async () => {
+    if (!profilePicFile) return null;
+    
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('profilePic', profilePicFile);
+      
+      // Add timeout to prevent indefinite hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch('http://localhost:5876/api/users/upload-profile-picture', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
+      }
+      
+      const data = await response.json();
+      return data.url; // Return the Cloudinary URL
+    } catch (err) {
+      console.error('Upload error:', err);
+      
+      // Handle different error types
+      if (err.name === 'AbortError') {
+        throw new Error('Upload timed out. Please check if the server is running and try again.');
+      }
+      if (err.message.includes('Failed to fetch')) {
+        throw new Error('Cannot connect to server. Please make sure the backend is running on port 5876.');
+      }
+      
+      throw new Error('Failed to upload profile picture: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Handle account creation
   const handleSignUp = async (e) => {
@@ -55,6 +124,19 @@ export default function SignUpPage() {
     }
 
     try {
+      // Upload profile picture if a file was selected
+      let uploadedImageUrl = "";
+      
+      if (profilePicFile) {
+        try {
+          uploadedImageUrl = await uploadProfilePicture();
+        } catch (uploadErr) {
+          setError(uploadErr.message);
+          setLoading(false);
+          return;
+        }
+      }
+      
       // Create the Firebase auth account
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -64,7 +146,7 @@ export default function SignUpPage() {
         uid: user.uid,
         email: user.email,
         name: name,
-        profilePic: profilePic,
+        profilePic: uploadedImageUrl, // Use uploaded URL or provided URL
         upi: upi,
         role: "student", // Default role - can be manually changed to "staff" in Firebase console
         claimed_items: [], // Track items this user has claimed
@@ -125,17 +207,25 @@ export default function SignUpPage() {
             />
           </div>
           
-          {/* Profile picture URL - optional */}
+          {/* Profile picture - optional file upload */}
           <div className="mb-4">
-            <label htmlFor="profilePic" className="block mb-1 text-sm font-medium">Profile Picture URL</label>
+            <label htmlFor="profilePicFile" className="block mb-1 text-sm font-medium">Profile Picture (Optional)</label>
             <input
-              id="profilePic"
-              type="url"
-              value={profilePic}
-              onChange={(e) => setProfilePic(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="https://imgur.com/a/yourpic"
+              id="profilePicFile"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileSelect}
+              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+              disabled={uploading || loading}
             />
+            {profilePicFile && (
+              <p className="text-xs text-emerald-600 mt-1">
+                ✓ Selected: {profilePicFile.name}
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Upload an image (JPEG, PNG, or WEBP, max 2MB)
+            </p>
           </div>
           
           {/* UPI ID for payments - optional */}
@@ -182,9 +272,9 @@ export default function SignUpPage() {
           <Button 
             type="submit" 
             className="w-full mb-4"
-            disabled={loading}
+            disabled={loading || uploading}
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {uploading ? "Uploading Image..." : loading ? "Creating Account..." : "Create Account"}
           </Button>
           
           {/* Login link for existing users */}
